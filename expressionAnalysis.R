@@ -42,6 +42,17 @@ mergeObjectsConso <- corUtilsFuncs$consolidateDF(mergeObjectsNoDup, funcName = "
 mergeObjectsConso <- mergeObjectsConso %>% data.frame() %>% tibble::column_to_rownames(var = "rn") %>% as.matrix()
 
 
+expressionObj <- GeneExpNormalization$new(
+  
+  countObj       = as.matrix(mergeObjectsConso), 
+  featureType    = "Gene", 
+  packageRNAseq  = "edgeR", 
+  annotationDF   = rnaseqProject$annotationDF, 
+  design         = rnaseqProject$metaDataDF$DIAGNOSIS.Alias[1:4], 
+  proteinCodingOnly = FALSE
+)
+
+expressionTMM.RPKM = expressionObj$edgeRMethod("TMM-RPKM")
 
 
 

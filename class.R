@@ -293,11 +293,11 @@ GeneExpNormalization <- R6Class(
       assert_that(private$packageRNAseq == "edgeR", msg = paste0("GeneExpNormalization Object was created for ",private$packageRNAseq,
                                                                  ". Please create a new GeneExpNormalization Object for edgeR"))
       
-      assert_that(x %in% c("CPM", "NORM-RPKM", "TPM", "NormFactorDF"), msg = "This function can only generate \"CPM\", \"TMM-RPKM\", \"TPM\" values ")
+      assert_that(x %in% c("CPM", "TMM-RPKM", "TPM", "NormFactorDF"), msg = "This function can only generate \"CPM\", \"TMM-RPKM\", \"TPM\" values ")
       
       if(x == "NormFactorDF") return(private$GeneDFNorm)
       if(x == "CPM" )         return( as.data.frame(cpm(private$GeneDFNorm,  normalized.lib.sizes = TRUE,log = FALSE))   )
-      if(x == "NORM-RPKM" )   return( as.data.frame(rpkm(private$GeneDFNorm, normalized.lib.sizes = TRUE, log = FALSE))  )
+      if(x == "TMM-RPKM" )   return( as.data.frame(rpkm(private$GeneDFNorm, normalized.lib.sizes = TRUE, log = FALSE))  )
       if(x == "TPM" )         return(apply(rpkm(private$GeneDFNorm, normalized.lib.sizes = TRUE), 2 , super$fpkmToTpm)         )
       
     },
@@ -306,13 +306,13 @@ GeneExpNormalization <- R6Class(
       assert_that(private$packageRNAseq == "deseq2", msg = paste0("GeneExpNormalization Object was created for ",private$packageRNAseq,
                                                                   ". Please create a new GeneExpNormalization Object for deseq2"))
       
-      assert_that(x %in% c("FPM", "NORM-FPKM", "TPM", "RLOG", "VST"), 
-                  msg = "This function can only generate \"CPM\", \"NORM-FPKM\", \"TPM\", \"RLOG\", \"VST\" values ")
+      assert_that(x %in% c("FPM", "TMM-RPKM", "TPM", "RLOG", "VST"), 
+                  msg = "This function can only generate \"CPM\", \"TMM-RPKM\", \"TPM\", \"RLOG\", \"VST\" values ")
       
       
       if(x == "NormFactorDF") return(private$GeneDFNorm)
       if(x == "FPM" )         return( as.data.frame(fpm(object = private$GeneDFNorm,  robust = TRUE))    )
-      if(x == "NORM-FPKM" )   return( as.data.frame(fpkm(object = private$GeneDFNorm,  robust = TRUE))   )
+      if(x == "TMM-RPKM" )   return( as.data.frame(fpkm(object = private$GeneDFNorm,  robust = TRUE))   )
       if(x == "TPM" )         return( apply(as.data.frame(fpkm(object = private$GeneDFNorm,  robust = TRUE)), 2 , fpkmToTpm))
       if(x == "RLOG" )        return( rlog(private$GeneDFNorm, blind = TRUE)              )
       if(x == "VST" )         return( vst(private$GeneDFNorm, blind = TRUE))
