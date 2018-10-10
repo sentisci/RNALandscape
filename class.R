@@ -392,6 +392,15 @@ DifferentialGeneExp <- R6Class(
           return(y[1])
         }
       }), recursive = FALSE)
+  },
+  makePairs = function(x, y){
+    pairs = unlist(lapply(x, function(X) {
+      lapply(y, function(Y) {
+        c(X, Y)
+      })
+    }), recursive=FALSE)
+    
+    return(pairs)
   }
   ),
   public    = list
