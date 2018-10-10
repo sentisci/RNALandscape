@@ -320,3 +320,132 @@ GeneExpNormalization <- R6Class(
   )
 )
 
+# ### Differntial Gene Expression Analysis ####
+
+DifferentialGeneExp <- R6Class(
+  classname = "DifferentialGeneExp",
+  portable  = TRUE,
+  private   = list
+  (
+  
+  DGEobj        = NULL,
+  expressionDF  = NULL,
+  metadataDF    = NULL,
+  packageRNAseq = NULL,
+  groupColumnName      = NULL,
+  samplesColumnName    = NULL,
+  modelDesign          = NULL,
+  GeneDF_Dispersion    = NULL,
+  GeneDF_DiffExp       = NULL,
+  expressionUnit       = NULL,
+  modelGroup           = NULL,  
+  group1Name           = NULL, 
+  group1Count          = NULL,
+  group2Name           = NULL,
+  group2Count          = NULL,
+  subSetSamples        = NULL,
+  setUP         = function(x) {
+    
+    ## Get the group names
+    private$group1Name = names(self$group1)
+    private$group2Name = names(self$group2)
+    
+    ## Make Custom Filters
+    group1.group2.Filt   <- interp(~y %in% x, .values=list(y = as.name(private$groupColumnName), x = c(private$group1Name, private$group2Name)))
+    factorizeGroupColumn <- interp( ~factor(groupColumnName, levels = val, ordered = TRUE), 
+                                    groupColumnName=as.name(private$groupColumnName), val=c(private$group1Name, private$group2Name) )
+    
+    ## Renaming the groups by groupName in annotationObj
+    private$metadataDF[,private$groupColumnName] <- private$changeGroupName(self$group1, private$group1Name, private$metadataDF[,private$groupColumnName])
+    private$metadataDF[,private$groupColumnName] <- private$changeGroupName(self$group2, private$group2Name, private$metadataDF[,private$groupColumnName])
+    
+    ## Renaming the groups by groupName in expressionObj
+    private$DGEobj$samples$group <- private$changeGroupName(self$group1, private$group1Name, private$DGEobj$samples$group)
+    private$DGEobj$samples$group <- private$changeGroupName(self$group2, private$group2Name, private$DGEobj$samples$group)
+    
+    
+    ## Filter the metadata table for group1 and group2
+    private$subSetSamples <- private$metadataDF %>% 
+      filter_(group1.group2.Filt) %>% 
+      mutate_(.dots = setNames( list(factorizeGroupColumn) , private$groupColumnName )) %>% 
+      dplyr::arrange_(.dots = private$groupColumnName)
+    
+    ## Getting count of each group
+    groupCount <- table(private$subSetSamples[,private$groupColumnName])
+    private$group1Count <- groupCount[[private$group1Name]]
+    private$group2Count <- groupCount[[private$group2Name]]
+    
+    ## Generate model & design for differential gene expression (edgeR only for now)
+    private$modelGroup = c(rep(private$group1Name, private$group1Count ), rep( private$group2Name, private$group2Count ))
+    private$modelDesign                    <- model.matrix( ~private$modelGroup )
+    
+  },
+  changeGroupName = function(vectorOfNames, toChangeName, inVectorName){
+    return(gsub( paste0(paste0("^",vectorOfNames) %>% paste0(.,"$"), collapse = "|"),toChangeName,inVectorName))
+  },
+  flattenGroup = function(x){
+    unlist( 
+      sapply(group1, function(x){  
+        if(x$each){
+          return(sapply(unlist(unname(x[1])), function(x){ return(list(x)) }))
+        } else {
+          return(x[1])
+        }
+      }),
+      recursive = FALSE)
+  }
+  ),
+  public    = list
+  (
+  
+  group1         = NULL,
+  group2         = NULL,
+  filterGenes    = NULL,
+  factorsExclude = NULL,
+  initialize     = function(DGEobj = NA, expressionDF = NA, metadataDF = NA, packageRNAseq = NA,
+                            group1   = NA, group2   = NA, groupColumnName = NA, samplesColumnName = NA, 
+                            factorsExclude = NA ){
+    
+    private$DGEobj             <- DGEobj
+    private$expressionDF       <- expressionDF
+    private$metadataDF         <- metadataDF
+    private$packageRNAseq      <- packageName
+    self$group1                <- group1
+    self$group2                <- group2
+    private$groupColumnName    <- groupColumnName
+    private$samplesColumnName  <- samplesColumnName
+    self$factorsExclude        <- factorsExclude
+    private$setUP()
+  },
+  edgeRMethod   = function(){
+    
+    ## Use the appropriate method depending upon the size of the replicates
+    if( private$group1Count > 1 & private$group2Count > 1 )   { 
+      
+      private$GeneDF_Dispersion  <- estimateDisp(private$DGEobj, design = private$modelDesign )
+      fit                        <- glmQLFit(private$GeneDF_Dispersion, design = private$modelDesign )
+      private$GeneDF_DiffExp     <- glmQLFTest(fit, coef=2)$table
+    }
+    else  {
+      print("Estimating dispersion")
+      private$GeneDF_Dispersion  <- estimateGLMCommonDisp(private$DGEobj, method="deviance", robust="TRUE",subset=NULL )
+      print("Predicting Differential Gene Expression")
+      private$GeneDF_DiffExp     <- exactTest(private$GeneDF_Dispersion, pair = c(unique(private$modelGroup)))$table
+    }
+    private$GeneDF_DiffExp["FDR"]      <- p.adjust(private$GeneDF_DiffExp$PValue, method="BH")
+    private$GeneDF_DiffExp <- tibble::add_column(private$GeneDF_DiffExp, GeneID = rownames(private$GeneDF_DiffExp), .before = 1)
+    self$addMeanGroupExpression()
+    return(private$GeneDF_DiffExp)
+  },
+  addMeanGroupExpression = function(){
+    
+    ## GeneExpression Mean
+    expressionDFFilt    <- private$expressionDF %>% dplyr::select_( .dots =  as.character(private$subSetSamples[,private$samplesColumnName]) )
+    expressionDFFilt    <- log2(expressionDFFilt+1)
+    private$GeneDF_DiffExp[paste0("mean_",private$group1Name)]   <- apply(expressionDFFilt[,c(1:(private$group1Count)), drop=FALSE], 1, mean)
+    private$GeneDF_DiffExp[paste0("mean_",private$group2Name)]   <- apply(expressionDFFilt[,(1+private$group1Count):
+                                                                                             (private$group1Count+private$group2Count), drop=FALSE], 1, mean)
+  }
+  )
+)
+
