@@ -384,15 +384,14 @@ DifferentialGeneExp <- R6Class(
     return(gsub( paste0(paste0("^",vectorOfNames) %>% paste0(.,"$"), collapse = "|"),toChangeName,inVectorName))
   },
   flattenGroup = function(x){
-    unlist( 
-      sapply(group1, function(x){  
-        if(x$each){
-          return(sapply(unlist(unname(x[1])), function(x){ return(list(x)) }))
+    unlist(
+      lapply(x, function(y){  
+        if(y$each){
+          return( as.list(sapply(unlist(unname(y[1])), function(y){ return(y) }) ) )
         } else {
-          return(x[1])
+          return(y[1])
         }
-      }),
-      recursive = FALSE)
+      }), recursive = FALSE)
   }
   ),
   public    = list
