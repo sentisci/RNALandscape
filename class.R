@@ -89,8 +89,7 @@ CoreUtilities <- R6Class(
   portable  = TRUE,
   ## Read CSV or TXT files
   private   = list(
-    readTXTFiles  = function(x, fileSuffix=NA, colNameSelect=NA, primaryID=NA )
-    {
+    readTXTFiles  = function(x, fileSuffix=NA, colNameSelect=NA, primaryID=NA ){
       if(!is.na(fileSuffix)) 
       {
           sampleName <- gsub(fileSuffix, "", basename(x)) 
@@ -103,8 +102,7 @@ CoreUtilities <- R6Class(
       
     },
     ## Merge CSV or TXT files
-    mergeTXTFiles = function( x, fileSuffix=NA, colNameSelect=NA, primaryID=NA )
-    {
+    mergeTXTFiles = function( x, fileSuffix=NA, colNameSelect=NA, primaryID=NA ){
       dataMatrixLists     <- lapply(x, private$readTXTFiles, fileSuffix=fileSuffix,colNameSelect=colNameSelect, primaryID=primaryID)
       dataMatrix          <- purrr::reduce(dataMatrixLists, full_join, by=primaryID)
       return(dataMatrix)
@@ -127,9 +125,9 @@ CoreUtilities <- R6Class(
         paste0("  Age:  ")
       )
     },
+    ## Get merged matrix
     getMergedMatrix = function(dir = NA, fileFormat = NA, colNameSelect = NA, colIndexSelect = NA, isRowNames = FALSE, rowNamesColInFile = NA,
-                               fileSuffix=NA, primaryID=NA)
-    {
+                               fileSuffix=NA, primaryID=NA){
       
       if( !is.na(colNameSelect) & !is.na(colIndexSelect)) stopifnot("Use either colNameSelect or colIndexSelect but not both")
       if( is.na(colNameSelect) & is.na(colIndexSelect)) stopifnot("Use either colNameSelect or colIndexSelect but not both")
@@ -146,7 +144,7 @@ CoreUtilities <- R6Class(
 
        dirs                <- list.dirs(paste0(self$workDir,"/",self$projectName,"/",dir))[-1]
        folderNames         <- basename(dirs)
-
+       
        switch(fileFormat,
        
       #        "rds"     = {
@@ -159,7 +157,7 @@ CoreUtilities <- R6Class(
       #          return(mergedData)
       #        },
                "txt"    = {
-                 mergedDataList        <- lapply( lapply(dirs, list.files, full.names=T)[2:3],
+                 mergedDataList        <- lapply( lapply(dirs, list.files, full.names=T),
                                                   private$mergeTXTFiles, fileSuffix = fileSuffix, colNameSelect = colNameSelect, primaryID=primaryID )
                  mergedData            <-  purrr::reduce( mergedDataList,  full_join, by=primaryID )
                  mergedData            <-  tibble::column_to_rownames(mergedData, var=primaryID)
@@ -167,8 +165,8 @@ CoreUtilities <- R6Class(
               }
        )
     },
-    consolidateDF = function(df = NA, featureName=NA, funcName=NA, colsToExclude = NA)
-    {
+    ## Consolidate the matrix
+    consolidateDF = function(df = NA, featureName=NA, funcName=NA, colsToExclude = NA){
       assert_that( funcName %in% c("sum", "max", "mean"), msg= "For now duplicate featureName can be consolidated only by sum, max or mean" )
       ### Get character or factor columns
       listColsToExclude = names(which(sapply(df, class) == "character" | sapply(df, class) == "factor"))
@@ -184,8 +182,8 @@ CoreUtilities <- R6Class(
       if(is.na(colsToExclude)) df[, lapply(.SD, sumFunc), by=featureName]
       else df[, lapply(.SD, sumFunc), by=featureName, .SDcols = -colsToExclude]
     },
-    matchAndChangeColNames = function()
-    {
+    ## matchAndChangeColNames columns
+    matchAndChangeColNames = function(){
       metaDT <-  setDT(rnaseqProject$metaDataDF)
       setDT(metaDT)
     },
@@ -204,8 +202,16 @@ CoreUtilities <- R6Class(
       annotationPC <- annotationPC %>% mutate(GeneID = self$factorizeColumn(annotationPC$GeneID, row.names(geneMatrixNew)))
       return(list(geneMatrixNew, annotationPC) )
     },
+    ## convert FPKM to TPM
     fpkmToTpm = function(fpkm){
       exp(log(fpkm) - log(sum(fpkm)) + log(1e6))
+    },
+    ## subsetMetaData
+    subsetMetaData = function(colnamesDF=NA){
+      df <- dplyr::left_join(colnamesDF,rnaseqProject$metaDataDF, by="SAMPLE_ID") %>% filter(complete.cases(.))
+      if(!is.null(rnaseqProject$metaDataDF)) {
+        rnaseqProject$metaDataDF <- df
+      }
     }
   )
 )
@@ -229,13 +235,13 @@ GeneExpNormalization <- R6Class(
     proteinCodingOnly    = NULL,
     setUp                = function(){
       
-      if( private$featureType == "Exon")  { private$featureType = "ExonID"  }
+      if( private$featureType == "Exon")      { private$featureType = "ExonID"       }
       if( private$featureType == "Transcript"){ private$featureType = "TranscriptID" }
-      if( private$featureType == "Gene"){ private$featureType = "GeneID" }
+      if( private$featureType == "Gene")      { private$featureType = "GeneID"       }
       
       private$annotationDF %<>% mutate(!!private$featureType := super$factorizeColumn(private$annotationDF[[private$featureType]], 
                                                                                       row.names(private$countObj))) %>% 
-        dplyr::arrange_(.dots=c(private$featureType))
+                                                                                      dplyr::arrange_(.dots=c(private$featureType))
       
       if(private$proteinCodingOnly) {
         keepProteinCodingOut     <- super$keepProteinCoding(geneMatrix = private$countObj, 
@@ -328,62 +334,13 @@ DifferentialGeneExp <- R6Class(
   private   = list
   (
   
-  DGEobj        = NULL,
-  expressionDF  = NULL,
-  metadataDF    = NULL,
-  packageRNAseq = NULL,
-  groupColumnName      = NULL,
-  samplesColumnName    = NULL,
-  modelDesign          = NULL,
-  GeneDF_Dispersion    = NULL,
-  GeneDF_DiffExp       = NULL,
-  expressionUnit       = NULL,
-  modelGroup           = NULL,  
-  group1Name           = NULL, 
-  group1Count          = NULL,
-  group2Name           = NULL,
-  group2Count          = NULL,
-  subSetSamples        = NULL,
-  setUP         = function(x) {
-    
-    ## Get the group names
-    private$group1Name = names(self$group1)
-    private$group2Name = names(self$group2)
-    
-    ## Make Custom Filters
-    group1.group2.Filt   <- interp(~y %in% x, .values=list(y = as.name(private$groupColumnName), x = c(private$group1Name, private$group2Name)))
-    factorizeGroupColumn <- interp( ~factor(groupColumnName, levels = val, ordered = TRUE), 
-                                    groupColumnName=as.name(private$groupColumnName), val=c(private$group1Name, private$group2Name) )
-    
-    ## Renaming the groups by groupName in annotationObj
-    private$metadataDF[,private$groupColumnName] <- private$changeGroupName(self$group1, private$group1Name, private$metadataDF[,private$groupColumnName])
-    private$metadataDF[,private$groupColumnName] <- private$changeGroupName(self$group2, private$group2Name, private$metadataDF[,private$groupColumnName])
-    
-    ## Renaming the groups by groupName in expressionObj
-    private$DGEobj$samples$group <- private$changeGroupName(self$group1, private$group1Name, private$DGEobj$samples$group)
-    private$DGEobj$samples$group <- private$changeGroupName(self$group2, private$group2Name, private$DGEobj$samples$group)
-    
-    
-    ## Filter the metadata table for group1 and group2
-    private$subSetSamples <- private$metadataDF %>% 
-      filter_(group1.group2.Filt) %>% 
-      mutate_(.dots = setNames( list(factorizeGroupColumn) , private$groupColumnName )) %>% 
-      dplyr::arrange_(.dots = private$groupColumnName)
-    
-    ## Getting count of each group
-    groupCount <- table(private$subSetSamples[,private$groupColumnName])
-    private$group1Count <- groupCount[[private$group1Name]]
-    private$group2Count <- groupCount[[private$group2Name]]
-    
-    ## Generate model & design for differential gene expression (edgeR only for now)
-    private$modelGroup = c(rep(private$group1Name, private$group1Count ), rep( private$group2Name, private$group2Count ))
-    private$modelDesign                    <- model.matrix( ~private$modelGroup )
-    
-  },
-  changeGroupName = function(vectorOfNames, toChangeName, inVectorName){
+  countObj            = NULL,
+  metadataDF          = NULL,
+  setUP               = function(x) {},
+  changeGroupName     = function(vectorOfNames, toChangeName, inVectorName){
     return(gsub( paste0(paste0("^",vectorOfNames) %>% paste0(.,"$"), collapse = "|"),toChangeName,inVectorName))
   },
-  flattenGroup = function(x){
+  flattenGroup        = function(x){
     unlist(
       lapply(x, function(y){  
         if(y$each){
@@ -393,66 +350,140 @@ DifferentialGeneExp <- R6Class(
         }
       }), recursive = FALSE)
   },
-  makePairs = function(x, y){
+  makePairs           = function(x, y){
     pairs = unlist(lapply(x, function(X) {
       lapply(y, function(Y) {
         c(X, Y)
       })
     }), recursive=FALSE)
-    
     return(pairs)
+  },
+  edgeRMethod         = function( group1Count = NA, group2Count = NA, DGEobj = NA, modelDesign = NA){
+    
+    ## Use the appropriate method depending upon the size of the replicates
+    if( group1Count > 1 & group2Count > 1 )   {
+      GeneDF_Dispersion  <- estimateDisp(DGEobj, design = modelDesign )
+      fit                        <- glmQLFit(GeneDF_Dispersion, design = modelDesign )
+      GeneDF_DiffExp     <- glmQLFTest(fit, coef=2)$table
+    }
+    else  {
+      print("Estimating dispersion")
+      GeneDF_Dispersion  <- estimateGLMCommonDisp(DGEobj, method="deviance", robust="TRUE",subset=NULL )
+      print("Predicting Differential Gene Expression")
+      GeneDF_DiffExp     <- exactTest(GeneDF_Dispersion, pair = c(unique(modelGroup)))$table
+    }
+    
+    GeneDF_DiffExp["FDR"]   <- p.adjust(GeneDF_DiffExp$PValue, method="BH")
+    GeneDF_DiffExp          <- tibble::add_column(GeneDF_DiffExp, GeneID = rownames(GeneDF_DiffExp), .before = 1)
+    
+    return(GeneDF_DiffExp)
+  },
+  MeanGroupExpression = function(group1Count = NA, group2Count = NA, GeneDF_DiffExp = NA){
+    
+    ## GeneExpression Mean
+    if(group1Count > 1) {
+      GeneDF_DiffExp[group1Name]        <- apply(GeneDF.FPKM[,as.character(group1Samples$SAMPLE_ID.Alias), drop=FALSE], 1, mean)
+    } else {
+      GeneDF_DiffExp[group1Name]        <- GeneDF.FPKM[,as.character(group1Samples$SAMPLE_ID.Alias), drop=FALSE]
+    }
+    
+    if(group2Count > 1) {
+      GeneDF_DiffExp[group2Name]        <- apply(GeneDF.FPKM[,as.character(group2Samples$SAMPLE_ID.Alias), drop=FALSE], 1, mean)
+    } else {
+      GeneDF_DiffExp[group2Name]        <- GeneDF.FPKM[,as.character(group2Samples$SAMPLE_ID.Alias), drop=FALSE]
+    }
+    GeneDF_DiffExp["FDR"]   <- p.adjust(GeneDF_DiffExp$PValue, method="BH")
+    return(GeneDF_DiffExp)
+  },
+  executeDiffGeneExp  = function( pairedList = NA){
+    
+    ## Get the group names
+    pairGroup1List <- self$group1Flatten[  pairedList[1] ];  pairGroup1Name <- names(pairGroup1List);  pairGroup1 <- unname(unlist(pairGroup1List))
+    pairGroup2List <- self$group2Flatten[  pairedList[2] ];  pairGroup2Name <- names(pairGroup2List);  pairGroup2 <- unname(unlist(pairGroup2List))
+    
+    ## Make Custom Filters
+    group1.group2.Filt   <- interp(~y %in% x, .values=list(y = as.name(self$groupColumnName), x = c(pairGroup1,
+                                                                                                    pairGroup2) )) 
+    factorizeGroupColumn <- interp( ~factor(self$groupColumnName, levels = val, ordered = TRUE), 
+                                    groupColumnName=as.name(self$groupColumnName), val=c(pairGroup1, pairGroup2) )
+    
+    ## Filter the metadata table for group1 and group2
+    subSetSamples <- private$metadataDF %>% 
+      filter_(group1.group2.Filt) %>% 
+      mutate_(.dots = setNames( list(factorizeGroupColumn) , self$groupColumnName )) %>% 
+      dplyr::arrange_(.dots = self$groupColumnName)
+    
+    ## Subset Count matrix
+    pairCountMatrix <- private$countObj %>% data.frame() %>% dplyr::select_(.dots=as.character(subSetSamples[,self$samplesColumnName]))
+    
+    ## Getting count of each group
+    groupCount  <- table(subSetSamples[,self$groupColumnName])
+    group1Count <- sum(groupCount[pairGroup1])
+    group2Count <- sum(groupCount[pairGroup2])
+    
+    ## Generate model & design for differential gene expression (edgeR only for now)
+    modelGroup   <- c(rep(pairGroup1Name, group1Count ), rep( pairGroup2Name, group2Count ))
+    modelDesign  <- model.matrix( ~modelGroup )
+    
+    ## Generate Gene expression in the desired Unit.
+    
+    expressionObj <- GeneExpNormalization$new(
+      countObj          = as.matrix(pairCountMatrix), 
+      featureType       = self$featureType, 
+      packageRNAseq     = self$packageRNAseq, 
+      annotationDF      = rnaseqProject$annotationDF, 
+      design            = modelDesign[,2], 
+      proteinCodingOnly = FALSE
+    )
+    geneExpression = expressionObj$edgeRMethod(self$expressionUnit)
+    
+    ## perform differential gene expression.
+    GeneDF_DiffExp <- private$edgeR(group1Count = group1Count, group2Count = group2Count, DGEobj = expressionObj$edgeRMethod("NormFactorDF"), modelDesign = modelDesign)
+    
+    ## calculat mean expression
+    GeneDF_DiffExp                <- private$MeanGroupExpression(group1Count = group1Count, group2Count = group2Count, GeneDF_DiffExp = GeneDF_DiffExp)
+    GeneDF_DiffExp["AvglogFPKM"]  <- apply(geneExpression , 1, mean)
+    
+    return(GeneDF_DiffExp)
   }
   ),
   public    = list
   (
   
-  group1         = NULL,
-  group2         = NULL,
-  filterGenes    = NULL,
-  factorsExclude = NULL,
-  initialize     = function(DGEobj = NA, expressionDF = NA, metadataDF = NA, packageRNAseq = NA,
-                            group1   = NA, group2   = NA, groupColumnName = NA, samplesColumnName = NA, 
-                            factorsExclude = NA ){
+  group1            = NULL,
+  group2            = NULL,
+  packageRNAseq     = NULL,
+  factorsExclude    = NULL,
+  groupColumnName   = NULL,
+  samplesColumnName = NULL,
+  pairedList        = NULL,
+  group1Flatten     = NULL,
+  group2Flatten     = NULL,
+  diffGeneExpList   = NULL,
+  initialize        = function(countObj = NA, metadataDF = NA, packageRNAseq = NA, expressionUnit = NA, featureType = NA,
+                               group1   = NA, group2   = NA, groupColumnName = NA, samplesColumnName = NA ){
     
-    private$DGEobj             <- DGEobj
-    private$expressionDF       <- expressionDF
+    private$countObj           <- countObj
     private$metadataDF         <- metadataDF
-    private$packageRNAseq      <- packageName
+    self$expressionUnit        <- expressionUnit
+    self$packageRNAseq         <- packageName
+    self$featureType           <- featureType
     self$group1                <- group1
     self$group2                <- group2
-    private$groupColumnName    <- groupColumnName
-    private$samplesColumnName  <- samplesColumnName
-    self$factorsExclude        <- factorsExclude
+    self$groupColumnName       <- groupColumnName
+    self$samplesColumnName     <- samplesColumnName
     private$setUP()
-  },
-  edgeRMethod   = function(){
     
-    ## Use the appropriate method depending upon the size of the replicates
-    if( private$group1Count > 1 & private$group2Count > 1 )   { 
-      
-      private$GeneDF_Dispersion  <- estimateDisp(private$DGEobj, design = private$modelDesign )
-      fit                        <- glmQLFit(private$GeneDF_Dispersion, design = private$modelDesign )
-      private$GeneDF_DiffExp     <- glmQLFTest(fit, coef=2)$table
-    }
-    else  {
-      print("Estimating dispersion")
-      private$GeneDF_Dispersion  <- estimateGLMCommonDisp(private$DGEobj, method="deviance", robust="TRUE",subset=NULL )
-      print("Predicting Differential Gene Expression")
-      private$GeneDF_DiffExp     <- exactTest(private$GeneDF_Dispersion, pair = c(unique(private$modelGroup)))$table
-    }
-    private$GeneDF_DiffExp["FDR"]      <- p.adjust(private$GeneDF_DiffExp$PValue, method="BH")
-    private$GeneDF_DiffExp <- tibble::add_column(private$GeneDF_DiffExp, GeneID = rownames(private$GeneDF_DiffExp), .before = 1)
-    self$addMeanGroupExpression()
-    return(private$GeneDF_DiffExp)
-  },
-  addMeanGroupExpression = function(){
+    ## Get the group names
+    self$group1Flatten = private$flattenGroup(group1)
+    self$group2Flatten = private$flattenGroup(group2)
     
-    ## GeneExpression Mean
-    expressionDFFilt    <- private$expressionDF %>% dplyr::select_( .dots =  as.character(private$subSetSamples[,private$samplesColumnName]) )
-    expressionDFFilt    <- log2(expressionDFFilt+1)
-    private$GeneDF_DiffExp[paste0("mean_",private$group1Name)]   <- apply(expressionDFFilt[,c(1:(private$group1Count)), drop=FALSE], 1, mean)
-    private$GeneDF_DiffExp[paste0("mean_",private$group2Name)]   <- apply(expressionDFFilt[,(1+private$group1Count):
-                                                                                             (private$group1Count+private$group2Count), drop=FALSE], 1, mean)
+    ## Pair elements from two groups
+    self$pairedList    = private$makePairs(names(self$group1Flatten), names(self$group2Flatten))
+  },
+  performDiffGeneExp   = function(){
+    self$diffGeneExpList <- lapply(self$pairedList, private$executeDiffGeneExp)
+    return(self$diffGeneExpList)
   }
   )
 )
