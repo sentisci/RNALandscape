@@ -21,7 +21,7 @@ ProjectSetUp <- R6Class(
       ## Create all the required dirs for the project.
       dir.create(projectDirPath)
       fileDirs <- paste(projectDirPath, c(self$outputdirRDSDir, self$outputdirTXTDir, self$gseaDir, 
-                                          self$plotsDir, self$plotsDataDir, self$diffGeneExpAnaDir,
+                                          self$plotsDir, self$plotsDataDir, self$DiffGeneExpAnaDir,
                                           "GeneCountsInput", "TranscriptCountsInput", "ExonCountsInput" ), sep="/")
       lapply(fileDirs, function(x){ if(!dir.exists(x)) dir.create(x) })
     },
@@ -48,14 +48,14 @@ ProjectSetUp <- R6Class(
     gseaDir                 = NULL,
     plotsDir                = NULL,
     plotsDataDir            = NULL,
-    diffGeneExpAnaDir       = NULL,
+    DiffGeneExpAnaDir       = NULL,
     metaDataDF              = NULL,
     annotationDF            = NULL,
     initialize              = function(date = NA, time =NA, projectName = NA, annotationRDS = NA, outputPrefix = NA,
                                        filterGenes = NA, filterGeneMethod = NA, factorName = NA, metaDataFileName = NA, 
                                        workDir = NA, outputdirRDSDir = NA, outputdirTXTDir = NA,
                                        gseaDir = NA, plotsDir = NA, plotsDataDir = NA, 
-                                       diffGeneExpAnaDir = NA) {
+                                       DiffGeneExpAnaDir = NA) {
       
       self$date <- date
       self$time <- time
@@ -72,7 +72,7 @@ ProjectSetUp <- R6Class(
       self$gseaDir <- gseaDir
       self$plotsDir <- plotsDir
       self$plotsDataDir <- plotsDataDir
-      self$diffGeneExpAnaDir <- diffGeneExpAnaDir
+      self$DiffGeneExpAnaDir <- DiffGeneExpAnaDir
       private$checkDirExists()
       private$readMetaData()
       private$readAnnotation()
@@ -212,6 +212,13 @@ CoreUtilities <- R6Class(
       if(!is.null(rnaseqProject$metaDataDF)) {
         rnaseqProject$metaDataDF <- df
       }
+    },
+    ## Annotate a gene expression df with "GeneID" as primary key
+    featureNameAnot = function(querryDF=NA, identifier=NA){
+        annotDF <- dplyr::left_join(rnaseqProject$annotationDF, queryDF, by=identifier)
+        print(paste("Annotating expression DF"))
+        print(dim(annotDF))
+        return(annotDF)
     }
   )
 )
@@ -431,9 +438,6 @@ DifferentialGeneExp <- R6Class(
                                        select_(.dots=list(self$samplesColumnName))
     private$group2Samples <- subSetSamples %>% filter_(interp(~y %in% x, .values=list(y = as.name(self$groupColumnName), x = pairGroup2))) %>%
                                        select_(.dots=list(self$samplesColumnName))
-
-    print("group1Samples")
-    print(private$group1Samples)
     
     ## Subset Count matrix
     pairCountMatrix <- private$countObj %>% data.frame() %>% dplyr::select_(.dots=as.character(subSetSamples[,self$samplesColumnName]))
@@ -466,7 +470,50 @@ DifferentialGeneExp <- R6Class(
     private$GeneDF_DiffExp                <- private$MeanGroupExpression(group1Count = group1Count, group2Count = group2Count, geneExpMatrix = geneExpression)
     private$GeneDF_DiffExp["AvglogFPKM"]  <- apply(geneExpression , 1, mean)
     
+    ## Annotate Genes 
+    private$GeneDF_DiffExp                <- private$featureNameAnot(querryDF=private$GeneDF_DiffExp, identifier="GeneID")
+    
+    ## Filter Genes
+    private$filterGenes(filterName="proteinCoding")
+    private$filterGenes(filterName="cellsurface")
+    private$filterGenes(filterName="transcriptionFactor")
+    
     return(private$GeneDF_DiffExp)
+  },
+  ## Annotate a gene expression df with "GeneID" as primary key
+  featureNameAnot = function(querryDF=NA, identifier=NA){
+    annotDF <- dplyr::left_join(rnaseqProject$annotationDF, querryDF, by=identifier)
+    print(paste("Annotating expression DF"))
+    print(dim(annotDF))
+    return(annotDF)
+  },
+  filterGenes = function(filterName=NA){
+    switch(private$packageRNAseq,
+           
+           "proteinCoding"= {
+             
+             write.table(private$GeneDF_DiffExp, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
+                                                        "/", rnaseqProject$DiffGeneExpAnaDir,"/",private$pairGroup1Name,"_",
+                                                        private$pairGroup2Name,".txt"), sep="\t", row.names = FALSE, quote=FALSE)
+             
+             
+           },
+           "cellsurface"= {
+             
+             write.table(private$GeneDF_DiffExp, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
+                                                        "/", rnaseqProject$DiffGeneExpAnaDir,"/",private$pairGroup1Name,"_",
+                                                        private$pairGroup2Name,".txt"), sep="\t", row.names = FALSE, quote=FALSE)
+             
+             
+           },
+           "transcriptionFactor"= {
+             
+             write.table(private$GeneDF_DiffExp, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
+                                                        "/", rnaseqProject$DiffGeneExpAnaDir,"/",private$pairGroup1Name,"_",
+                                                        private$pairGroup2Name,".txt"), sep="\t", row.names = FALSE, quote=FALSE)
+             
+           }
+    )
   }
   ),
   public    = list
@@ -482,8 +529,10 @@ DifferentialGeneExp <- R6Class(
   diffGeneExpList   = NULL,
   expressionUnit    = NULL,
   featureType       = NULL,
+  writeFiles        = NULL,
   initialize        = function(countObj = NA, metadataDF = NA, packageRNAseq = NA, expressionUnit = NA, featureType = NA,
-                               group1   = NA, group2   = NA, groupColumnName = NA, samplesColumnName = NA ){
+                               group1   = NA, group2   = NA, groupColumnName = NA, samplesColumnName = NA,
+                               writeFiles = FALSE){
     
     private$countObj           <- countObj
     private$metadataDF         <- metadataDF
@@ -494,6 +543,7 @@ DifferentialGeneExp <- R6Class(
     self$group2                <- group2
     self$groupColumnName       <- groupColumnName
     self$samplesColumnName     <- samplesColumnName
+    self$writeFiles            <- writeFiles
     
     ## Get the group names
     private$group1Flatten = private$flattenGroup(self$group1)
