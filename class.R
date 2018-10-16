@@ -25,8 +25,33 @@ ProjectSetUp <- R6Class(
                                           "GeneCountsInput", "TranscriptCountsInput", "ExonCountsInput" ), sep="/")
       lapply(fileDirs, function(x){ if(!dir.exists(x)) dir.create(x) })
     },
+    ## Generate filters to exclude given list
+    generateFiltersToExclude = function(factorsToExclude=NA){
+      
+      lapply(factorsToExclude, function(x){
+        subList=x
+        sublistNames=names(x)
+        paste0("!(",
+               paste0(sapply(sublistNames, function(y){
+                 
+                 #print(subList[y])
+                 filter <- paste0(y," %in% ","\"",unlist(unname(subList[y])), "\"" )
+                 return(filter)
+               }), collapse = " & " ),
+               ")"
+        )
+      })
+    },
     readMetaData = function() {
       self$metaDataDF <- read.csv(paste0(self$workDir,"/",self$projectName, "/",self$metaDataFileName), sep="\t", header = T);
+      print(paste0("Dimension of metadata is ", paste(dim(self$metaDataDF))))
+      if(!is.na(self$factorsToExclude)){
+        filters <- private$generateFiltersToExclude(factorsToExclude=self$factorsToExclude)
+        test <- sapply(filters, function(x){
+          self$metaDataDF <- dplyr::filter_(self$metaDataDF, .dots=list(x))
+        })
+      }
+      print(paste0("Dimension of metadata is applying factorsToExclude ", paste(dim(self$metaDataDF))))
     },
     readAnnotation = function() {
       self$annotationDF <- readRDS(self$annotationRDS) %>% as.data.frame()
@@ -35,13 +60,13 @@ ProjectSetUp <- R6Class(
       self$pcDF <- as.data.frame( readRDS(self$pcRDS) )
       colnames(self$pcDF)[c(1,2)] <- c("GeneName","GeneID")
     }
-    # ,
-    # readProteinCoding = function(){
-    #   self$pcDF <- readRDS(self$tfRDS)
-    # },
-    # readProteinCoding = function(){
-    #   self$pcDF <- readRDS(self$csRDS)
-    # }
+    ,
+    readProteinCoding = function(){
+      self$tfDF <- readRDS(self$tfRDS) %>% dplyr::filter(NewCount >= 5)
+    },
+    readProteinCoding = function(){
+      self$csDF <- readRDS(self$csRDS)
+    }
   ),
   public = list(
     date                    = NULL,
@@ -65,10 +90,16 @@ ProjectSetUp <- R6Class(
     annotationDF            = NULL,
     pcDF                    = NULL,
     pcRDS                   = NULL,
+    tfDF                    = NULL,
+    tfRDS                   = NULL,
+    csDF                    = NULL, 
+    csRDS                   = NULL,
+    factorsToExclude        = NULL,
     initialize              = function(date = NA, time =NA, projectName = NA, annotationRDS = NA, outputPrefix = NA,
                                        filterGenes = NA, filterGeneMethod = NA, factorName = NA, metaDataFileName = NA, 
                                        workDir = NA, outputdirRDSDir = NA, outputdirTXTDir = NA,gseaDir = NA, plotsDir = NA, 
-                                       plotsDataDir = NA, DiffGeneExpAnaDir = NA, DiffGeneExpRDS = NA, pcRDS = NA) {
+                                       plotsDataDir = NA, DiffGeneExpAnaDir = NA, DiffGeneExpRDS = NA, pcRDS = NA,tfRDS=NA,
+                                       csRDS =NA, factorsToExclude=NA) {
       
       self$date <- date
       self$time <- time
@@ -88,6 +119,7 @@ ProjectSetUp <- R6Class(
       self$DiffGeneExpAnaDir <- DiffGeneExpAnaDir
       self$DiffGeneExpRDS <- DiffGeneExpRDS
       self$pcRDS <- pcRDS
+      self$factorsToExclude <- factorsToExclude
       private$checkDirExists()
       private$readMetaData()
       private$readAnnotation()
@@ -118,7 +150,9 @@ CoreUtilities <- R6Class(
     },
     ## Merge CSV or TXT files
     mergeTXTFiles = function( x, fileSuffix=NA, colNameSelect=NA, primaryID=NA ){
-      dataMatrixLists     <- lapply(x, private$readTXTFiles, fileSuffix=fileSuffix,colNameSelect=colNameSelect, primaryID=primaryID)
+      selectedFileList    <- x[which(basename(x) %in% self$allFileList)]
+      print(paste0("Selecting ", length(selectedFileList), " files out of ", length(x), "from the given folder"))
+      dataMatrixLists     <- lapply(selectedFileList, private$readTXTFiles, fileSuffix=fileSuffix,colNameSelect=colNameSelect, primaryID=primaryID)
       dataMatrix          <- purrr::reduce(dataMatrixLists, full_join, by=primaryID)
       return(dataMatrix)
     }
@@ -126,6 +160,7 @@ CoreUtilities <- R6Class(
   public    = list(
     workDir                = NULL,
     projectName            = NULL,
+    allFileList            = NULL,
     initialize             = function(ProjectSetUpObject = NA ){
       
       assert_that("ProjectSetUP" %in% class(ProjectSetUpObject), 
@@ -133,16 +168,9 @@ CoreUtilities <- R6Class(
       self$workDir     <- ProjectSetUpObject$workDir
       self$projectName <- ProjectSetUpObject$projectName
     },
-    format = function(...) {
-      c(
-        paste0("Person:"),
-        paste0("  Name: "),
-        paste0("  Age:  ")
-      )
-    },
     ## Get merged matrix
     getMergedMatrix = function(dir = NA, fileFormat = NA, colNameSelect = NA, colIndexSelect = NA, isRowNames = FALSE, rowNamesColInFile = NA,
-                               fileSuffix=NA, primaryID=NA){
+                               fileSuffix=NA, primaryID=NA, metadata=NA, metadataFileRefCol=NA){
       
       if( !is.na(colNameSelect) & !is.na(colIndexSelect)) stopifnot("Use either colNameSelect or colIndexSelect but not both")
       if( is.na(colNameSelect) & is.na(colIndexSelect)) stopifnot("Use either colNameSelect or colIndexSelect but not both")
@@ -156,6 +184,9 @@ CoreUtilities <- R6Class(
          colNameSelect  =  colIndexSelect
        } 
        if(isRowNames) assert_that(!is.na(rowNamesColInFile), msg= "Please provide row names index , \"rowNamesColInFile\" can't be NA ")
+      
+       self$allFileList = paste0(as.character(metadata[,metadataFileRefCol]),fileSuffix)
+       print(head(self$allFileList))
 
        dirs                <- list.dirs(paste0(self$workDir,"/",self$projectName,"/",dir))[-1]
        folderNames         <- basename(dirs)
@@ -429,10 +460,7 @@ DifferentialGeneExp <- R6Class(
     return(private$GeneDF_DiffExp)
   },
   MeanGroupExpression = function(group1Count = NA, group2Count = NA, geneExpMatrix = NA){
-    
-    print(head(geneExpMatrix))
-    print(head(rownames(geneExpMatrix)))
-    print(head(rownames(private$GeneDF_DiffExp)))
+
     ## GeneExpression Mean
     if(group1Count > 1) {
       private$GeneDF_DiffExp[private$pairGroup1Name]        <- apply(geneExpMatrix[,as.character(private$group1Samples[,1]), drop=FALSE], 1, mean)
@@ -549,7 +577,8 @@ DifferentialGeneExp <- R6Class(
            },
            "cellsurface"= {
              
-             GeneDF_DiffExp_csDF <- private$GeneDF_DiffExp %>% filter(GeneName %in% rnaseqProject$csGenes)
+             GeneDF_DiffExp_csDF <- private$GeneDF_DiffExp %>% filter(GeneName %in% rnaseqProject$csDF[,GeneName])
+             print("Filter matched ", dim(GeneDF_DiffExp_csDF)[1], " out of  ", dim(rnaseqProject$csDF)[1], " given CS genes")
              saveRDS(GeneDF_DiffExp_csDF, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
                                                "/", rnaseqProject$DiffGeneExpRDS,"/",private$pairGroup1Name,"_",
                                                private$pairGroup2Name,"_",filterName,"_",".rds"))
@@ -561,11 +590,12 @@ DifferentialGeneExp <- R6Class(
           },
            "transcriptionFactor"= {
              
-             GeneDF_DiffExp_tfcsDF <- private$GeneDF_DiffExp %>% filter(GeneName %in% rnaseqProject$tfGenes)
-             saveRDS(GeneDF_DiffExp_tfcsDF, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
+             GeneDF_DiffExp_tfDF <- private$GeneDF_DiffExp %>% filter(GeneName %in% rnaseqProject$tfDF[,GeneName])
+             print("Filter matched ", dim(GeneDF_DiffExp_tfDF)[1], " out of  ", dim(rnaseqProject$tfDF)[1], " given TF genes")
+             saveRDS(GeneDF_DiffExp_tfDF, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
                                                "/", rnaseqProject$DiffGeneExpRDS,"/",private$pairGroup1Name,"_",
                                                private$pairGroup2Name,"_",filterName,"_",".rds"))
-             write.table(GeneDF_DiffExp_tfcsDF, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
+             write.table(GeneDF_DiffExp_tfDF, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
                                                    "/", rnaseqProject$DiffGeneExpAnaDir,"/",private$pairGroup1Name,"_",
                                                    private$pairGroup2Name,"_",filterName,"_",".txt"), sep="\t", row.names = FALSE,
                          quote=FALSE)
