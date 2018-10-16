@@ -23,7 +23,7 @@ rnaseqProject <- ProjectSetUp$new(
   gseaDir                 = "GSEA",
   plotsDir                = "Figures",
   plotsDataDir            = "FigureData",
-  diffGeneExpAnaDir       = "DiffExpResults"
+  DiffGeneExpAnaDir       = "DiffExpResults"
 )
 
 ## Add utility functions to the project
@@ -94,13 +94,13 @@ dgeObj  <- DifferentialGeneExp$new(
   metadataDF        = rnaseqProject$metaDataDF,
   samplesColumnName = "SAMPLE_ID",
   expressionUnit    = "TMM-RPKM",
-  featureType       = "Gene"
+  featureType       = "Gene",
+  writeFiles        = TRUE
 )
 
 DiffExpObj <- dgeObj$performDiffGeneExp()
 
-
-
+head(DiffExpObj[[1]])
 
 
 
