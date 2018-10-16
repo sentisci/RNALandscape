@@ -30,7 +30,18 @@ ProjectSetUp <- R6Class(
     },
     readAnnotation = function() {
       self$annotationDF <- readRDS(self$annotationRDS) %>% as.data.frame()
+    },
+    readProteinCoding = function(){
+      self$pcDF <- as.data.frame( readRDS(self$pcRDS) )
+      colnames(self$pcDF)[c(1,2)] <- c("GeneName","GeneID")
     }
+    # ,
+    # readProteinCoding = function(){
+    #   self$pcDF <- readRDS(self$tfRDS)
+    # },
+    # readProteinCoding = function(){
+    #   self$pcDF <- readRDS(self$csRDS)
+    # }
   ),
   public = list(
     date                    = NULL,
@@ -49,13 +60,15 @@ ProjectSetUp <- R6Class(
     plotsDir                = NULL,
     plotsDataDir            = NULL,
     DiffGeneExpAnaDir       = NULL,
+    DiffGeneExpRDS          = NULL,
     metaDataDF              = NULL,
     annotationDF            = NULL,
+    pcDF                    = NULL,
+    pcRDS                   = NULL,
     initialize              = function(date = NA, time =NA, projectName = NA, annotationRDS = NA, outputPrefix = NA,
                                        filterGenes = NA, filterGeneMethod = NA, factorName = NA, metaDataFileName = NA, 
-                                       workDir = NA, outputdirRDSDir = NA, outputdirTXTDir = NA,
-                                       gseaDir = NA, plotsDir = NA, plotsDataDir = NA, 
-                                       DiffGeneExpAnaDir = NA) {
+                                       workDir = NA, outputdirRDSDir = NA, outputdirTXTDir = NA,gseaDir = NA, plotsDir = NA, 
+                                       plotsDataDir = NA, DiffGeneExpAnaDir = NA, DiffGeneExpRDS = NA, pcRDS = NA) {
       
       self$date <- date
       self$time <- time
@@ -73,10 +86,12 @@ ProjectSetUp <- R6Class(
       self$plotsDir <- plotsDir
       self$plotsDataDir <- plotsDataDir
       self$DiffGeneExpAnaDir <- DiffGeneExpAnaDir
+      self$DiffGeneExpRDS <- DiffGeneExpRDS
+      self$pcRDS <- pcRDS
       private$checkDirExists()
       private$readMetaData()
       private$readAnnotation()
-      
+      private$readProteinCoding()
       print(paste0("Changing to working directory ", self$workDir))
     }
   ) 
@@ -374,19 +389,38 @@ DifferentialGeneExp <- R6Class(
     }), recursive=FALSE)
     return(pairs)
   },
-  DiffGeneExp         = function( group1Count = NA, group2Count = NA, DGEobj = NA, modelDesign = NA){
+  DiffGeneExp         = function( group1Count = NA, group2Count = NA, pairGroup1Name = NA,pairGroup2Name = NA, DGEobj = NA  ){
     
     ## Use the appropriate method depending upon the size of the replicates
     if( group1Count > 1 & group2Count > 1 )   {
+      print("Groups have replicates")
+      ## Generate model & design for differential gene expression (edgeR only for now)
+      #modelGroup   <- factor( c(rep(pairGroup2Name, group2Count), rep(pairGroup1Name, group1Count)) )
+      modelGroup   <- factor( c( rep(pairGroup1Name, group1Count),rep(pairGroup2Name, group2Count)) )
+      modelDesign  <- model.matrix( ~modelGroup )
+      print(paste(pairGroup1Name, group1Count,pairGroup2Name,group2Count ))
+      ## Estimate Dispersion using estimateDisp() 
       GeneDF_Dispersion  <- estimateDisp(DGEobj, design = modelDesign )
-      fit                        <- glmQLFit(GeneDF_Dispersion, design = modelDesign )
-      private$GeneDF_DiffExp     <- glmQLFTest(fit, coef=2)$table
+      #Using exactTest()
+      print("Predicting differntially expressed genes using exactTest()")
+      private$GeneDF_DiffExp <- exactTest(GeneDF_Dispersion, pair = c(unique(modelGroup)))$table
+      #Using glmQLFit()
+      #print("Predicting differntially expressed genes using Quasi Likelihood ratio test glmQLFit() & glmQLFTest()")
+      #fit                        <- glmQLFit(GeneDF_Dispersion, design = modelDesign )
+      #private$GeneDF_DiffExp     <- glmQLFTest(fit, coef=2)$table
     }
     else  {
-      print("Estimating dispersion")
-      GeneDF_Dispersion  <- estimateGLMCommonDisp(DGEobj, method="deviance", robust="TRUE",subset=NULL )
-      print("Predicting Differential Gene Expression")
+      ## Generate model & design for differential gene expression (edgeR only for now)
+      modelGroup   <- factor(c(rep(pairGroup1Name, group1Count), rep( pairGroup2Name, group2Count   )))
+      modelDesign  <- model.matrix( ~modelGroup )
+      print(modelGroup)
+      print(modelDesign)
+      ## Estimate Dispersion using estimateDisp() 
+      GeneDF_Dispersion  <- estimateDisp(DGEobj, design = modelDesign )
+      print("Predicting differntially expressed genes using exact test")
       private$GeneDF_DiffExp     <- exactTest(GeneDF_Dispersion, pair = c(unique(modelGroup)))$table
+      #fit                        <- glmQLFit(GeneDF_Dispersion, design = modelDesign )
+      #private$GeneDF_DiffExp     <- glmLRT(fit, coef=2)$table 
     }
     
     private$GeneDF_DiffExp["FDR"]   <- p.adjust(private$GeneDF_DiffExp$PValue, method="BH")
@@ -396,19 +430,29 @@ DifferentialGeneExp <- R6Class(
   },
   MeanGroupExpression = function(group1Count = NA, group2Count = NA, geneExpMatrix = NA){
     
+    print(head(geneExpMatrix))
+    print(head(rownames(geneExpMatrix)))
+    print(head(rownames(private$GeneDF_DiffExp)))
     ## GeneExpression Mean
     if(group1Count > 1) {
       private$GeneDF_DiffExp[private$pairGroup1Name]        <- apply(geneExpMatrix[,as.character(private$group1Samples[,1]), drop=FALSE], 1, mean)
+      #group1MeanExp                                        <- apply(geneExpMatrix[,as.character(private$group1Samples[,1]), drop=FALSE], 1, mean)
+      #print(paste(head(group1MeanExp)))
     } else {
       private$GeneDF_DiffExp[private$pairGroup1Name]        <- geneExpMatrix[,as.character(private$group1Samples[,1]), drop=FALSE]
     }
     
     if(group2Count > 1) {
       private$GeneDF_DiffExp[private$pairGroup2Name]        <- apply(geneExpMatrix[,as.character(private$group2Samples[,1]), drop=FALSE], 1, mean)
+      #group2MeanExp                                        <- apply(geneExpMatrix[,as.character(private$group2Samples[,1]), drop=FALSE], 1, mean)
+      #print(paste(head(group2MeanExp)))
+      
     } else {
       private$GeneDF_DiffExp[private$pairGroup2Name]        <- geneExpMatrix[,as.character(private$group2Samples[,1]), drop=FALSE]
     }
+    
     private$GeneDF_DiffExp["FDR"]   <- p.adjust(private$GeneDF_DiffExp$PValue, method="BH")
+    private$GeneDF_DiffExp["myLogFC"]   <- log2(private$GeneDF_DiffExp[private$pairGroup2Name]+1) - log2(private$GeneDF_DiffExp[private$pairGroup1Name]+1)
     return(private$GeneDF_DiffExp)
   },
   executeDiffGeneExp  = function( pairedList = NA){
@@ -448,9 +492,9 @@ DifferentialGeneExp <- R6Class(
     group2Count <- sum(groupCount[pairGroup2])
         
     ## Generate model & design for differential gene expression (edgeR only for now)
-    modelGroup   <- c(rep(private$pairGroup1Name, group1Count ), rep( private$pairGroup2Name, group2Count ))
+    modelGroup   <- factor(c(rep(private$pairGroup1Name, group1Count), rep( private$pairGroup2Name, group2Count   )))
     modelDesign  <- model.matrix( ~modelGroup )
-
+    
     ## Generate Gene expression in the desired Unit.
     expressionObj <- GeneExpNormalization$new(
       countObj          = as.matrix(pairCountMatrix), 
@@ -464,7 +508,7 @@ DifferentialGeneExp <- R6Class(
 
     ## perform differential gene expression.
     private$GeneDF_DiffExp <- private$DiffGeneExp(group1Count = group1Count, group2Count = group2Count, DGEobj = expressionObj$edgeRMethod("NormFactorDF"), 
-                                    modelDesign = modelDesign)
+                                        pairGroup1Name = private$pairGroup1Name, pairGroup2Name = private$pairGroup2Name)
     
     ## calculat mean expression
     private$GeneDF_DiffExp                <- private$MeanGroupExpression(group1Count = group1Count, group2Count = group2Count, geneExpMatrix = geneExpression)
@@ -474,9 +518,10 @@ DifferentialGeneExp <- R6Class(
     private$GeneDF_DiffExp                <- private$featureNameAnot(querryDF=private$GeneDF_DiffExp, identifier="GeneID")
     
     ## Filter Genes
+    private$filterGenes(filterName="all")
     private$filterGenes(filterName="proteinCoding")
-    private$filterGenes(filterName="cellsurface")
-    private$filterGenes(filterName="transcriptionFactor")
+    ## private$filterGenes(filterName="cellsurface")
+    ## private$filterGenes(filterName="transcriptionFactor")
     
     return(private$GeneDF_DiffExp)
   },
@@ -487,32 +532,53 @@ DifferentialGeneExp <- R6Class(
     print(dim(annotDF))
     return(annotDF)
   },
-  filterGenes = function(filterName=NA){
-    switch(private$packageRNAseq,
+  filterGenes = function(filterName="NA"){
+    switch(filterName,
            
            "proteinCoding"= {
              
-             write.table(private$GeneDF_DiffExp, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
+             GeneDF_DiffExp_PC <- na.omit(dplyr::left_join(rnaseqProject$pcDF, private$GeneDF_DiffExp, by="GeneID"))
+             #pcDF <- private$GeneDF_DiffExp %>% filter(GeneName %in% rnaseqProject$pcDF)
+             saveRDS(GeneDF_DiffExp_PC, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
+                                  "/", rnaseqProject$DiffGeneExpRDS,"/",private$pairGroup1Name,"_",
+                                  private$pairGroup2Name,"_",filterName,"_",".rds"))
+             write.table(GeneDF_DiffExp_PC, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
                                                         "/", rnaseqProject$DiffGeneExpAnaDir,"/",private$pairGroup1Name,"_",
-                                                        private$pairGroup2Name,".txt"), sep="\t", row.names = FALSE, quote=FALSE)
-             
-             
+                                                        private$pairGroup2Name,"_",filterName,"_",".txt"), sep="\t", row.names = FALSE,
+                                                        quote=FALSE)
            },
            "cellsurface"= {
              
-             write.table(private$GeneDF_DiffExp, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
-                                                        "/", rnaseqProject$DiffGeneExpAnaDir,"/",private$pairGroup1Name,"_",
-                                                        private$pairGroup2Name,".txt"), sep="\t", row.names = FALSE, quote=FALSE)
+             GeneDF_DiffExp_csDF <- private$GeneDF_DiffExp %>% filter(GeneName %in% rnaseqProject$csGenes)
+             saveRDS(GeneDF_DiffExp_csDF, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
+                                               "/", rnaseqProject$DiffGeneExpRDS,"/",private$pairGroup1Name,"_",
+                                               private$pairGroup2Name,"_",filterName,"_",".rds"))
+             write.table(GeneDF_DiffExp_csDF, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
+                                                   "/", rnaseqProject$DiffGeneExpAnaDir,"/",private$pairGroup1Name,"_",
+                                                   private$pairGroup2Name,"_",filterName,"_",".txt"), sep="\t", row.names = FALSE,
+                         quote=FALSE)
              
-             
-           },
+          },
            "transcriptionFactor"= {
              
-             write.table(private$GeneDF_DiffExp, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
-                                                        "/", rnaseqProject$DiffGeneExpAnaDir,"/",private$pairGroup1Name,"_",
-                                                        private$pairGroup2Name,".txt"), sep="\t", row.names = FALSE, quote=FALSE)
-             
-           }
+             GeneDF_DiffExp_tfcsDF <- private$GeneDF_DiffExp %>% filter(GeneName %in% rnaseqProject$tfGenes)
+             saveRDS(GeneDF_DiffExp_tfcsDF, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
+                                               "/", rnaseqProject$DiffGeneExpRDS,"/",private$pairGroup1Name,"_",
+                                               private$pairGroup2Name,"_",filterName,"_",".rds"))
+             write.table(GeneDF_DiffExp_tfcsDF, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
+                                                   "/", rnaseqProject$DiffGeneExpAnaDir,"/",private$pairGroup1Name,"_",
+                                                   private$pairGroup2Name,"_",filterName,"_",".txt"), sep="\t", row.names = FALSE,
+                         quote=FALSE)
+          },
+          "all" = {
+            saveRDS(private$GeneDF_DiffExp, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
+                                              "/", rnaseqProject$DiffGeneExpRDS,"/",private$pairGroup1Name,"_",
+                                              private$pairGroup2Name,"_",filterName,"_",".rds"))
+            write.table(private$GeneDF_DiffExp, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
+                                                  "/", rnaseqProject$DiffGeneExpAnaDir,"/",private$pairGroup1Name,"_",
+                                                  private$pairGroup2Name,"_",filterName,"_",".txt"), sep="\t", row.names = FALSE,
+                        quote=FALSE)
+          }
     )
   }
   ),
