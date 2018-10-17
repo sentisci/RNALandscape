@@ -429,30 +429,19 @@ DifferentialGeneExp <- R6Class(
     if( group1Count > 1 & group2Count > 1 )   {
       print("Groups have replicates")
       ## Generate model & design for differential gene expression (edgeR only for now)
-      
-      #Using exactTest()
+      #modelGroup   <- factor( c(rep(pairGroup2Name, group2Count), rep(pairGroup1Name, group1Count)) )
       modelGroup   <- factor( c( rep(pairGroup1Name, group1Count),rep(pairGroup2Name, group2Count)) )
       modelDesign  <- model.matrix( ~modelGroup )
       print(paste(pairGroup1Name, group1Count,pairGroup2Name,group2Count ))
       ## Estimate Dispersion using estimateDisp() 
       GeneDF_Dispersion  <- estimateDisp(DGEobj, design = modelDesign )
+      #Using exactTest()
       print("Predicting differntially expressed genes using exactTest()")
       private$GeneDF_DiffExp <- exactTest(GeneDF_Dispersion, pair = c(unique(modelGroup)))$table
-      
-      #Using Quasilikelihood ratio test()
-      #modelGroup   <- factor( c(rep(pairGroup2Name, group2Count), rep(pairGroup1Name, group1Count)) )
-      #modelDesign  <- model.matrix( ~modelGroup )
+      #Using glmQLFit()
       #print("Predicting differntially expressed genes using Quasi Likelihood ratio test glmQLFit() & glmQLFTest()")
       #fit                        <- glmQLFit(GeneDF_Dispersion, design = modelDesign )
       #private$GeneDF_DiffExp     <- glmQLFTest(fit, coef=2)$table
-      
-      print("Predicting differntially expressed genes using LimmaVoom")
-      GeneDF_Dispersion_v   <- voom(DGEobj, modelDesign)
-      fit_v                 <- lmFit(GeneDF_Dispersion_v, modelDesign)
-      fit_v                 <- eBayes(fit_v)
-      GeneDF_DiffExp_V      <- fit_v$table
-      print(paste(GeneDF_DiffExp_V))
-      
     }
     else  {
       ## Generate model & design for differential gene expression (edgeR only for now)
@@ -594,6 +583,7 @@ DifferentialGeneExp <- R6Class(
            "cellsurface"= {
              
              GeneDF_DiffExp_csDF <- private$GeneDF_DiffExp %>% filter(GeneName %in% as.character(rnaseqProject$csDF[,"GeneName"]))
+             GeneDF_DiffExp_csDF <- dplyr::left_join(GeneDF_DiffExp_csDF, rnaseqProject$pcDF, by = "GeneID")
              #print("Filter matched ", dim(GeneDF_DiffExp_csDF)[1], " out of  ", dim(rnaseqProject$csDF)[1], " given CS genes")
              print("filtering for cellsurface genes")
              saveRDS(GeneDF_DiffExp_csDF, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
@@ -608,6 +598,7 @@ DifferentialGeneExp <- R6Class(
            "transcriptionFactor"= {
              
              GeneDF_DiffExp_tfDF <- private$GeneDF_DiffExp %>% filter(GeneName %in% as.character(rnaseqProject$tfDF[,"GeneName"]))
+             GeneDF_DiffExp_tfDF <- dplyr::left_join(GeneDF_DiffExp_tfDF, rnaseqProject$pcDF, by = "GeneID")
              #print("Filter matched ", dim(GeneDF_DiffExp_tfDF)[1], " out of  ", dim(rnaseqProject$tfDF)[1], " given TF genes")
              print("filtering for transcriptionFactor genes")
              saveRDS(GeneDF_DiffExp_tfDF, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,

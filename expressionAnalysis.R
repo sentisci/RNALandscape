@@ -14,6 +14,9 @@ rnaseqProject <- ProjectSetUp$new(
   time                    = unlist(strsplit(x = as.character(Sys.time()), "\\s+"))[[2]],
   projectName             = "RNASeq.RSEM",
   annotationRDS           = "C:/Users/sindiris/R Scribble/Annotation RDS/annotation_ENSEMBL_gene.RDS",
+  pcRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/pc.other.HGNCTableFlat.rds",
+  tfRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/TFs_no_epimachines.RDS",
+  csRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/CellSurface.RDS",
   outputPrefix            = "landscape",
   filterGenes             = TRUE,
   filterGeneMethod        = "bySum",
@@ -24,7 +27,10 @@ rnaseqProject <- ProjectSetUp$new(
   gseaDir                 = "GSEA",
   plotsDir                = "Figures",
   plotsDataDir            = "FigureData",
-  DiffGeneExpAnaDir       = "DiffExpResults"
+  DiffGeneExpAnaDir       = "DiffExpResults",
+  DiffGeneExpRDS          = "DiffGeneExpRDSOutput",
+  factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), "Normal.ribozero"=list("LIBRARY_TYPE"="Normal", 
+                                                                                                    "LibraryPrep" = "Ribozero"))
 )
 
 ## Add utility functions to the project
@@ -32,7 +38,7 @@ corUtilsFuncs <- CoreUtilities$new(  ProjectSetUpObject = rnaseqProject )
 
 ## Generate expression matrix
 rm(mergeObjectsNoDup)
-mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Genes", 
+mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Genes.v1", 
                                                    fileFormat        = "txt", 
                                                    colNameSelect     = "expected_count", 
                                                    isRowNames        = TRUE, 
@@ -75,23 +81,29 @@ Kidney         <- c("NS.kidney")
 Liver          <- c("NS.liver")
 Lung           <- c("NS.lung")
 germline       <- c("NS.testis","NS.ovary")
-vitalNormals   <- c("NS.cerebellum","NS.cerebrum","NS.heart","NS.kidney","NS.liver","NS.lung")
+vitalNormals   <- c("NS.heart","NS.kidney","NS.liver","NS.lung")
+vital.Brain.Normals   <- c("NS.cerebellum","NS.cerebrum", "NS.heart","NS.kidney","NS.liver","NS.lung")
 othersNormals  <- c("NS.adrenalgland","NS.bladder","NS.colon","NS.ileum","NS.ovary","NS.pancreas","NS.prostate", 
                     "NS.skeletalmuscle","NS.spleen", "NS.stomach","NS.testis", "NS.ureter", "NS.uterus")
 Normals        <- c("NS.adrenalgland","NS.bladder","NS.cerebellum","NS.cerebrum","NS.colon","NS.heart",
                     "NS.ileum","NS.kidney","NS.liver","NS.lung","NS.ovary","NS.pancreas","NS.prostate", 
                     "NS.skeletalmuscle","NS.spleen", "NS.stomach","NS.testis", "NS.ureter", "NS.uterus")
+NormalsNoGermLine <- c("NS.adrenalgland","NS.bladder","NS.cerebellum","NS.cerebrum","NS.colon","NS.heart",
+                    "NS.ileum","NS.kidney","NS.liver","NS.lung","NS.pancreas","NS.prostate", 
+                    "NS.skeletalmuscle","NS.spleen", "NS.stomach", "NS.ureter", "NS.uterus")
 
-tumorSubStatus <-  c("ASPS", "CCSK", "DSRCT", "EWS" ,"HBL", "ML", "NBL.MYCN.NA","NBL.MYCN.A", "NBL.Unknown", "OS", "RMS.FP" , "RMS.FN", 
-                      "SS", "Teratoma" ,"UDS" ,"WT" ,"YST")
-Tumors         <-  c("ASPS", "CCSK", "DSRCT", "EWS" ,"HBL", "ML", "NB" ,"OS", "RMS", "SS", "Teratoma" ,"UDS" ,"WT" ,"YST")
+tumorSubStatus.polyA <- c("ASPS", "DSRCT", "EWS" ,"HBL", "ML", "NB.MYCN.NA","NB.MYCN.A", "NB.Unknown", "OS", "RMS.FP" , "RMS.FN", 
+                          "SS", "Teratoma" ,"UDS" ,"YST")
+tumorSubStatus.ribozero <-  c("WT" ,"CCSK")
+
+Tumors         <-  c("ASPS","DSRCT", "EWS" ,"HBL", "ML", "NB" ,"OS", "RMS", "SS", "Teratoma" ,"UDS" ,"YST","WT", "CCSK")
 
 
 ## Testing 
 dgeObj  <- DifferentialGeneExp$new(
   countObj          = expressionObj$edgeRMethod("NormFactorDF")$counts,
-  group1            = list(list("Brain"=Brain,each=FALSE)),
-  group2            = list(list("Tumor"=Tumors[1], each=TRUE)),
+  group1            = list(list("NormalsNoGermLine"=NormalsNoGermLine,each=FALSE)),
+  group2            = list(list("Tumor"=tumorSubStatus.polyA, each=TRUE)),
   packageRNAseq     = "edgeR",
   groupColumnName   = rnaseqProject$factorName,
   metadataDF        = rnaseqProject$metaDataDF,
@@ -103,5 +115,5 @@ dgeObj  <- DifferentialGeneExp$new(
 
 DiffExpObj <- dgeObj$performDiffGeneExp()
 
-head(DiffExpObj[[1]])
+head(DiffExpObj[[1]] %>% dplyr::arrange(-logFC))
 
