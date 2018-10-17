@@ -641,7 +641,7 @@ DifferentialGeneExp <- R6Class(
              GeneDF_DiffExp_cgaDF <- private$GeneDF_DiffExp %>% filter(GeneName %in% as.character(rnaseqProject$cgaDF[,"GeneName"]))
              GeneDF_DiffExp_cgaDF <- dplyr::left_join(GeneDF_DiffExp_cgaDF, rnaseqProject$pcDF, by = "GeneID")
              #print("Filter matched ", dim(GeneDF_DiffExp_cgaDF)[1], " out of  ", dim(rnaseqProject$tfDF)[1], " given TF genes")
-             print("filtering for transcriptionFactor genes")
+             print("filtering for cancergermlineantigen genes")
              saveRDS(GeneDF_DiffExp_cgaDF, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
                                                  "/", rnaseqProject$DiffGeneExpRDS,"/",private$pairGroup1Name,"_",
                                                  private$pairGroup2Name,"_",filterName,".rds"))
