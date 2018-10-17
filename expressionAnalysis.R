@@ -102,7 +102,7 @@ Tumors         <-  c("ASPS","DSRCT", "EWS" ,"HBL", "ML", "NB" ,"OS", "RMS", "SS"
 ## Testing 
 dgeObj  <- DifferentialGeneExp$new(
   countObj          = expressionObj$edgeRMethod("NormFactorDF")$counts,
-  group1            = list(list("Normals"=Normals,each=FALSE)),
+  group1            = list(list("Normals"=NormalsNoGermLine,each=FALSE)),
   group2            = list(list("Tumor"=tumorSubStatus.ribozero, each=TRUE)),
   packageRNAseq     = "edgeR",
   groupColumnName   = rnaseqProject$factorName,

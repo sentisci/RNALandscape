@@ -440,7 +440,6 @@ DifferentialGeneExp <- R6Class(
       print("Predicting differntially expressed genes using exactTest()")
       private$GeneDF_DiffExp <- exactTest(GeneDF_Dispersion, pair = c(unique(modelGroup)))$table
       
-      print(head(private$GeneDF_DiffExp))
       #Using Quasilikelihood ratio test()
       #modelGroup   <- factor( c(rep(pairGroup2Name, group2Count), rep(pairGroup1Name, group1Count)) )
       #modelDesign  <- model.matrix( ~modelGroup )
