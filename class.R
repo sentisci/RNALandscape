@@ -448,7 +448,7 @@ DifferentialGeneExp <- R6Class(
       #fit                        <- glmQLFit(GeneDF_Dispersion, design = modelDesign )
       #private$GeneDF_DiffExp     <- glmQLFTest(fit, coef=2)$table
       
-      print("Predicting differntially expressed genes using LimmaVoom")
+      # print("Predicting differntially expressed genes using LimmaVoom")
       # GeneDF_Dispersion_v   <- voom(DGEobj, modelDesign)
       # fit_v                 <- lmFit(GeneDF_Dispersion_v, modelDesign)
       # fit_v                 <- eBayes(fit_v)
