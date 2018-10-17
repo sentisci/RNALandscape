@@ -583,6 +583,7 @@ DifferentialGeneExp <- R6Class(
            "cellsurface"= {
              
              GeneDF_DiffExp_csDF <- private$GeneDF_DiffExp %>% filter(GeneName %in% as.character(rnaseqProject$csDF[,"GeneName"]))
+             GeneDF_DiffExp_csDF <- dplyr::left_join(GeneDF_DiffExp_csDF, rnaseqProject$pcDF, by = "GeneID")
              #print("Filter matched ", dim(GeneDF_DiffExp_csDF)[1], " out of  ", dim(rnaseqProject$csDF)[1], " given CS genes")
              print("filtering for cellsurface genes")
              saveRDS(GeneDF_DiffExp_csDF, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
@@ -597,6 +598,7 @@ DifferentialGeneExp <- R6Class(
            "transcriptionFactor"= {
              
              GeneDF_DiffExp_tfDF <- private$GeneDF_DiffExp %>% filter(GeneName %in% as.character(rnaseqProject$tfDF[,"GeneName"]))
+             GeneDF_DiffExp_tfDF <- dplyr::left_join(GeneDF_DiffExp_tfDF, rnaseqProject$pcDF, by = "GeneID")
              #print("Filter matched ", dim(GeneDF_DiffExp_tfDF)[1], " out of  ", dim(rnaseqProject$tfDF)[1], " given TF genes")
              print("filtering for transcriptionFactor genes")
              saveRDS(GeneDF_DiffExp_tfDF, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
