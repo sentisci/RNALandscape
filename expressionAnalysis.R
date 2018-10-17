@@ -1,3 +1,4 @@
+rm(list=ls())
 ## Source all classes and packages
 
 source("./utilityPackages.R")
@@ -37,7 +38,9 @@ mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Gene
                                                    isRowNames        = TRUE, 
                                                    rowNamesColInFile = 1,
                                                    fileSuffix        = ".genes.results",
-                                                   primaryID         = "gene_id")
+                                                   primaryID         = "gene_id",
+                                                   metadata          = rnaseqProject$metaDataDF,
+                                                   metadataFileRefCol= "SAMPLE_ID")
 
 ## Evaluate presence of duplicate features and consolidate them
 setDT(mergeObjectsNoDup, keep.rownames = TRUE)
@@ -101,48 +104,4 @@ dgeObj  <- DifferentialGeneExp$new(
 DiffExpObj <- dgeObj$performDiffGeneExp()
 
 head(DiffExpObj[[1]])
-
-
-
-##########################################################################  Performing hirarchial clustering ###################################################
-## Get the group names
-group1Flatten = flattenGroup(group1)
-group2Flatten = flattenGroup(group2)
-
-## Pair elements from two groups
-pairedList = makePairs(names(group1Flatten), names(group2Flatten))
-
-dgeObj  <-  DifferentialGeneExp$new(
-  DGEobj             = expressionObj$edgeRMethod("NormFactorDF"), 
-  expressionDF       = expressionObj$edgeRMethod("TMM-RPKM"),
-  metadataDF         = rnaseqProject$metaDataDF,
-  packageRNAseq      = "edgeR",
-  group1             = list("Brain"=Brain), 
-  group2             = list("Tumor"=Tumors), 
-  groupColumnName    = rnaseqProject$factorName, 
-  samplesColumnName  = "SAMPLE_ID.Alias", 
-  factorsExclude     = NA
-)
-
-
-colnames( expressionTMM.RPKM ) <- rnaseqProject$metaDataDF[,"SAMPLE_ID.Alias"]
-expressionTMM.RPKM.zscore <- t(apply(expressionTMM.RPKM, 1,  zscore_All))
-RPKM_Data_Filt_t=t(expressionTMM.RPKM.zscore)
-hc<-hclust(dist(RPKM_Data_Filt_t,"euclidean"),"ward.D")
-#clus2=cutree(hc,expectedGroups) # hc$order
-myPalette <- as.character( colNamesTumorsNormal[, "Color"] )
-
-
-pdf(paste("C:/Users/sindiris/R Scribble/clusteringRiboZeroANS","pdf",sep="."),height=15,width=15)
-plot(as.phylo(hc),type = "fan", label.offset=1, cex=1)
-dev.off()
-
-
-
-
-
-
-
-
-
 
