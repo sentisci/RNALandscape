@@ -66,6 +66,9 @@ ProjectSetUp <- R6Class(
     },
     readCellSurface = function(){
       self$csDF <- readRDS(self$csRDS)  %>% dplyr::filter(NewCount >= 5)
+    },
+    readCancerGermlineAntigens = function(){
+      self$cgaDF <- readRDS(self$cgaRDS) 
     }
   ),
   public = list(
@@ -94,12 +97,14 @@ ProjectSetUp <- R6Class(
     tfRDS                   = NULL,
     csDF                    = NULL, 
     csRDS                   = NULL,
+    cgaDF                   = NULL,
+    cgaRDS                  = NULL,
     factorsToExclude        = NULL,
     initialize              = function(date = NA, time =NA, projectName = NA, annotationRDS = NA, outputPrefix = NA,
                                        filterGenes = NA, filterGeneMethod = NA, factorName = NA, metaDataFileName = NA, 
                                        workDir = NA, outputdirRDSDir = NA, outputdirTXTDir = NA,gseaDir = NA, plotsDir = NA, 
                                        plotsDataDir = NA, DiffGeneExpAnaDir = NA, DiffGeneExpRDS = NA, pcRDS = NA,tfRDS=NA,
-                                       csRDS =NA, factorsToExclude=NA) {
+                                       csRDS =NA, cgaRDS=NA,factorsToExclude=NA) {
       
       self$date <- date
       self$time <- time
@@ -121,6 +126,7 @@ ProjectSetUp <- R6Class(
       self$pcRDS <- pcRDS
       self$tfRDS <- tfRDS
       self$csRDS <- csRDS
+      self$cgaRDS <- cgaRDS
       self$factorsToExclude <- factorsToExclude
       private$checkDirExists()
       private$readMetaData()
@@ -128,6 +134,7 @@ ProjectSetUp <- R6Class(
       if (!is.na(pcRDS)){ private$readProteinCoding() }
       if (!is.na(tfRDS)){ private$readTranscriptionFactor() }
       if (!is.na(csRDS)){ private$readCellSurface() }
+      if (!is.na(csRDS)){ private$readCancerGermlineAntigens() }
       print(paste0("Changing to working directory ", self$workDir))
     }
   ) 
@@ -440,7 +447,7 @@ DifferentialGeneExp <- R6Class(
       print("Predicting differntially expressed genes using exactTest()")
       private$GeneDF_DiffExp <- exactTest(GeneDF_Dispersion, pair = c(unique(modelGroup)))$table
       
-      print(head(private$GeneDF_DiffExp))
+      #print(head(private$GeneDF_DiffExp))
       #Using Quasilikelihood ratio test()
       #modelGroup   <- factor( c(rep(pairGroup2Name, group2Count), rep(pairGroup1Name, group1Count)) )
       #modelDesign  <- model.matrix( ~modelGroup )
@@ -448,7 +455,7 @@ DifferentialGeneExp <- R6Class(
       #fit                        <- glmQLFit(GeneDF_Dispersion, design = modelDesign )
       #private$GeneDF_DiffExp     <- glmQLFTest(fit, coef=2)$table
       
-      print("Predicting differntially expressed genes using LimmaVoom")
+      #print("Predicting differntially expressed genes using LimmaVoom")
       # GeneDF_Dispersion_v   <- voom(DGEobj, modelDesign)
       # fit_v                 <- lmFit(GeneDF_Dispersion_v, modelDesign)
       # fit_v                 <- eBayes(fit_v)
@@ -572,6 +579,7 @@ DifferentialGeneExp <- R6Class(
     private$filterGenes(filterName="proteinCoding")
     private$filterGenes(filterName="cellsurface")
     private$filterGenes(filterName="transcriptionFactor")
+    private$filterGenes(filterName="cancergermlineantigen")
     
     return(private$GeneDF_DiffExp)
   },
@@ -624,6 +632,20 @@ DifferentialGeneExp <- R6Class(
                                                  "/", rnaseqProject$DiffGeneExpRDS,"/",private$pairGroup1Name,"_",
                                                  private$pairGroup2Name,"_",filterName,".rds"))
              write.table(GeneDF_DiffExp_tfDF, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
+                                                     "/", rnaseqProject$DiffGeneExpAnaDir,"/",private$pairGroup1Name,"_",
+                                                     private$pairGroup2Name,"_",filterName,".txt"), sep="\t", row.names = FALSE,
+                         quote=FALSE)
+           },
+           "cancergermlineantigen"= {
+             
+             GeneDF_DiffExp_cgaDF <- private$GeneDF_DiffExp %>% filter(GeneName %in% as.character(rnaseqProject$cgaDF[,"GeneName"]))
+             GeneDF_DiffExp_cgaDF <- dplyr::left_join(GeneDF_DiffExp_cgaDF, rnaseqProject$pcDF, by = "GeneID")
+             #print("Filter matched ", dim(GeneDF_DiffExp_cgaDF)[1], " out of  ", dim(rnaseqProject$tfDF)[1], " given TF genes")
+             print("filtering for transcriptionFactor genes")
+             saveRDS(GeneDF_DiffExp_cgaDF, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
+                                                 "/", rnaseqProject$DiffGeneExpRDS,"/",private$pairGroup1Name,"_",
+                                                 private$pairGroup2Name,"_",filterName,".rds"))
+             write.table(GeneDF_DiffExp_cgaDF, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
                                                      "/", rnaseqProject$DiffGeneExpAnaDir,"/",private$pairGroup1Name,"_",
                                                      private$pairGroup2Name,"_",filterName,".txt"), sep="\t", row.names = FALSE,
                          quote=FALSE)
