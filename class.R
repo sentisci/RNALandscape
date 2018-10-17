@@ -427,21 +427,40 @@ DifferentialGeneExp <- R6Class(
     
     ## Use the appropriate method depending upon the size of the replicates
     if( group1Count > 1 & group2Count > 1 )   {
+
       print("Groups have replicates")
       ## Generate model & design for differential gene expression (edgeR only for now)
-      #modelGroup   <- factor( c(rep(pairGroup2Name, group2Count), rep(pairGroup1Name, group1Count)) )
+      
+      #Using exactTest()
       modelGroup   <- factor( c( rep(pairGroup1Name, group1Count),rep(pairGroup2Name, group2Count)) )
       modelDesign  <- model.matrix( ~modelGroup )
       print(paste(pairGroup1Name, group1Count,pairGroup2Name,group2Count ))
       ## Estimate Dispersion using estimateDisp() 
       GeneDF_Dispersion  <- estimateDisp(DGEobj, design = modelDesign )
-      #Using exactTest()
       print("Predicting differntially expressed genes using exactTest()")
       private$GeneDF_DiffExp <- exactTest(GeneDF_Dispersion, pair = c(unique(modelGroup)))$table
-      #Using glmQLFit()
+      
+      print(head(private$GeneDF_DiffExp))
+      #Using Quasilikelihood ratio test()
+      #modelGroup   <- factor( c(rep(pairGroup2Name, group2Count), rep(pairGroup1Name, group1Count)) )
+      #modelDesign  <- model.matrix( ~modelGroup )
       #print("Predicting differntially expressed genes using Quasi Likelihood ratio test glmQLFit() & glmQLFTest()")
       #fit                        <- glmQLFit(GeneDF_Dispersion, design = modelDesign )
       #private$GeneDF_DiffExp     <- glmQLFTest(fit, coef=2)$table
+      
+      print("Predicting differntially expressed genes using LimmaVoom")
+      # GeneDF_Dispersion_v   <- voom(DGEobj, modelDesign)
+      # fit_v                 <- lmFit(GeneDF_Dispersion_v, modelDesign)
+      # fit_v                 <- eBayes(fit_v)
+      # modelGroup_v   <- factor( c(rep(pairGroup2Name, group2Count), rep(pairGroup1Name, group1Count)) )
+      # modelDesign_v  <- model.matrix( ~modelGroup_v )
+      # GeneDF_Dispersion_vwts  <- voomWithQualityWeights(DGEobj, design=modelDesign_v, normalization="none", plot=FALSE)
+      # fit_vwts                <- eBayes(lmFit(GeneDF_Dispersion_vwts,design=modelDesign_v))
+      # GeneDF_DiffExp_V        <- topTable(fit_vwts,coef=2,number=length(fit_vwts$genes[,1]),sort.by="none")
+      # print(head(GeneDF_DiffExp_V))
+      
+      
+      
     }
     else  {
       ## Generate model & design for differential gene expression (edgeR only for now)
