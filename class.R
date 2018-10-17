@@ -51,7 +51,7 @@ ProjectSetUp <- R6Class(
           self$metaDataDF <- dplyr::filter_(self$metaDataDF, .dots=list(x))
         })
       }
-      print(paste0("Dimension of metadata is applying factorsToExclude ", paste(dim(self$metaDataDF))))
+      print(paste0("Dimension of metadata after applying parameter 'factorsToExclude' is ", paste(dim(self$metaDataDF)[1])))
     },
     readAnnotation = function() {
       self$annotationDF <- readRDS(self$annotationRDS) %>% as.data.frame()
@@ -61,11 +61,11 @@ ProjectSetUp <- R6Class(
       colnames(self$pcDF)[c(1,2)] <- c("GeneName","GeneID")
     }
     ,
-    readProteinCoding = function(){
-      self$tfDF <- readRDS(self$tfRDS) %>% dplyr::filter(NewCount >= 5)
+    readTranscriptionFactor = function(){
+      self$tfDF <- readRDS(self$tfRDS)
     },
-    readProteinCoding = function(){
-      self$csDF <- readRDS(self$csRDS)
+    readCellSurface = function(){
+      self$csDF <- readRDS(self$csRDS)  %>% dplyr::filter(NewCount >= 5)
     }
   ),
   public = list(
@@ -119,11 +119,15 @@ ProjectSetUp <- R6Class(
       self$DiffGeneExpAnaDir <- DiffGeneExpAnaDir
       self$DiffGeneExpRDS <- DiffGeneExpRDS
       self$pcRDS <- pcRDS
+      self$tfRDS <- tfRDS
+      self$csRDS <- csRDS
       self$factorsToExclude <- factorsToExclude
       private$checkDirExists()
       private$readMetaData()
       private$readAnnotation()
-      private$readProteinCoding()
+      if (!is.na(pcRDS)){ private$readProteinCoding() }
+      if (!is.na(tfRDS)){ private$readTranscriptionFactor() }
+      if (!is.na(csRDS)){ private$readCellSurface() }
       print(paste0("Changing to working directory ", self$workDir))
     }
   ) 
@@ -139,11 +143,11 @@ CoreUtilities <- R6Class(
     readTXTFiles  = function(x, fileSuffix=NA, colNameSelect=NA, primaryID=NA ){
       if(!is.na(fileSuffix)) 
       {
-          sampleName <- gsub(fileSuffix, "", basename(x)) 
+        sampleName <- gsub(fileSuffix, "", basename(x)) 
       } else { 
-          sampleName <- basename(x) 
+        sampleName <- basename(x) 
       }
-      print(paste0("I am in readTXTFiles ", sampleName, "  ", colNameSelect))
+      ## print(paste0("I am in readTXTFiles ", sampleName, "  ", colNameSelect))
       rdsObj <- fread(x, sep="\t", header = TRUE) %>% rename_(.dots=setNames(colNameSelect, sampleName))
       return(rdsObj[, c(primaryID,sampleName), with=FALSE])
       
@@ -177,39 +181,38 @@ CoreUtilities <- R6Class(
       assert_that( !is.na(fileFormat)  , msg ="Please provide file format to parse. Following are supported, \"rds\", \"csv or text\", \"feather\" ")
       #
       if( is.na(colNameSelect) & is.na(colIndexSelect)) {
-         print("First column of every file will be selected.Or use either \"colNameSelect\" or \"colIndexSelect\"")
-         colIndexSelect = 1
-       }
-       if ( is.na(colNameSelect) ) { 
-         colNameSelect  =  colIndexSelect
-       } 
-       if(isRowNames) assert_that(!is.na(rowNamesColInFile), msg= "Please provide row names index , \"rowNamesColInFile\" can't be NA ")
+        print("First column of every file will be selected.Or use either \"colNameSelect\" or \"colIndexSelect\"")
+        colIndexSelect = 1
+      }
+      if ( is.na(colNameSelect) ) { 
+        colNameSelect  =  colIndexSelect
+      } 
+      if(isRowNames) assert_that(!is.na(rowNamesColInFile), msg= "Please provide row names index , \"rowNamesColInFile\" can't be NA ")
       
-       self$allFileList = paste0(as.character(metadata[,metadataFileRefCol]),fileSuffix)
-       print(head(self$allFileList))
-
-       dirs                <- list.dirs(paste0(self$workDir,"/",self$projectName,"/",dir))[-1]
-       folderNames         <- basename(dirs)
-       
-       switch(fileFormat,
-       
-      #        "rds"     = {
-      #          mergedDataList        <- lapply( lapply(dirs, list.files, full.names=T),
-      #                                           private$mergeRDSFiles, fileFormat = fileFormat, colInterest = colIndexSelect, fileSuffix = fileSuffix,
-      #                                           colNameSelect = colNameSelect )
-      #          rowNames              <- rownames(mergedDataList[[1]])
-      #          mergedData            <- dplyr::bind_cols( mergedDataList)
-      #          rownames(mergedData)  <- rowNames
-      #          return(mergedData)
-      #        },
-               "txt"    = {
-                 mergedDataList        <- lapply( lapply(dirs, list.files, full.names=T),
-                                                  private$mergeTXTFiles, fileSuffix = fileSuffix, colNameSelect = colNameSelect, primaryID=primaryID )
-                 mergedData            <-  purrr::reduce( mergedDataList,  full_join, by=primaryID )
-                 mergedData            <-  tibble::column_to_rownames(mergedData, var=primaryID)
-                 return(mergedData)
-              }
-       )
+      self$allFileList = paste0(as.character(metadata[,metadataFileRefCol]),fileSuffix)
+      
+      dirs                <- list.dirs(paste0(self$workDir,"/",self$projectName,"/",dir))[-1]
+      folderNames         <- basename(dirs)
+      
+      switch(fileFormat,
+             
+             #        "rds"     = {
+             #          mergedDataList        <- lapply( lapply(dirs, list.files, full.names=T),
+             #                                           private$mergeRDSFiles, fileFormat = fileFormat, colInterest = colIndexSelect, fileSuffix = fileSuffix,
+             #                                           colNameSelect = colNameSelect )
+             #          rowNames              <- rownames(mergedDataList[[1]])
+             #          mergedData            <- dplyr::bind_cols( mergedDataList)
+             #          rownames(mergedData)  <- rowNames
+             #          return(mergedData)
+             #        },
+             "txt"    = {
+               mergedDataList        <- lapply( lapply(dirs, list.files, full.names=T),
+                                                private$mergeTXTFiles, fileSuffix = fileSuffix, colNameSelect = colNameSelect, primaryID=primaryID )
+               mergedData            <-  purrr::reduce( mergedDataList,  full_join, by=primaryID )
+               mergedData            <-  tibble::column_to_rownames(mergedData, var=primaryID)
+               return(mergedData)
+             }
+      )
     },
     ## Consolidate the matrix
     consolidateDF = function(df = NA, featureName=NA, funcName=NA, colsToExclude = NA){
@@ -261,10 +264,10 @@ CoreUtilities <- R6Class(
     },
     ## Annotate a gene expression df with "GeneID" as primary key
     featureNameAnot = function(querryDF=NA, identifier=NA){
-        annotDF <- dplyr::left_join(rnaseqProject$annotationDF, queryDF, by=identifier)
-        print(paste("Annotating expression DF"))
-        print(dim(annotDF))
-        return(annotDF)
+      annotDF <- dplyr::left_join(rnaseqProject$annotationDF, queryDF, by=identifier)
+      print(paste("Annotating expression DF"))
+      print(dim(annotDF))
+      return(annotDF)
     }
   )
 )
@@ -294,11 +297,11 @@ GeneExpNormalization <- R6Class(
       
       private$annotationDF %<>% mutate(!!private$featureType := super$factorizeColumn(private$annotationDF[[private$featureType]], 
                                                                                       row.names(private$countObj))) %>% 
-                                                                                      dplyr::arrange_(.dots=c(private$featureType))
+        dplyr::arrange_(.dots=c(private$featureType))
       
       if(private$proteinCodingOnly) {
         keepProteinCodingOut     <- super$keepProteinCoding(geneMatrix = private$countObj, 
-                                                         annotation=private$annotationDF, featureType=private$featureType)
+                                                            annotation=private$annotationDF, featureType=private$featureType)
         private$countObj         <- keepProteinCodingOut[[1]]
         private$annotationDF     <- keepProteinCodingOut[[2]]
       }
@@ -307,25 +310,25 @@ GeneExpNormalization <- R6Class(
       colnames(private$miniAnnotationDF) <- c("GeneID", "Length")
       
       switch(private$packageRNAseq,
-              
-              "edgeR"= {
-                
-                ##  Make EdgeR Object
-                private$GeneDF                  <- DGEList(counts=private$countObj, genes=private$miniAnnotationDF, 
-                                                           group = as.factor(as.character(private$design)) )
-                ## Estimate Normalising Factors
-                private$GeneDFNorm              <- calcNormFactors(private$GeneDF)
-                
-              },
-              "deseq2"= {
-                
-                ##  Make deseq2 Object
-                condition                       <- private$design
-                private$GeneDF                  <- DESeqDataSetFromMatrix(countData = private$countObj, colData = DataFrame(condition), design = ~condition)
-                mcols(private$GeneDF)$basepairs <- private$miniAnnotationDF$Length-174
-                ## Estimate SizeFactors
-                private$GeneDFNorm              <- estimateSizeFactors(private$GeneDF)
-              }
+             
+             "edgeR"= {
+               
+               ##  Make EdgeR Object
+               private$GeneDF                  <- DGEList(counts=private$countObj, genes=private$miniAnnotationDF, 
+                                                          group = as.factor(as.character(private$design)) )
+               ## Estimate Normalising Factors
+               private$GeneDFNorm              <- calcNormFactors(private$GeneDF)
+               
+             },
+             "deseq2"= {
+               
+               ##  Make deseq2 Object
+               condition                       <- private$design
+               private$GeneDF                  <- DESeqDataSetFromMatrix(countData = private$countObj, colData = DataFrame(condition), design = ~condition)
+               mcols(private$GeneDF)$basepairs <- private$miniAnnotationDF$Length-174
+               ## Estimate SizeFactors
+               private$GeneDFNorm              <- estimateSizeFactors(private$GeneDF)
+             }
       )
       
     }
@@ -460,7 +463,7 @@ DifferentialGeneExp <- R6Class(
     return(private$GeneDF_DiffExp)
   },
   MeanGroupExpression = function(group1Count = NA, group2Count = NA, geneExpMatrix = NA){
-
+    
     ## GeneExpression Mean
     if(group1Count > 1) {
       private$GeneDF_DiffExp[private$pairGroup1Name]        <- apply(geneExpMatrix[,as.character(private$group1Samples[,1]), drop=FALSE], 1, mean)
@@ -507,9 +510,9 @@ DifferentialGeneExp <- R6Class(
       dplyr::arrange_(.dots = self$groupColumnName)
     
     private$group1Samples <- subSetSamples %>% filter_(interp(~y %in% x, .values=list(y = as.name(self$groupColumnName), x = pairGroup1))) %>%
-                                       select_(.dots=list(self$samplesColumnName))
+      select_(.dots=list(self$samplesColumnName))
     private$group2Samples <- subSetSamples %>% filter_(interp(~y %in% x, .values=list(y = as.name(self$groupColumnName), x = pairGroup2))) %>%
-                                       select_(.dots=list(self$samplesColumnName))
+      select_(.dots=list(self$samplesColumnName))
     
     ## Subset Count matrix
     pairCountMatrix <- private$countObj %>% data.frame() %>% dplyr::select_(.dots=as.character(subSetSamples[,self$samplesColumnName]))
@@ -518,7 +521,7 @@ DifferentialGeneExp <- R6Class(
     groupCount  <- table(subSetSamples[,self$groupColumnName])
     group1Count <- sum(groupCount[pairGroup1])
     group2Count <- sum(groupCount[pairGroup2])
-        
+    
     ## Generate model & design for differential gene expression (edgeR only for now)
     modelGroup   <- factor(c(rep(private$pairGroup1Name, group1Count), rep( private$pairGroup2Name, group2Count   )))
     modelDesign  <- model.matrix( ~modelGroup )
@@ -533,10 +536,10 @@ DifferentialGeneExp <- R6Class(
       proteinCodingOnly = FALSE
     )
     geneExpression = expressionObj$edgeRMethod(self$expressionUnit)
-
+    
     ## perform differential gene expression.
     private$GeneDF_DiffExp <- private$DiffGeneExp(group1Count = group1Count, group2Count = group2Count, DGEobj = expressionObj$edgeRMethod("NormFactorDF"), 
-                                        pairGroup1Name = private$pairGroup1Name, pairGroup2Name = private$pairGroup2Name)
+                                                  pairGroup1Name = private$pairGroup1Name, pairGroup2Name = private$pairGroup2Name)
     
     ## calculat mean expression
     private$GeneDF_DiffExp                <- private$MeanGroupExpression(group1Count = group1Count, group2Count = group2Count, geneExpMatrix = geneExpression)
@@ -548,8 +551,8 @@ DifferentialGeneExp <- R6Class(
     ## Filter Genes
     private$filterGenes(filterName="all")
     private$filterGenes(filterName="proteinCoding")
-    ## private$filterGenes(filterName="cellsurface")
-    ## private$filterGenes(filterName="transcriptionFactor")
+    private$filterGenes(filterName="cellsurface")
+    private$filterGenes(filterName="transcriptionFactor")
     
     return(private$GeneDF_DiffExp)
   },
@@ -566,49 +569,53 @@ DifferentialGeneExp <- R6Class(
            "proteinCoding"= {
              
              GeneDF_DiffExp_PC <- na.omit(dplyr::left_join(rnaseqProject$pcDF, private$GeneDF_DiffExp, by="GeneID"))
+             #print("Filter matched ", dim(GeneDF_DiffExp_PC)[1], " out of  ", dim(rnaseqProject$pcDF)[1], " given protein coding genes")
+             print("filtering for pritein coding genes")
              #pcDF <- private$GeneDF_DiffExp %>% filter(GeneName %in% rnaseqProject$pcDF)
              saveRDS(GeneDF_DiffExp_PC, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
-                                  "/", rnaseqProject$DiffGeneExpRDS,"/",private$pairGroup1Name,"_",
-                                  private$pairGroup2Name,"_",filterName,"_",".rds"))
+                                               "/", rnaseqProject$DiffGeneExpRDS,"/",private$pairGroup1Name,"_",
+                                               private$pairGroup2Name,"_",filterName,"_",".rds"))
              write.table(GeneDF_DiffExp_PC, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
-                                                        "/", rnaseqProject$DiffGeneExpAnaDir,"/",private$pairGroup1Name,"_",
-                                                        private$pairGroup2Name,"_",filterName,"_",".txt"), sep="\t", row.names = FALSE,
-                                                        quote=FALSE)
+                                                   "/", rnaseqProject$DiffGeneExpAnaDir,"/",private$pairGroup1Name,"_",
+                                                   private$pairGroup2Name,"_",filterName,".txt"), sep="\t", row.names = FALSE,
+                         quote=FALSE)
            },
            "cellsurface"= {
              
-             GeneDF_DiffExp_csDF <- private$GeneDF_DiffExp %>% filter(GeneName %in% rnaseqProject$csDF[,GeneName])
-             print("Filter matched ", dim(GeneDF_DiffExp_csDF)[1], " out of  ", dim(rnaseqProject$csDF)[1], " given CS genes")
+             GeneDF_DiffExp_csDF <- private$GeneDF_DiffExp %>% filter(GeneName %in% as.character(rnaseqProject$csDF[,"GeneName"]))
+             #print("Filter matched ", dim(GeneDF_DiffExp_csDF)[1], " out of  ", dim(rnaseqProject$csDF)[1], " given CS genes")
+             print("filtering for cellsurface genes")
              saveRDS(GeneDF_DiffExp_csDF, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
-                                               "/", rnaseqProject$DiffGeneExpRDS,"/",private$pairGroup1Name,"_",
-                                               private$pairGroup2Name,"_",filterName,"_",".rds"))
+                                                 "/", rnaseqProject$DiffGeneExpRDS,"/",private$pairGroup1Name,"_",
+                                                 private$pairGroup2Name,"_",filterName,".rds"))
              write.table(GeneDF_DiffExp_csDF, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
-                                                   "/", rnaseqProject$DiffGeneExpAnaDir,"/",private$pairGroup1Name,"_",
-                                                   private$pairGroup2Name,"_",filterName,"_",".txt"), sep="\t", row.names = FALSE,
+                                                     "/", rnaseqProject$DiffGeneExpAnaDir,"/",private$pairGroup1Name,"_",
+                                                     private$pairGroup2Name,"_",filterName,".txt"), sep="\t", row.names = FALSE,
                          quote=FALSE)
              
-          },
+           },
            "transcriptionFactor"= {
              
-             GeneDF_DiffExp_tfDF <- private$GeneDF_DiffExp %>% filter(GeneName %in% rnaseqProject$tfDF[,GeneName])
-             print("Filter matched ", dim(GeneDF_DiffExp_tfDF)[1], " out of  ", dim(rnaseqProject$tfDF)[1], " given TF genes")
+             GeneDF_DiffExp_tfDF <- private$GeneDF_DiffExp %>% filter(GeneName %in% as.character(rnaseqProject$tfDF[,"GeneName"]))
+             #print("Filter matched ", dim(GeneDF_DiffExp_tfDF)[1], " out of  ", dim(rnaseqProject$tfDF)[1], " given TF genes")
+             print("filtering for transcriptionFactor genes")
              saveRDS(GeneDF_DiffExp_tfDF, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
-                                               "/", rnaseqProject$DiffGeneExpRDS,"/",private$pairGroup1Name,"_",
-                                               private$pairGroup2Name,"_",filterName,"_",".rds"))
+                                                 "/", rnaseqProject$DiffGeneExpRDS,"/",private$pairGroup1Name,"_",
+                                                 private$pairGroup2Name,"_",filterName,".rds"))
              write.table(GeneDF_DiffExp_tfDF, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
-                                                   "/", rnaseqProject$DiffGeneExpAnaDir,"/",private$pairGroup1Name,"_",
-                                                   private$pairGroup2Name,"_",filterName,"_",".txt"), sep="\t", row.names = FALSE,
+                                                     "/", rnaseqProject$DiffGeneExpAnaDir,"/",private$pairGroup1Name,"_",
+                                                     private$pairGroup2Name,"_",filterName,".txt"), sep="\t", row.names = FALSE,
                          quote=FALSE)
-          },
-          "all" = {
-            saveRDS(private$GeneDF_DiffExp, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
-                                              "/", rnaseqProject$DiffGeneExpRDS,"/",private$pairGroup1Name,"_",
-                                              private$pairGroup2Name,"_",filterName,"_",".rds"))
-            write.table(private$GeneDF_DiffExp, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
-                                                  "/", rnaseqProject$DiffGeneExpAnaDir,"/",private$pairGroup1Name,"_",
-                                                  private$pairGroup2Name,"_",filterName,"_",".txt"), sep="\t", row.names = FALSE,
-                        quote=FALSE)
-          }
+           },
+           "all" = {
+             saveRDS(private$GeneDF_DiffExp, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
+                                                    "/", rnaseqProject$DiffGeneExpRDS,"/",private$pairGroup1Name,"_",
+                                                    private$pairGroup2Name,"_",filterName,".rds"))
+             write.table(private$GeneDF_DiffExp, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
+                                                        "/", rnaseqProject$DiffGeneExpAnaDir,"/",private$pairGroup1Name,"_",
+                                                        private$pairGroup2Name,"_",filterName,".txt"), sep="\t", row.names = FALSE,
+                         quote=FALSE)
+           }
     )
   }
   ),
