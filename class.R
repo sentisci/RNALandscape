@@ -429,19 +429,30 @@ DifferentialGeneExp <- R6Class(
     if( group1Count > 1 & group2Count > 1 )   {
       print("Groups have replicates")
       ## Generate model & design for differential gene expression (edgeR only for now)
-      #modelGroup   <- factor( c(rep(pairGroup2Name, group2Count), rep(pairGroup1Name, group1Count)) )
+      
+      #Using exactTest()
       modelGroup   <- factor( c( rep(pairGroup1Name, group1Count),rep(pairGroup2Name, group2Count)) )
       modelDesign  <- model.matrix( ~modelGroup )
       print(paste(pairGroup1Name, group1Count,pairGroup2Name,group2Count ))
       ## Estimate Dispersion using estimateDisp() 
       GeneDF_Dispersion  <- estimateDisp(DGEobj, design = modelDesign )
-      #Using exactTest()
       print("Predicting differntially expressed genes using exactTest()")
       private$GeneDF_DiffExp <- exactTest(GeneDF_Dispersion, pair = c(unique(modelGroup)))$table
-      #Using glmQLFit()
+      
+      #Using Quasilikelihood ratio test()
+      #modelGroup   <- factor( c(rep(pairGroup2Name, group2Count), rep(pairGroup1Name, group1Count)) )
+      #modelDesign  <- model.matrix( ~modelGroup )
       #print("Predicting differntially expressed genes using Quasi Likelihood ratio test glmQLFit() & glmQLFTest()")
       #fit                        <- glmQLFit(GeneDF_Dispersion, design = modelDesign )
       #private$GeneDF_DiffExp     <- glmQLFTest(fit, coef=2)$table
+      
+      print("Predicting differntially expressed genes using LimmaVoom")
+      GeneDF_Dispersion_v   <- voom(DGEobj, modelDesign)
+      fit_v                 <- lmFit(GeneDF_Dispersion_v, modelDesign)
+      fit_v                 <- eBayes(fit_v)
+      GeneDF_DiffExp_V      <- fit_v$table
+      print(paste(GeneDF_DiffExp_V))
+      
     }
     else  {
       ## Generate model & design for differential gene expression (edgeR only for now)
