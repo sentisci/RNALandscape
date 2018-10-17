@@ -38,7 +38,7 @@ corUtilsFuncs <- CoreUtilities$new(  ProjectSetUpObject = rnaseqProject )
 
 ## Generate expression matrix
 rm(mergeObjectsNoDup)
-mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Genes.v1", 
+mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Genes", 
                                                    fileFormat        = "txt", 
                                                    colNameSelect     = "expected_count", 
                                                    isRowNames        = TRUE, 
@@ -102,8 +102,8 @@ Tumors         <-  c("ASPS","DSRCT", "EWS" ,"HBL", "ML", "NB" ,"OS", "RMS", "SS"
 ## Testing 
 dgeObj  <- DifferentialGeneExp$new(
   countObj          = expressionObj$edgeRMethod("NormFactorDF")$counts,
-  group1            = list(list("NormalsNoGermLine"=NormalsNoGermLine,each=FALSE)),
-  group2            = list(list("Tumor"=tumorSubStatus.polyA, each=TRUE)),
+  group1            = list(list("Brain"=Brain,each=FALSE)),
+  group2            = list(list("Tumor"=tumorSubStatus.polyA[1], each=TRUE)),
   packageRNAseq     = "edgeR",
   groupColumnName   = rnaseqProject$factorName,
   metadataDF        = rnaseqProject$metaDataDF,
