@@ -1,4 +1,3 @@
-# Transcriptome gene expression analysis (RNASeq/Whote Transcriptome Analysis). 
+# Transcriptome gene expression analysis (RNASeq Analysis). 
 
-Setup RNASeq project, perform Normalization and differential gene expression analysis using EDgeR, DESeq2 and LimmaVoom . 
-It alows multiple group comparisions in one go.
+Setup RNASeq project, perform normalization and ease the use of multiple differential gene expression analysis tools like EDgeR, DESeq2 and LimmaVoom at once. It also alows multiple group comparisions in one go.
