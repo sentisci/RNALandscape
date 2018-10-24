@@ -271,7 +271,7 @@ CoreUtilities <- R6Class(
     },
     ## Annotate a gene expression df with "GeneID" as primary key
     featureNameAnot = function(querryDF=NA, identifier=NA){
-      annotDF <- dplyr::left_join(rnaseqProject$annotationDF, queryDF, by=identifier)
+      annotDF <- dplyr::left_join(rnaseqProject$annotationDF, querryDF, by=identifier)
       print(paste("Annotating expression DF"))
       print(dim(annotDF))
       return(annotDF)
@@ -364,9 +364,13 @@ GeneExpNormalization <- R6Class(
       assert_that(private$packageRNAseq == "edgeR", msg = paste0("GeneExpNormalization Object was created for ",private$packageRNAseq,
                                                                  ". Please create a new GeneExpNormalization Object for edgeR"))
       
-      assert_that(x %in% c("CPM", "TMM-RPKM", "TPM", "NormFactorDF"), msg = "This function can only generate \"CPM\", \"TMM-RPKM\", \"TPM\" values ")
+      assert_that(x %in% c("CPM", "TMM-RPKM", "TPM", "NormFactorDF", "RawCounts"), msg = "This function can only generate \"CPM\", \"TMM-RPKM\", \"TPM\" values ")
       
-      if(x == "NormFactorDF") { return(private$GeneDFNorm) }
+      if(x == "NormFactorDF") return(private$GeneDFNorm)
+      if(x == "RawCounts") { 
+            rawCounts <-  private$GeneDFNorm$counts %>% data.frame() %>% tibble::rownames_to_column(var="GeneID")
+            return( corUtilsFuncs$featureNameAnot(querryDF=rawCounts, identifier="GeneID")  ) 
+        }
       if(x == "CPM" )         { 
           cpmDF <- as.data.frame(cpm(private$GeneDFNorm,  normalized.lib.sizes = TRUE,log = FALSE)) %>% tibble::rownames_to_column(var="GeneID")
           return( corUtilsFuncs$featureNameAnot(querryDF=cpmDF, identifier="GeneID") )  

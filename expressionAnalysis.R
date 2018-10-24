@@ -72,7 +72,12 @@ expressionObj <- GeneExpNormalization$new(
 
 ## Get expression in desired units
 expressionTMM.RPKM = expressionObj$edgeRMethod("TMM-RPKM")
+write.table(expressionTMM.RPKM, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,"/",rnaseqProject$outputdirTXTDir,"/","expressionTMM.RPKM.txt"),
+            sep="\t", quote = FALSE, row.names = FALSE)
 
+expressionRawCounts = expressionObj$edgeRMethod("RawCounts")
+write.table(expressionRawCounts, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,"/",rnaseqProject$outputdirTXTDir,"/","rawCounts.txt"),
+            sep="\t", quote = FALSE, row.names = FALSE)
 ## Perform Differential gene expression analysis
 
 ## Control groups ##
