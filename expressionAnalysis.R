@@ -99,7 +99,7 @@ tumorSubStatus.ribozero <-  c("WT" ,"CCSK")
 Tumors         <-  c("ASPS","DSRCT", "EWS" ,"HBL", "ML", "NB" ,"OS", "RMS", "SS", "Teratoma" ,"UDS" ,"YST","WT", "CCSK")
 
 
-## Testing 
+## Perform Differential gene expression analysis
 dgeObj  <- DifferentialGeneExp$new(
   countObj          = expressionObj$edgeRMethod("NormFactorDF")$counts,
   group1            = list(list("Brain"=Brain,each=FALSE)),
@@ -116,4 +116,10 @@ dgeObj  <- DifferentialGeneExp$new(
 DiffExpObj <- dgeObj$performDiffGeneExp()
 
 head(DiffExpObj[[1]] %>% dplyr::arrange(-logFC))
+
+## Filtering of Differentially expressed genes.
+
+
+
+
 
