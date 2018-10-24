@@ -588,12 +588,13 @@ DifferentialGeneExp <- R6Class(
     private$GeneDF_DiffExp                <- corUtilsFuncs$featureNameAnot(querryDF=private$GeneDF_DiffExp, identifier="GeneID")
     
     ## Filter Genes
-    private$filterGenes(filterName="all")
-    private$filterGenes(filterName="proteinCoding")
-    private$filterGenes(filterName="cellsurface")
-    private$filterGenes(filterName="transcriptionFactor")
-    private$filterGenes(filterName="cancergermlineantigen")
-    
+    if( self$subsetGenes ){
+      private$filterGenes(filterName="all")
+      private$filterGenes(filterName="proteinCoding")
+      private$filterGenes(filterName="cellsurface")
+      private$filterGenes(filterName="transcriptionFactor")
+      private$filterGenes(filterName="cancergermlineantigen")
+    }
     return(private$GeneDF_DiffExp)
   },
   ## Annotate a gene expression df with "GeneID" as primary key
@@ -688,9 +689,10 @@ DifferentialGeneExp <- R6Class(
   diffGeneExpList   = NULL,
   expressionUnit    = NULL,
   featureType       = NULL,
+  subsetGenes       = NULL,
   writeFiles        = NULL,
   initialize        = function(countObj = NA, metadataDF = NA, packageRNAseq = NA, expressionUnit = NA, featureType = NA,
-                               group1   = NA, group2   = NA, groupColumnName = NA, samplesColumnName = NA,
+                               group1   = NA, group2   = NA, groupColumnName = NA, samplesColumnName = NA, subsetGenes =FALSE,
                                writeFiles = FALSE){
     
     private$countObj           <- countObj
@@ -702,6 +704,7 @@ DifferentialGeneExp <- R6Class(
     self$group2                <- group2
     self$groupColumnName       <- groupColumnName
     self$samplesColumnName     <- samplesColumnName
+    self$subsetGenes           <- subsetGenes
     self$writeFiles            <- writeFiles
     
     ## Get the group names
@@ -710,6 +713,8 @@ DifferentialGeneExp <- R6Class(
     
     ## Pair elements from two groups
     self$pairedList    = private$makePairs(names(private$group1Flatten), names(private$group2Flatten))
+    print("Comparing Pairs ")
+    print(self$pairedList)
     
     ## printing
     print("printing Group1")
