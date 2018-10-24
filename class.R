@@ -366,10 +366,19 @@ GeneExpNormalization <- R6Class(
       
       assert_that(x %in% c("CPM", "TMM-RPKM", "TPM", "NormFactorDF"), msg = "This function can only generate \"CPM\", \"TMM-RPKM\", \"TPM\" values ")
       
-      if(x == "NormFactorDF") return(private$GeneDFNorm)
-      if(x == "CPM" )         return( as.data.frame(cpm(private$GeneDFNorm,  normalized.lib.sizes = TRUE,log = FALSE))   )
-      if(x == "TMM-RPKM" )   return( as.data.frame(rpkm(private$GeneDFNorm, normalized.lib.sizes = TRUE, log = FALSE))  )
-      if(x == "TPM" )         return(apply(rpkm(private$GeneDFNorm, normalized.lib.sizes = TRUE), 2 , super$fpkmToTpm)         )
+      if(x == "NormFactorDF") { return(private$GeneDFNorm) }
+      if(x == "CPM" )         { 
+          cpmDF <- as.data.frame(cpm(private$GeneDFNorm,  normalized.lib.sizes = TRUE,log = FALSE)) %>% tibble::rownames_to_column(var="GeneID")
+          return( corUtilsFuncs$featureNameAnot(querryDF=cpmDF, identifier="GeneID") )  
+        }
+      if(x == "TMM-RPKM" )    { 
+          rpkmDF <- as.data.frame(rpkm(private$GeneDFNorm, normalized.lib.sizes = TRUE, log = FALSE)) %>% tibble::rownames_to_column(var="GeneID")
+          return( corUtilsFuncs$featureNameAnot(querryDF=rpkmDF, identifier="GeneID") ) 
+        }
+      if(x == "TPM" )         { 
+          tpmDF <- apply(rpkm(private$GeneDFNorm, normalized.lib.sizes = TRUE), 2 , super$fpkmToTpm) %>% tibble::rownames_to_column(var="GeneID")
+          return( corUtilsFuncs$featureNameAnot(querryDF=tpmDF, identifier="GeneID") )  
+        }
       
     },
     deseq2           = function(x) {
@@ -572,7 +581,7 @@ DifferentialGeneExp <- R6Class(
     private$GeneDF_DiffExp["AvglogFPKM"]  <- apply(geneExpression , 1, mean)
     
     ## Annotate Genes 
-    private$GeneDF_DiffExp                <- private$featureNameAnot(querryDF=private$GeneDF_DiffExp, identifier="GeneID")
+    private$GeneDF_DiffExp                <- corUtilsFuncs$featureNameAnot(querryDF=private$GeneDF_DiffExp, identifier="GeneID")
     
     ## Filter Genes
     private$filterGenes(filterName="all")

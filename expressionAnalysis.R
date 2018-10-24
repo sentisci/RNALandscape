@@ -12,15 +12,16 @@ rnaseqProject <- ProjectSetUp$new(
   
   date                    = unlist(strsplit(x = as.character(Sys.time()), "\\s+"))[[1]],
   time                    = unlist(strsplit(x = as.character(Sys.time()), "\\s+"))[[2]],
-  projectName             = "RNASeq.RSEM",
-  annotationRDS           = "C:/Users/sindiris/R Scribble/Annotation RDS/annotation_ENSEMBL_gene.RDS",
+  projectName             = "Nitya.CART.Human",
+  annotationRDS           = "C:/Users/sindiris/R Scribble/Annotation RDS/annotation_06302016_ensembl.CAR_gene.RDS",
   pcRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/pc.other.HGNCTableFlat.rds",
   tfRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/TFs_no_epimachines.RDS",
   csRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/CellSurface.RDS",
+  cgaRDS                  = "C:/Users/sindiris/R Scribble/Annotation RDS/cancerGermlineAntigens.rds",
   outputPrefix            = "landscape",
   filterGenes             = TRUE,
   filterGeneMethod        = "bySum",
-  factorName              = "DIAGNOSIS.Substatus.Tumor.Normal.Tissue",
+  factorName              = "DIAGNOSIS.Substatus",
   metaDataFileName        = "MetadataMapper.txt",
   outputdirRDSDir         = "GeneRDSOutput",
   outputdirTXTDir         = "GeneTXTOutput",
@@ -29,8 +30,8 @@ rnaseqProject <- ProjectSetUp$new(
   plotsDataDir            = "FigureData",
   DiffGeneExpAnaDir       = "DiffExpResults",
   DiffGeneExpRDS          = "DiffGeneExpRDSOutput",
-  factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), "Normal.ribozero"=list("LIBRARY_TYPE"="Normal", 
-                                                                                                    "LibraryPrep" = "Ribozero"))
+  #factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), "Normal.ribozero"=list("LIBRARY_TYPE"="Normal", 
+  #                                                                                                  "LibraryPrep" = "Ribozero"))
 )
 
 ## Add utility functions to the project
