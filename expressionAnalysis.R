@@ -78,46 +78,46 @@ write.table(expressionTMM.RPKM, paste0(rnaseqProject$workDir,"/",rnaseqProject$p
 expressionRawCounts = expressionObj$edgeRMethod("RawCounts")
 write.table(expressionRawCounts, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,"/",rnaseqProject$outputdirTXTDir,"/","rawCounts.txt"),
             sep="\t", quote = FALSE, row.names = FALSE)
+
+## Perfrom unsupervised clustering
+expressionTMM.RPKM.ForHC  <- expressionTMM.RPKM %>% tibble::column_to_rownames(var="GeneID")
+expressionTMM.RPKM.ForHC.zscore <- t(apply( expressionTMM.RPKM.ForHC[,-c(1:6)], 1, corUtilsFuncs$zscore_All))
+corUtilsFuncs$performClustering(expressionTMM.RPKM.ForHC.zscore)
+
 ## Perform Differential gene expression analysis
 
 ## Control groups ##
 IM_tumor_IM_UTD       <- c("IM_tumor_IM_UTD")
 IM_tumor_IV_UTD       <- c("IM_tumor_IV_UTD")
-IV_tumor_lung_UTD     <- c("IV_tumor_lung_UTD")
-IV_tumor_lung_UTD     <- c("IV_tumor_lung_UTD")
+IV_tumor_lung_met_UTD <- c("IV_tumor_lung_met_UTD")
 IM_tumor              <- c("IM_tumor") 
 
 
 ##Condition group
 IM_tumor_IM_CART        <- c("IM_tumor_IM_CART")
 IM_tumor_IV_CART        <- c("IM_tumor_IV_CART")
-IV_tumor_lung_CART_EF1a <- c("IV_tumor_lung_CART_EF1a")
-IV_tumor_lung_CART_MSCV <- c("IV_tumor_lung_CART_MSCV")
-IV_tumor_lung           <- c("IV_tumor_lung")
+IV_tumor_lung_met_CARs  <- c("IV_tumor_lung_met_CART_EF1a", "IV_tumor_lung_met_CART_MSCV")
+IV_tumor_lung_met       <- c("IV_tumor_lung_met")
 
 
 ## Perform Differential gene expression analysis
-dgeObj  <- DifferentialGeneExp$new(
+dgeObj  <- DifferentialGeneExp$new (
   countObj          = expressionObj$edgeRMethod("NormFactorDF")$counts,
-  group1            = list(list("IM_tumor_IM_UTD"=IM_tumor_IM_UTD,each=FALSE), list("IM_tumor_IV_UTD"=IM_tumor_IV_UTD,each=FALSE) ),
-  group2            = list(list("IM_tumor_IM_CART"=IM_tumor_IM_CART, each=FALSE), list("IM_tumor_IV_CART"=IM_tumor_IV_CART, each=FALSE)),
+  group1            = list(list("IM_tumor_IM_UTD"=IM_tumor_IM_UTD,each=FALSE), list("IM_tumor_IV_UTD"=IM_tumor_IV_UTD,each=FALSE),
+                           list("IV_tumor_lung_met_UTD"=IV_tumor_lung_met_UTD, each=FALSE), list("IM_tumor"=IM_tumor, each=FALSE) ),
+  group2            = list(list("IM_tumor_IM_CART"=IM_tumor_IM_CART, each=FALSE), list("IM_tumor_IV_CART"=IM_tumor_IV_CART, each=FALSE),
+                           list("IV_tumor_lung_met_CARs"=IV_tumor_lung_met_CARs, each=TRUE), list("IV_tumor_lung_met"=IV_tumor_lung_met, each=FALSE)),
+  OneToOne          = TRUE,
   packageRNAseq     = "edgeR",
   groupColumnName   = rnaseqProject$factorName,
   metadataDF        = rnaseqProject$metaDataDF,
   samplesColumnName = "SAMPLE_ID",
   expressionUnit    = "TMM-RPKM",
   featureType       = "Gene",
-  subsetGenes       = TRUE,
+  subsetGenes       = FALSE,
   writeFiles        = TRUE
 )
 
 DiffExpObj <- dgeObj$performDiffGeneExp()
-
-head(DiffExpObj[[1]] %>% dplyr::arrange(-logFC))
-
-## Filtering of Differentially expressed genes.
-
-
-
 
 

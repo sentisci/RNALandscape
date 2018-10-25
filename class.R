@@ -426,6 +426,18 @@ DifferentialGeneExp <- R6Class(
     return(gsub( paste0(paste0("^",vectorOfNames) %>% paste0(.,"$"), collapse = "|"),toChangeName,inVectorName))
   },
   flattenGroup        = function(x){
+    
+    if(self$OneToOne) {
+      
+      lapply(x, function(y){  
+        if(y$each){
+          return( c(sapply(unlist(unname(y[1])), function(y){ return(y) }) ) )
+        } else {
+          return(y[1])
+        }
+      })
+      
+    } else {
     unlist(
       lapply(x, function(y){  
         if(y$each){
@@ -434,14 +446,24 @@ DifferentialGeneExp <- R6Class(
           return(y[1])
         }
       }), recursive = FALSE)
+    }
   },
   makePairs           = function(x, y){
-    pairs = unlist(lapply(x, function(X) {
+    if(self$OneToOne) {
+      pairList <- mapply(private$pairs, x, y )
+    } else {
+      pairList <- private$pairs(x, y) 
+    }
+
+    return(pairList)
+  },
+  pairs = function(x,y) {
+    pairedGroup = unlist(lapply(x, function(X) {
       lapply(y, function(Y) {
         c(X, Y)
       })
     }), recursive=FALSE)
-    return(pairs)
+    return(pairedGroup)
   },
   DiffGeneExp         = function( group1Count = NA, group2Count = NA, pairGroup1Name = NA,pairGroup2Name = NA, DGEobj = NA  ){
     
@@ -479,21 +501,15 @@ DifferentialGeneExp <- R6Class(
       # GeneDF_DiffExp_V        <- topTable(fit_vwts,coef=2,number=length(fit_vwts$genes[,1]),sort.by="none")
       # print(head(GeneDF_DiffExp_V))
       
-      
-      
     }
     else  {
       ## Generate model & design for differential gene expression (edgeR only for now)
-      modelGroup   <- factor(c(rep(pairGroup1Name, group1Count), rep( pairGroup2Name, group2Count   )))
-      modelDesign  <- model.matrix( ~modelGroup )
-      print(modelGroup)
-      print(modelDesign)
+      modelGroup                 <- factor(c(rep(pairGroup1Name, group1Count), rep( pairGroup2Name, group2Count   )))
+      modelDesign                <- model.matrix( ~modelGroup )
       ## Estimate Dispersion using estimateDisp() 
-      GeneDF_Dispersion  <- estimateDisp(DGEobj, design = modelDesign )
-      print("Predicting differntially expressed genes using exact test")
+      print("Predicting differntially expressed genes using  estimateGLMCommonDisp() and exact test ")
+      GeneDF_Dispersion          <- estimateGLMCommonDisp(DGEobj, method="deviance",robust="TRUE",subset=NULL )
       private$GeneDF_DiffExp     <- exactTest(GeneDF_Dispersion, pair = c(unique(modelGroup)))$table
-      #fit                        <- glmQLFit(GeneDF_Dispersion, design = modelDesign )
-      #private$GeneDF_DiffExp     <- glmLRT(fit, coef=2)$table 
     }
     
     private$GeneDF_DiffExp["FDR"]   <- p.adjust(private$GeneDF_DiffExp$PValue, method="BH")
@@ -527,12 +543,15 @@ DifferentialGeneExp <- R6Class(
   },
   executeDiffGeneExp  = function( pairedList = NA){
     
+    print("Analysing the paired group")
+    print( pairedList )
+    
     ## Get the group names
-    pairGroup1List <- private$group1Flatten[  pairedList[1] ]
+    pairGroup1List <- unlist(private$group1Flatten)[  pairedList[1] ]
     private$pairGroup1Name <- names(pairGroup1List)
     pairGroup1 <- unname(unlist(pairGroup1List))
     
-    pairGroup2List <- private$group2Flatten[  pairedList[2] ]
+    pairGroup2List <- unlist(private$group2Flatten)[  pairedList[2] ] 
     private$pairGroup2Name <- names(pairGroup2List)
     pairGroup2 <- unname(unlist(pairGroup2List))
     
@@ -588,8 +607,8 @@ DifferentialGeneExp <- R6Class(
     private$GeneDF_DiffExp                <- corUtilsFuncs$featureNameAnot(querryDF=private$GeneDF_DiffExp, identifier="GeneID")
     
     ## Filter Genes
+    private$filterGenes(filterName="all")
     if( self$subsetGenes ){
-      private$filterGenes(filterName="all")
       private$filterGenes(filterName="proteinCoding")
       private$filterGenes(filterName="cellsurface")
       private$filterGenes(filterName="transcriptionFactor")
@@ -681,6 +700,7 @@ DifferentialGeneExp <- R6Class(
   
   group1            = NULL,
   group2            = NULL,
+  OneToOne          = NULL,
   packageRNAseq     = NULL,
   factorsExclude    = NULL,
   groupColumnName   = NULL,
@@ -692,7 +712,7 @@ DifferentialGeneExp <- R6Class(
   subsetGenes       = NULL,
   writeFiles        = NULL,
   initialize        = function(countObj = NA, metadataDF = NA, packageRNAseq = NA, expressionUnit = NA, featureType = NA,
-                               group1   = NA, group2   = NA, groupColumnName = NA, samplesColumnName = NA, subsetGenes =FALSE,
+                               group1   = NA, group2   = NA, OneToOne = FALSE, groupColumnName = NA, samplesColumnName = NA, subsetGenes =FALSE,
                                writeFiles = FALSE){
     
     private$countObj           <- countObj
@@ -702,6 +722,7 @@ DifferentialGeneExp <- R6Class(
     self$featureType           <- featureType
     self$group1                <- group1
     self$group2                <- group2
+    self$OneToOne              <- OneToOne
     self$groupColumnName       <- groupColumnName
     self$samplesColumnName     <- samplesColumnName
     self$subsetGenes           <- subsetGenes
@@ -711,17 +732,24 @@ DifferentialGeneExp <- R6Class(
     private$group1Flatten = private$flattenGroup(self$group1)
     private$group2Flatten = private$flattenGroup(self$group2)
     
+    # ## printing
+    # print("printing Group1")
+    # print(private$group1Flatten)
+    # print("printing Group2")
+    # print(private$group2Flatten)
+    
     ## Pair elements from two groups
-    self$pairedList    = private$makePairs(names(private$group1Flatten), names(private$group2Flatten))
+    if(self$OneToOne) {
+         self$pairedList   = private$makePairs( sapply(private$group1Flatten, function(x) return(names(x))), 
+                                                sapply(private$group2Flatten, function(x) return(names(x))) )
+      } else { 
+        self$pairedList    = private$makePairs( names(private$group1Flatten), names(private$group2Flatten) )
+      }
+    
+    self$pairedList <- unlist( self$pairedList, recursive = FALSE )
+    
     print("Comparing Pairs ")
-    print(self$pairedList)
-    
-    ## printing
-    print("printing Group1")
-    print(private$group1Flatten)
-    print("printing Group2")
-    print(private$group2Flatten)
-    
+    print(self$pairedList )
   },
   performDiffGeneExp   = function(){
     self$diffGeneExpList <- lapply(self$pairedList, private$executeDiffGeneExp)
