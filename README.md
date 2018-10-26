@@ -24,34 +24,42 @@
    Normal = list(list("Brain"=Brain,each=FALSE), list("vitalNormals"=vitalNormals,each=FALSE)  )  
    Tumors = list(list("Tumors"=Tumors,each=FALSE) )   
   
-   | Group 1 | Group 2 |  
-   | --- | --- |  
-   ## With `each`= FALSE ( for Tumors )  
-   | Brain | Tumors |   
-   ## With `each`= TRUE  ( for Tumors )  
-   | Brain | ASPS |   
-   | Brain | ...  |  
-   | Brain | CCSK |    
+   # With `each`= FALSE ( for Tumors )  
+   | Group 1 | group 2 |
+   | :---         |     :---:      |
+   | Brain     | Tumor    |
+   # With `each`= TRUE  ( for Tumors )   
+   | Group 1 | group 2 |
+   | :---         |     :---:      |
+   | Brain     | ASPS    |
+   | Brain     | OS       |
+   | Brain     | CCSK       |
+   
    
    vitalNormals = list(list("vitalNormals"=vitalNormals,each=FALSE)  )  
    Tumors = list(list("Tumors"=Tumors,each=FALSE) )   
    
    ## With `each`= FALSE ( for Both vitalNormals & Tumors )  
-   | vitalNormals | Tumors |   
+   | Group 1 | group 2 |
+   | :---         |     :---:      |
+   | vitalNormals | Tumors |
    ## With `each`= TRUE  ( for Both vitalNormals & Tumors )  
-   | NS.heart | ASPS |  
-   | NS.heart | ...  |  
-   | NS.heart | CCSK |  
-   | ... | ... |  
-   | NS.lung | CCSK |  
-   | NS.lung | ...  |  
-   | NS.lung | CCSK |  
+   | Group 1 | group 2 |
+   | :---         |     :---:      |
+   | NS.heart     | ASPS    |
+   | NS.heart     | OS       |
+   | NS.heart     | CCSK       |
+   | NS.lung     | ASPS    |
+   | NS.lung     | OS       |
+   | NS.lung     | CCSK       |
    
    ## 1:1 comparisons  
    Normal = list(list("Brain"=Brain,each=FALSE), list("muscle"=muscle,each=FALSE)  
    Tumors = list(list("NB"=NB,each=FALSE), list("RMS"=RMS,each=FALSE)  
    ## With `each`= FALSE & `OneToOne` = TRUE  ( for Both Normal & Tumors )  
-   | Normal | Tumors |  
-   | Brain  | NB |   
-   | muscle | RMS  |  
+   | Group 1 | group 2 |
+   | :---         |     :---:      |
+   | Normal     | Tumors    |
+   | Brain     | NB       |
+   | muscle     | RMS       |
    
