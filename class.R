@@ -275,6 +275,35 @@ CoreUtilities <- R6Class(
       print(paste("Annotating expression DF"))
       print(dim(annotDF))
       return(annotDF)
+    },
+    ## perform Hirarchial clustering
+    performClustering = function( df = NA) {
+      RPKM_Data_Filt_t=t(df)
+      hc<-hclust(dist(RPKM_Data_Filt_t,"euclidean"),"ward.D")
+      pdf(paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,"/",rnaseqProject$plotsDir,"/",rnaseqProject$projectName,"_hc.pdf"),height=15,width=15)
+      plot(as.phylo(hc),type = "fan", label.offset=1, cex=1)
+      dev.off()
+    },
+    ## Standardise a matrix
+    zscore_All = function( x = NA) {
+      medX <- median(x)
+      sdX <- sd(x, na.rm = FALSE)
+      y <- (x - medX) / sdX
+      return(y)
+    },
+    ## Create Broad ssGSEA input file
+    createBroadGCTFile = function(x = NA ){
+      RPKM_Data_Filt <- x
+      metaDes                   <- matrix("", nrow = nrow(RPKM_Data_Filt), ncol = 2)  ; colnames(metaDes) <- c("Genes", "Description"); metaDes[,1] <- rownames(RPKM_Data_Filt)
+      RPKM_Data_Filt_Meta       <- cbind(metaDes, RPKM_Data_Filt) 
+      RPKM_Data_Filt_Meta       <- data.frame(lapply(RPKM_Data_Filt_Meta, as.character), stringsAsFactors=FALSE)
+      metaSS                    <- matrix("", nrow = 3, ncol = ncol(RPKM_Data_Filt_Meta)); 
+      metaSS[1,1]               <- "#1.2"; 
+      metaSS[2,c(2,3)]          <- c(nrow(RPKM_Data_Filt_Meta), ncol(RPKM_Data_Filt_Meta)-2) ;
+      metaSS[3,]                <- colnames(RPKM_Data_Filt_Meta)
+      colnames( metaSS )        <- colnames(RPKM_Data_Filt_Meta)
+      RPKM.Data.Filt.Meta.Broad <- rbind(as.data.frame(metaSS),RPKM_Data_Filt_Meta)
+      return(RPKM.Data.Filt.Meta.Broad)
     }
   )
 )

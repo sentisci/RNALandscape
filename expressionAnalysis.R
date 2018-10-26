@@ -84,6 +84,9 @@ expressionTMM.RPKM.ForHC  <- expressionTMM.RPKM %>% tibble::column_to_rownames(v
 expressionTMM.RPKM.ForHC.zscore <- t(apply( expressionTMM.RPKM.ForHC[,-c(1:6)], 1, corUtilsFuncs$zscore_All))
 corUtilsFuncs$performClustering(expressionTMM.RPKM.ForHC.zscore)
 
+## generate ssGSEA input file
+
+
 ## Perform Differential gene expression analysis
 
 ## Control groups ##
@@ -114,7 +117,7 @@ dgeObj  <- DifferentialGeneExp$new (
   samplesColumnName = "SAMPLE_ID",
   expressionUnit    = "TMM-RPKM",
   featureType       = "Gene",
-  subsetGenes       = FALSE,
+  subsetGenes       = TRUE,
   writeFiles        = TRUE
 )
 
