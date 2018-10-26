@@ -21,8 +21,8 @@
    ## Groups that can be compared  
    ## N:N comparisons  
    
-   Normal = list(list("Brain"=Brain,each=FALSE), list("vitalNormals"=vitalNormals,each=FALSE)  )
-   Tumors = list(list("Tumors"=Tumors,each=FALSE) ) 
+   Normal &npsp; = list(list("Brain"=Brain,each=FALSE), list("vitalNormals"=vitalNormals,each=FALSE)  )
+   Tumors &npsp; = list(list("Tumors"=Tumors,each=FALSE) ) 
   
    | Group 1 | Group 2 |
    | --- | --- |
