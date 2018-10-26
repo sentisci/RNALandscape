@@ -8,14 +8,14 @@
    To perform Differntial gene expression analysis for following groups
    
    ## Control groups ##
-    Brain          <- c("NS.cerebellum","NS.cerebrum")
-    germline       <- c("NS.testis","NS.ovary")
-    vitalNormals   <- c("NS.heart","NS.kidney","NS.liver","NS.lung")
-
-
+    Brain          <- c("NS.cerebellum","NS.cerebrum")  
+    germline       <- c("NS.testis","NS.ovary")  
+    vitalNormals   <- c("NS.heart","NS.kidney","NS.liver","NS.lung")  
+    
+     
    ## Condition group
-   Tumors         <-  c("ASPS","DSRCT", "EWS" ,"HBL", "ML", "NB" ,"OS", "RMS", "SS", "Teratoma" ,"UDS" ,"YST","WT", "CCSK")
-   NB             <-  c("NB.MYCN.NA","NB.MYCN.A", "NB.Unknown")
-   RMS            <-  c("RMS.FP" , "RMS.FN")
+   Tumors         <-  c("ASPS","DSRCT", "EWS" ,"HBL", "ML", "NB" ,"OS", "RMS", "SS", "Teratoma" ,"UDS" ,"YST","WT", "CCSK")  
+   NB             <-  c("NB.MYCN.NA","NB.MYCN.A", "NB.Unknown")  
+   RMS            <-  c("RMS.FP" , "RMS.FN")  
    
    
