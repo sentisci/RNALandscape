@@ -465,9 +465,6 @@ DifferentialGeneExp <- R6Class(
       # fit_vwts                <- eBayes(lmFit(GeneDF_Dispersion_vwts,design=modelDesign_v))
       # GeneDF_DiffExp_V        <- topTable(fit_vwts,coef=2,number=length(fit_vwts$genes[,1]),sort.by="none")
       # print(head(GeneDF_DiffExp_V))
-      
-      
-      
     }
     else  {
       ## Generate model & design for differential gene expression (edgeR only for now)
