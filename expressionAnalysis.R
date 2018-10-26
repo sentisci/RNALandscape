@@ -12,8 +12,8 @@ rnaseqProject <- ProjectSetUp$new(
   
   date                    = unlist(strsplit(x = as.character(Sys.time()), "\\s+"))[[1]],
   time                    = unlist(strsplit(x = as.character(Sys.time()), "\\s+"))[[2]],
-  projectName             = "RNASeq.RSEM",
-  annotationRDS           = "C:/Users/sindiris/R Scribble/Annotation RDS/annotation_ENSEMBL_gene.RDS",
+  projectName             = "Nitya.CART.Human",
+  annotationRDS           = "C:/Users/sindiris/R Scribble/Annotation RDS/annotation_06302016_ensembl.CAR_gene.RDS",
   pcRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/pc.other.HGNCTableFlat.rds",
   tfRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/TFs_no_epimachines.RDS",
   csRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/CellSurface.RDS",
@@ -21,7 +21,7 @@ rnaseqProject <- ProjectSetUp$new(
   outputPrefix            = "landscape",
   filterGenes             = TRUE,
   filterGeneMethod        = "bySum",
-  factorName              = "DIAGNOSIS.Substatus.Tumor.Normal.Tissue",
+  factorName              = "DIAGNOSIS.Substatus",
   metaDataFileName        = "MetadataMapper.txt",
   outputdirRDSDir         = "GeneRDSOutput",
   outputdirTXTDir         = "GeneTXTOutput",
@@ -30,8 +30,8 @@ rnaseqProject <- ProjectSetUp$new(
   plotsDataDir            = "FigureData",
   DiffGeneExpAnaDir       = "DiffExpResults",
   DiffGeneExpRDS          = "DiffGeneExpRDSOutput",
-  factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), "Normal.ribozero"=list("LIBRARY_TYPE"="Normal", 
-                                                                                                    "LibraryPrep" = "Ribozero"))
+  #factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), "Normal.ribozero"=list("LIBRARY_TYPE"="Normal", 
+  #                                                                                                  "LibraryPrep" = "Ribozero"))
 )
 
 ## Add utility functions to the project
@@ -72,55 +72,55 @@ expressionObj <- GeneExpNormalization$new(
 
 ## Get expression in desired units
 expressionTMM.RPKM = expressionObj$edgeRMethod("TMM-RPKM")
+write.table(expressionTMM.RPKM, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,"/",rnaseqProject$outputdirTXTDir,"/","expressionTMM.RPKM.txt"),
+            sep="\t", quote = FALSE, row.names = FALSE)
+
+expressionRawCounts = expressionObj$edgeRMethod("RawCounts")
+write.table(expressionRawCounts, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,"/",rnaseqProject$outputdirTXTDir,"/","rawCounts.txt"),
+            sep="\t", quote = FALSE, row.names = FALSE)
+
+## Perfrom unsupervised clustering
+expressionTMM.RPKM.ForHC  <- expressionTMM.RPKM %>% tibble::column_to_rownames(var="GeneID")
+expressionTMM.RPKM.ForHC.zscore <- t(apply( expressionTMM.RPKM.ForHC[,-c(1:6)], 1, corUtilsFuncs$zscore_All))
+corUtilsFuncs$performClustering(expressionTMM.RPKM.ForHC.zscore)
+
+## generate ssGSEA input file
+
 
 ## Perform Differential gene expression analysis
 
 ## Control groups ##
-Brain          <- c("NS.cerebellum","NS.cerebrum")
-Heart          <- c("NS.heart", "NS.heart")
-Kidney         <- c("NS.kidney")
-Liver          <- c("NS.liver")
-Lung           <- c("NS.lung")
-germline       <- c("NS.testis","NS.ovary")
-vitalNormals   <- c("NS.heart","NS.kidney","NS.liver","NS.lung")
-vital.Brain.Normals   <- c("NS.cerebellum","NS.cerebrum", "NS.heart","NS.kidney","NS.liver","NS.lung")
-othersNormals  <- c("NS.adrenalgland","NS.bladder","NS.colon","NS.ileum","NS.ovary","NS.pancreas","NS.prostate", 
-                    "NS.skeletalmuscle","NS.spleen", "NS.stomach","NS.testis", "NS.ureter", "NS.uterus")
-Normals        <- c("NS.adrenalgland","NS.bladder","NS.cerebellum","NS.cerebrum","NS.colon","NS.heart",
-                    "NS.ileum","NS.kidney","NS.liver","NS.lung","NS.ovary","NS.pancreas","NS.prostate", 
-                    "NS.skeletalmuscle","NS.spleen", "NS.stomach","NS.testis", "NS.ureter", "NS.uterus")
-NormalsNoGermLine <- c("NS.adrenalgland","NS.bladder","NS.cerebellum","NS.cerebrum","NS.colon","NS.heart",
-                    "NS.ileum","NS.kidney","NS.liver","NS.lung","NS.pancreas","NS.prostate", 
-                    "NS.skeletalmuscle","NS.spleen", "NS.stomach", "NS.ureter", "NS.uterus")
+IM_tumor_IM_UTD       <- c("IM_tumor_IM_UTD")
+IM_tumor_IV_UTD       <- c("IM_tumor_IV_UTD")
+IV_tumor_lung_met_UTD <- c("IV_tumor_lung_met_UTD")
+IM_tumor              <- c("IM_tumor") 
 
-tumorSubStatus.polyA <- c("ASPS", "DSRCT", "EWS" ,"HBL", "ML", "NB.MYCN.NA","NB.MYCN.A", "NB.Unknown", "OS", "RMS.FP" , "RMS.FN", 
-                          "SS", "Teratoma" ,"UDS" ,"YST")
-tumorSubStatus.ribozero <-  c("WT" ,"CCSK")
 
-Tumors         <-  c("ASPS","DSRCT", "EWS" ,"HBL", "ML", "NB" ,"OS", "RMS", "SS", "Teratoma" ,"UDS" ,"YST","WT", "CCSK")
+##Condition group
+IM_tumor_IM_CART        <- c("IM_tumor_IM_CART")
+IM_tumor_IV_CART        <- c("IM_tumor_IV_CART")
+IV_tumor_lung_met_CARs  <- c("IV_tumor_lung_met_CART_EF1a", "IV_tumor_lung_met_CART_MSCV")
+IV_tumor_lung_met       <- c("IV_tumor_lung_met")
 
 
 ## Perform Differential gene expression analysis
-dgeObj  <- DifferentialGeneExp$new(
+dgeObj  <- DifferentialGeneExp$new (
   countObj          = expressionObj$edgeRMethod("NormFactorDF")$counts,
-  group1            = list(list("Brain"=Brain,each=FALSE)),
-  group2            = list(list("Tumor"=tumorSubStatus.polyA[1], each=TRUE)),
+  group1            = list(list("IM_tumor_IM_UTD"=IM_tumor_IM_UTD,each=FALSE), list("IM_tumor_IV_UTD"=IM_tumor_IV_UTD,each=FALSE),
+                           list("IV_tumor_lung_met_UTD"=IV_tumor_lung_met_UTD, each=FALSE), list("IM_tumor"=IM_tumor, each=FALSE) ),
+  group2            = list(list("IM_tumor_IM_CART"=IM_tumor_IM_CART, each=FALSE), list("IM_tumor_IV_CART"=IM_tumor_IV_CART, each=FALSE),
+                           list("IV_tumor_lung_met_CARs"=IV_tumor_lung_met_CARs, each=TRUE), list("IV_tumor_lung_met"=IV_tumor_lung_met, each=FALSE)),
+  OneToOne          = TRUE,
   packageRNAseq     = "edgeR",
   groupColumnName   = rnaseqProject$factorName,
   metadataDF        = rnaseqProject$metaDataDF,
   samplesColumnName = "SAMPLE_ID",
   expressionUnit    = "TMM-RPKM",
   featureType       = "Gene",
+  subsetGenes       = TRUE,
   writeFiles        = TRUE
 )
 
 DiffExpObj <- dgeObj$performDiffGeneExp()
-
-head(DiffExpObj[[1]] %>% dplyr::arrange(-logFC))
-
-## Filtering of Differentially expressed genes.
-
-
-
 
 
