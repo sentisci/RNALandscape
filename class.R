@@ -249,13 +249,14 @@ CoreUtilities <- R6Class(
       return(factorColumn)
     },
     ## Keep Protein Coding
-    selectGenes = function(geneMatrix=NULL, selectGeneDF=NULL, annotationDF=NULL, featureType="GeneID") {
+    keepProteinCoding = function(geneMatrix=NULL, annotation=NULL, featureType="GeneID") {
       ###Keep only Protein Coding Genes
-      
-      selectedGeneDF <- dplyr::left_join(selectGeneDF, geneMatrix, by=featureType)
-      selectedAnnotDF<- dplyr::left_join(annotationDF, geneMatrix, by=featureType)
-      return(list(selectedGeneDF, selectedAnnotDF) )
-      
+      PC <- read.table("C:/Users/sindiris/R Scribble/Annotation RDS/HGNC-protein-coding-List.txt", header = T, sep="\t")
+      annotationPC <- annotation %>% filter(GeneName %in% PC$Genes)
+      foundGenes <- which(row.names(geneMatrix) %in% annotationPC[,featureType] )
+      geneMatrixNew <- geneMatrix %>% data.frame() %>% .[foundGenes,]
+      annotationPC <- annotationPC %>% mutate(GeneID = self$factorizeColumn(annotationPC$GeneID, row.names(geneMatrixNew)))
+      return(list(geneMatrixNew, annotationPC) )
     },
     ## convert FPKM to TPM
     fpkmToTpm = function(fpkm){
@@ -303,28 +304,6 @@ CoreUtilities <- R6Class(
       colnames( metaSS )        <- colnames(RPKM_Data_Filt_Meta)
       RPKM.Data.Filt.Meta.Broad <- rbind(as.data.frame(metaSS),RPKM_Data_Filt_Meta)
       return(RPKM.Data.Filt.Meta.Broad)
-    },
-    parseBroadGTCOutFile = function(fileName = NA){
-      expressionTMM.RPKM.ssGSEA.output.pre <- read.csv(fileName,sep="\t",header = FALSE, stringsAsFactors = FALSE )[ -c(1:2), ]
-      colnames( expressionTMM.RPKM.ssGSEA.output.pre ) <- as.character(unname(unlist(expressionTMM.RPKM.ssGSEA.output.pre[1,])))
-      expressionTMM.RPKM.ssGSEA.output.pre <- expressionTMM.RPKM.ssGSEA.output.pre[-c(1),-c(2)] %>% tibble::remove_rownames() %>% 
-                                                                      tibble::column_to_rownames(var = "Name")
-      expressionTMM.RPKM.ssGSEA.output <- data.frame(lapply(expressionTMM.RPKM.ssGSEA.output.pre,as.numeric))
-      rownames( expressionTMM.RPKM.ssGSEA.output ) <- rownames(expressionTMM.RPKM.ssGSEA.output.pre)
-      return(expressionTMM.RPKM.ssGSEA.output)
-    },
-    calculateGeoMean = function(x){
-      ## gemoMean
-      y <- exp(mean(log(x[is.finite(log(x+0.01))]),na.rm=T))
-      ## arithmatic mean
-      ## y <- sum(log2(x+1))/6
-      return(y)
-    },
-    cytolyticScore = function(expDF = NA ) {
-      cytolyticDF       <- expDF[c("GZMA","GZMB","GZMH","GZMK", "GZMM", "PRF1"),] ; 
-      CytolyticScores   <- apply(cytolyticDF,2, self$calculateGeoMean) %>% data.frame() %>% t()
-      rownames(CytolyticScores) <- "CytolyticScore"
-      return(CytolyticScores)
     }
   )
 )
