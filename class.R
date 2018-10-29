@@ -249,14 +249,13 @@ CoreUtilities <- R6Class(
       return(factorColumn)
     },
     ## Keep Protein Coding
-    keepProteinCoding = function(geneMatrix=NULL, annotation=NULL, featureType="GeneID") {
+    selectGenes = function(geneMatrix=NULL, selectGeneDF=NULL, annotationDF=NULL, featureType="GeneID") {
       ###Keep only Protein Coding Genes
-      PC <- read.table("C:/Users/sindiris/R Scribble/Annotation RDS/HGNC-protein-coding-List.txt", header = T, sep="\t")
-      annotationPC <- annotation %>% filter(GeneName %in% PC$Genes)
-      foundGenes <- which(row.names(geneMatrix) %in% annotationPC[,featureType] )
-      geneMatrixNew <- geneMatrix %>% data.frame() %>% .[foundGenes,]
-      annotationPC <- annotationPC %>% mutate(GeneID = self$factorizeColumn(annotationPC$GeneID, row.names(geneMatrixNew)))
-      return(list(geneMatrixNew, annotationPC) )
+      
+      selectedGeneDF <- dplyr::left_join(selectGeneDF, geneMatrix, by=featureType)
+      selectedAnnotDF<- dplyr::left_join(annotationDF, geneMatrix, by=featureType)
+      return(list(selectedGeneDF, selectedAnnotDF) )
+      
     },
     ## convert FPKM to TPM
     fpkmToTpm = function(fpkm){

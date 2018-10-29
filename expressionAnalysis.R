@@ -85,7 +85,12 @@ expressionTMM.RPKM.ForHC.zscore <- t(apply( expressionTMM.RPKM.ForHC[,-c(1:6)], 
 corUtilsFuncs$performClustering(expressionTMM.RPKM.ForHC.zscore)
 
 ## generate ssGSEA input file
-
+pcList <- corUtilsFuncs$selectGenes(geneMatrix=expressionTMM.RPKM, selectGeneDF=rnaseqProject$pcDF, 
+                                                                annotationDF=rnaseqProject$annotationDF, featureType=c("GeneName","GeneID") ) 
+expressionTMM.RPKM.PC     <- pcList[[1]] %>% tibble::column_to_rownames(var= "GeneName") %>% dplyr::select(-c(1:9))
+expressionTMM.RPKM.ssGSEA <- corUtilsFuncs$createBroadGCTFile(expressionTMM.RPKM.PC)
+write.table(expressionTMM.RPKM.ssGSEA, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,"/",rnaseqProject$gseaDir,"/rnk/","expressionTMM.RPKM.ssGSEA.Input.gct"),
+            sep="\t", quote = FALSE, row.names = FALSE, col.names = FALSE)
 
 ## Perform Differential gene expression analysis
 
@@ -122,5 +127,7 @@ dgeObj  <- DifferentialGeneExp$new (
 )
 
 DiffExpObj <- dgeObj$performDiffGeneExp()
+
+
 
 
