@@ -107,37 +107,43 @@ write.table(expressionTMM.RPKM.ssGSEA.output.Cytolytic.zscore, paste0(rnaseqProj
 ## Perform Differential gene expression analysis
 
 ## Control groups ##
-IM_tumor_IM_UTD       <- c("IM_tumor_IM_UTD")
-IM_tumor_IV_UTD       <- c("IM_tumor_IV_UTD")
-IV_tumor_lung_met_UTD <- c("IV_tumor_lung_met_UTD")
-IM_tumor              <- c("IM_tumor") 
+Brain          <- c("NS.cerebellum","NS.cerebrum")
+Heart          <- c("NS.heart", "NS.heart")
+Kidney         <- c("NS.kidney")
+Liver          <- c("NS.liver")
+Lung           <- c("NS.lung")
+germline       <- c("NS.testis","NS.ovary")
+vitalNormals   <- c("NS.heart","NS.kidney","NS.liver","NS.lung")
+vital.Brain.Normals   <- c("NS.cerebellum","NS.cerebrum", "NS.heart","NS.kidney","NS.liver","NS.lung")
+othersNormals  <- c("NS.adrenalgland","NS.bladder","NS.colon","NS.ileum","NS.ovary","NS.pancreas","NS.prostate", 
+                    "NS.skeletalmuscle","NS.spleen", "NS.stomach","NS.testis", "NS.ureter", "NS.uterus")
+Normals        <- c("NS.adrenalgland","NS.bladder","NS.cerebellum","NS.cerebrum","NS.colon","NS.heart",
+                    "NS.ileum","NS.kidney","NS.liver","NS.lung","NS.ovary","NS.pancreas","NS.prostate", 
+                    "NS.skeletalmuscle","NS.spleen", "NS.stomach","NS.testis", "NS.ureter", "NS.uterus")
+NormalsNoGermLine <- c("NS.adrenalgland","NS.bladder","NS.cerebellum","NS.cerebrum","NS.colon","NS.heart",
+                       "NS.ileum","NS.kidney","NS.liver","NS.lung","NS.pancreas","NS.prostate", 
+                       "NS.skeletalmuscle","NS.spleen", "NS.stomach", "NS.ureter", "NS.uterus")
+
+tumorSubStatus.polyA <- c("ASPS", "DSRCT", "EWS" ,"HBL", "ML", "NB.MYCN.NA","NB.MYCN.A", "NB.Unknown", "OS", "RMS.FP" , "RMS.FN", 
+                          "SS", "Teratoma" ,"UDS" ,"YST")
+tumorSubStatus.ribozero <-  c("WT" ,"CCSK")
+
+Tumors         <-  c("ASPS","DSRCT", "EWS" ,"HBL", "ML", "NB" ,"OS", "RMS", "SS", "Teratoma" ,"UDS" ,"YST","WT", "CCSK")
 
 
-##Condition group
-IM_tumor_IM_CART        <- c("IM_tumor_IM_CART")
-IM_tumor_IV_CART        <- c("IM_tumor_IV_CART")
-IV_tumor_lung_met_CARs  <- c("IV_tumor_lung_met_CART_EF1a", "IV_tumor_lung_met_CART_MSCV")
-IV_tumor_lung_met       <- c("IV_tumor_lung_met")
-
-
-## Perform Differential gene expression analysis
-dgeObj  <- DifferentialGeneExp$new (
+## Testing 
+dgeObj  <- DifferentialGeneExp$new(
   countObj          = expressionObj$edgeRMethod("NormFactorDF")$counts,
-  group1            = list(list("IM_tumor_IM_UTD"=IM_tumor_IM_UTD,each=FALSE), list("IM_tumor_IV_UTD"=IM_tumor_IV_UTD,each=FALSE),
-                           list("IV_tumor_lung_met_UTD"=IV_tumor_lung_met_UTD, each=FALSE), list("IM_tumor"=IM_tumor, each=FALSE) ),
-  group2            = list(list("IM_tumor_IM_CART"=IM_tumor_IM_CART, each=FALSE), list("IM_tumor_IV_CART"=IM_tumor_IV_CART, each=FALSE),
-                           list("IV_tumor_lung_met_CARs"=IV_tumor_lung_met_CARs, each=TRUE), list("IV_tumor_lung_met"=IV_tumor_lung_met, each=FALSE)),
-  OneToOne          = TRUE,
+  group1            = list(list("NormalsNoGermLine"=NormalsNoGermLine,each=FALSE)),
+  group2            = list(list("Tumor"=tumorSubStatus.polyA, each=TRUE)),
   packageRNAseq     = "edgeR",
   groupColumnName   = rnaseqProject$factorName,
   metadataDF        = rnaseqProject$metaDataDF,
   samplesColumnName = "SAMPLE_ID",
   expressionUnit    = "TMM-RPKM",
   featureType       = "Gene",
-  subsetGenes       = TRUE,
   writeFiles        = TRUE
 )
-
 DiffExpObj <- dgeObj$performDiffGeneExp()
 
 
