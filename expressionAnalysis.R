@@ -92,6 +92,18 @@ expressionTMM.RPKM.ssGSEA <- corUtilsFuncs$createBroadGCTFile(expressionTMM.RPKM
 write.table(expressionTMM.RPKM.ssGSEA, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,"/",rnaseqProject$gseaDir,"/rnk/","expressionTMM.RPKM.ssGSEA.Input.gct"),
             sep="\t", quote = FALSE, row.names = FALSE, col.names = FALSE)
 
+## parse ssGSEA output file and zscore
+expressionTMM.RPKM.ssGSEA.output <- corUtilsFuncs$parseBroadGTCOutFile( fileName = paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,
+                                                                            "/",rnaseqProject$gseaDir,"/results/","expressionTMM.RPKM.ssGSEA.Output.gct"))
+
+## append Cytolytic score
+cytolyticScore <- corUtilsFuncs$cytolyticScore(expDF = expressionTMM.RPKM.PC)
+expressionTMM.RPKM.ssGSEA.output.Cytolytic <- rbind(expressionTMM.RPKM.ssGSEA.output, cytolyticScore)
+expressionTMM.RPKM.ssGSEA.output.Cytolytic.zscore <- t( apply(expressionTMM.RPKM.ssGSEA.output.Cytolytic, 1, corUtilsFuncs$zscore_All) ) %>% data.frame()
+expressionTMM.RPKM.ssGSEA.output.Cytolytic.zscore <- expressionTMM.RPKM.ssGSEA.output.Cytolytic.zscore %>% tibble::rownames_to_column(var="GeneSignatures")
+write.table(expressionTMM.RPKM.ssGSEA.output.Cytolytic.zscore, paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,"/",rnaseqProject$gseaDir,
+                      "/results/","expressionTMM.RPKM.ssGSEA.Output.Cytolytic.zscore.gct"),sep="\t", quote = FALSE, row.names = FALSE, col.names = TRUE)
+
 ## Perform Differential gene expression analysis
 
 ## Control groups ##
