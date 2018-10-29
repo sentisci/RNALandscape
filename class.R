@@ -304,6 +304,28 @@ CoreUtilities <- R6Class(
       colnames( metaSS )        <- colnames(RPKM_Data_Filt_Meta)
       RPKM.Data.Filt.Meta.Broad <- rbind(as.data.frame(metaSS),RPKM_Data_Filt_Meta)
       return(RPKM.Data.Filt.Meta.Broad)
+    },
+    parseBroadGTCOutFile = function(fileName = NA){
+      expressionTMM.RPKM.ssGSEA.output.pre <- read.csv(fileName,sep="\t",header = FALSE, stringsAsFactors = FALSE )[ -c(1:2), ]
+      colnames( expressionTMM.RPKM.ssGSEA.output.pre ) <- as.character(unname(unlist(expressionTMM.RPKM.ssGSEA.output.pre[1,])))
+      expressionTMM.RPKM.ssGSEA.output.pre <- expressionTMM.RPKM.ssGSEA.output.pre[-c(1),-c(2)] %>% tibble::remove_rownames() %>% 
+        tibble::column_to_rownames(var = "Name")
+      expressionTMM.RPKM.ssGSEA.output <- data.frame(lapply(expressionTMM.RPKM.ssGSEA.output.pre,as.numeric))
+      rownames( expressionTMM.RPKM.ssGSEA.output ) <- rownames(expressionTMM.RPKM.ssGSEA.output.pre)
+      return(expressionTMM.RPKM.ssGSEA.output)
+    },
+    calculateGeoMean = function(x){
+      ## gemoMean
+      y <- exp(mean(log(x[is.finite(log(x+0.01))]),na.rm=T))
+      ## arithmatic mean
+      ## y <- sum(log2(x+1))/6
+      return(y)
+    },
+    cytolyticScore = function(expDF = NA ) {
+      cytolyticDF       <- expDF[c("GZMA","GZMB","GZMH","GZMK", "GZMM", "PRF1"),] ; 
+      CytolyticScores   <- apply(cytolyticDF,2, self$calculateGeoMean) %>% data.frame() %>% t()
+      rownames(CytolyticScores) <- "CytolyticScore"
+      return(CytolyticScores)
     }
   )
 )
