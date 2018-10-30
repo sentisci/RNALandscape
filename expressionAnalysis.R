@@ -12,7 +12,7 @@ rnaseqProject <- ProjectSetUp$new(
   
   date                    = unlist(strsplit(x = as.character(Sys.time()), "\\s+"))[[1]],
   time                    = unlist(strsplit(x = as.character(Sys.time()), "\\s+"))[[2]],
-  projectName             = "Nitya.CART.Human",
+  projectName             = "RNASeq.RSEM",
   annotationRDS           = "C:/Users/sindiris/R Scribble/Annotation RDS/annotation_06302016_ensembl.CAR_gene.RDS",
   pcRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/pc.other.HGNCTableFlat.rds",
   tfRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/TFs_no_epimachines.RDS",
