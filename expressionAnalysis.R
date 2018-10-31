@@ -17,6 +17,7 @@ rnaseqProject <- ProjectSetUp$new(
   pcRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/pc.other.HGNCTableFlat.rds",
   tfRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/TFs_no_epimachines.RDS",
   csRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/CellSurface.RDS",
+  cgaRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/cancerGermlineAntigens.rds",
   outputPrefix            = "landscape",
   filterGenes             = TRUE,
   filterGeneMethod        = "bySum",
@@ -29,9 +30,10 @@ rnaseqProject <- ProjectSetUp$new(
   plotsDataDir            = "FigureData",
   DiffGeneExpAnaDir       = "DiffExpResults",
   DiffGeneExpRDS          = "DiffGeneExpRDSOutput",
-  factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), 
-                                 "Normal.ribozero"=list("LIBRARY_TYPE"="Normal", "LibraryPrep" = "PolyA"),
-                                 "Tumors"=list("LIBRARY_TYPE"="Tumor", "LibraryPrep" = "PolyA"))
+  #factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), 
+  #                               "Normal.ribozero"=list("LIBRARY_TYPE"="Normal", "LibraryPrep" = "PolyA"),
+  #                               "Tumors"=list("LIBRARY_TYPE"="Tumor", "LibraryPrep" = "PolyA"))
+  factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), "Normal.ribozero"=list("LIBRARY_TYPE"="Normal", "LibraryPrep" = "Ribozero"))                                     
 )
 
 ## Add utility functions to the project
@@ -51,9 +53,17 @@ mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Gene
 
 ## Evaluate presence of duplicate features and consolidate them
 setDT(mergeObjectsNoDup, keep.rownames = TRUE)
-mergeObjectsConso <- corUtilsFuncs$consolidateDF(mergeObjectsNoDup, funcName = "sum", featureName = "rn")
-mergeObjectsConso <- mergeObjectsConso %>% data.frame() %>% tibble::column_to_rownames(var = "rn") %>% as.matrix()
-
+mergeObjectsNoDup.pre <- mergeObjectsNoDup %>% dplyr::rename(GeneID = rn)
+mergeObjectsNoDup.pre <- dplyr::left_join(rnaseqProject$annotationDF[,c("GeneID", "GeneName")], mergeObjectsNoDup.pre, by="GeneID") %>% data.table()
+mergeObjectsConso <- corUtilsFuncs$consolidateDF(mergeObjectsNoDup.pre[,-c("GeneID")], funcName = "max", 
+                                                 featureName = "GeneName")
+mergeObjectsConso <- dplyr::full_join(mergeObjectsConso, rnaseqProject$annotationDF[,c("GeneID", "GeneName")], by="GeneName") %>% 
+                          data.table()
+mergeObjectsConso <-   subset(mergeObjectsConso,!duplicated(mergeObjectsConso$GeneName))
+mergeObjectsConso <-   mergeObjectsConso[complete.cases(mergeObjectsConso), ]; dim(mergeObjectsConso)
+mergeObjectsConso <- mergeObjectsConso[,-c("GeneName")] %>% data.frame() %>% tibble::column_to_rownames(var = "GeneID") %>% as.matrix()
+rnaseqProject$annotationDF <- rnaseqProject$annotationDF %>% dplyr::filter(GeneID %in% rownames(mergeObjectsConso))
+  
 ## Subset metaDataDF by the number of samples in the folder
 colnamesDF    <- data.frame( "SAMPLE_ID"= colnames(mergeObjectsNoDup))
 corUtilsFuncs$subsetMetaData(colnamesDF=colnamesDF)
@@ -103,18 +113,146 @@ Tumors         <-  c("ASPS","DSRCT", "EWS" ,"HBL", "ML", "NB" ,"OS", "RMS", "SS"
 dgeObj  <- DifferentialGeneExp$new(
   countObj          = expressionObj$edgeRMethod("NormFactorDF")$counts,
   group1            = list(list("Normals"=NormalsNoGermLine,each=FALSE)),
-  group2            = list(list("Tumor"=tumorSubStatus.ribozero, each=TRUE)),
+  #group2            = list(list("Tumor"=tumorSubStatus.ribozero, each=TRUE)),
+  group2            = list(list("Tumor"=tumorSubStatus.polyA, each=TRUE)),
   packageRNAseq     = "edgeR",
   groupColumnName   = rnaseqProject$factorName,
   metadataDF        = rnaseqProject$metaDataDF,
   samplesColumnName = "SAMPLE_ID",
   expressionUnit    = "TMM-RPKM",
   featureType       = "Gene",
-  writeFiles        = TRUE
+  writeFiles        = TRUE,
+  fileDirs          = rnaseqProject$fileDirs,
+  subsetGenes       = TRUE
 )
 
 DiffExpObj <- dgeObj$performDiffGeneExp()
 
 head(DiffExpObj[[1]] %>% dplyr::arrange(-logFC))
+
+### Filtering ###
+
+mergeDiffTestResults <- function(x, type="", saveDirPath="", extension="", colInterest=1, rowNamesCol =1,
+                                 fileSuffix=".txt"){
+  
+  print(paste(x))
+  file_Dir_Gene = x
+  fileName <- basename(file_Dir_Gene) 
+  dir.create(file.path(paste(saveDirPath,fileName,sep="/")))
+  GeneFiles             <- list.files(file_Dir_Gene); GeneFiles <- GeneFiles[grep(fileSuffix, GeneFiles)]
+  GeneFilesList         <- paste(file_Dir_Gene, "/", GeneFiles,sep="") ; length(GeneFilesList)
+  
+  countObj          <- do.call(cbind,lapply(GeneFilesList, getCountObjTXT, colNumb=colInterest, rowNames=rowNamesCol))
+  
+  write.table(countObj, paste(saveDirPath, paste(fileName, "/", type,"_MergedDiffExpResult.txt",sep=""), sep= "/"), sep="\t",row.names = TRUE, quote = FALSE)
+}
+
+getCountObjTXT <- function(fileName, colNumb=1, rowNames=1){
+  print(paste(fileName))
+  featureCountTxt <- read.csv(fileName, sep="\t", row.names = rowNames, header = 1);
+  return(featureCountTxt[,colNumb, drop=FALSE])
+}
+
+## Step 1
+# selectedGeneList <- "cancergermlineantigen"
+# group2FPKM = 0 ; group1FPKM = 1;  PValue = 0.01 ; logFC =1 ; FDR = 0.05
+#selectedGeneList <- "cellsurface"
+#group2FPKM = 40 ; group1FPKM = 1;  PValue = 0.001 ; logFC =2 ; FDR = 0.05
+selectedGeneList <- "transcriptionFactor"
+group2FPKM = 2 ; group1FPKM = 1;  PValue = 0.01 ; logFC =2 ; FDR = 0.05
+
+MergedDiffExpResultDir <- paste0("C:/Users/sindiris/R Scribble//RNASeq.RSEM/MergedDiffExp/",selectedGeneList)
+dir.create(MergedDiffExpResultDir)
+ConditionGroup <- c(unique(sapply(dgeObj$pairedList, function(x){ return(paste(x[1],x[2],sep = "_"))  })), c("Normals_WT", "Normals_CCSK") )
+groups <- list.dirs(paste("C:/Users/sindiris/R Scribble//RNASeq.RSEM//DiffExpResults/", sep=""))[-1]; groups[1]
+output <- sapply(groups, mergeDiffTestResults, type="Gene", colInterest=c(5,7,10,11,12, 13), rowNamesCol = 5,
+                 fileSuffix=paste0(selectedGeneList,".txt"),saveDirPath=MergedDiffExpResultDir)
+
+## Step 2
+allTumorStats <- do.call(cbind, lapply(ConditionGroup, function(x){
+  tumorData <- read.table( paste(MergedDiffExpResultDir,"/",x,"/Gene_MergedDiffExpResult.txt",sep=""), sep="\t", 
+                           row.names = 1, header = T, stringsAsFactors = FALSE )
+  groupsCompare <- unlist(strsplit(x, "_"))
+  print(groupsCompare)
+  selectGenes <- tumorData %>% filter_(.dots=paste0(groupsCompare[2]," >= ", group2FPKM ," & ",groupsCompare[1]," <= ", group1FPKM ," & ", 
+                                                    "PValue <= ", PValue ," & ", "logFC  >= ", logFC," & ", "FDR  <= ", FDR)) %>%
+    dplyr::arrange_(.dots = c("logFC") ) %>%
+    dplyr::select(GeneName.x)
+  tumorData["status"] <- 0 
+  statusDF <- tumorData %>% mutate(status=ifelse(GeneName.x %in% selectGenes$GeneName.x, 1, 0)) %>% dplyr::select(GeneName.x, status) %>% 
+    rename(c('status'=paste(groupsCompare[2],groupsCompare[1],"Status", sep="")))
+
+  tumorStatusDF <- statusDF[, !duplicated(colnames(statusDF))]  %>% mutate(RowSum= rowSums(.[-1])) 
+  write.table(tumorStatusDF, paste(MergedDiffExpResultDir,"/",x,"/","SummarisedDExpDF.txt",sep=""), sep="\t", row.names = FALSE, quote = FALSE)
+  returnTumorDF <- tumorStatusDF %>% dplyr::select(GeneName.x, RowSum) %>% rename(c('RowSum'=paste(groupsCompare[2],"StatusSum", sep="")))
+  return(returnTumorDF)
+}))
+
+# Step 3. Perform Clustering using "cluster_data" method from "fheatmap"
+allTumorStats <- allTumorStats[, !duplicated(colnames(allTumorStats))] ; rownames(allTumorStats) <- allTumorStats[,1]; allTumorStats <- allTumorStats[,-c(1)]
+roworder <- unlist( cluster_data(allTumorStats, distance = "euclidean", method = "ward.D")["order"])
+colorder <- unlist( cluster_data(t(allTumorStats), distance = "euclidean", method = "ward.D")["order"])
+
+# Step 4. Organise the genes and tumors as per the above order . And save the file.
+allTumorStatsFinal <- allTumorStats[roworder, colorder]
+allTumorStatsFinal$OnesSum <- apply(allTumorStatsFinal, 1, function(x) sum(x!=0))
+allTumorStatsFinal[c("CTAG1B", "PRAME"),] ; length(which(allTumorStatsFinal[,"OnesSum"] >=1 ))
+
+# Step 5. 
+write.table(allTumorStatsFinal, paste(MergedDiffExpResultDir, "/", selectedGeneList, ".v9.","PValue-",PValue,".","FDR-",FDR,".",
+                                      "NormalRPKM.Less.Than.1", "." , "logFC-", logFC, ".txt" ,sep=""),
+            sep="\t", row.names = TRUE, quote = FALSE)
+# Step 6.
+allTumorStatsFinal <- read.table( paste(MergedDiffExpResultDir, "/", selectedGeneList, ".v9.","PValue-",PValue,".","FDR-",FDR,".",
+                                        "NormalRPKM.Less.Than.1", "." , "logFC-", logFC, ".txt" ,sep=""),sep="\t", header = TRUE)
+CTA.Filt <- allTumorStatsFinal %>% rownames_to_column(var="CGA") %>% filter(OnesSum>=3) %>% #dplyr::select(-matches("ML|YST|UDS")) %>% 
+  dplyr::arrange(OnesSum)
+dim(CTA.Filt)
+
+# Step 7.
+CTA.Filt %<>% dplyr::select(-one_of("OnesSum"))
+CTA.Filt %<>%  column_to_rownames(var="CGA") 
+colnames(CTA.Filt) <- gsub("StatusSum", "", colnames(CTA.Filt))
+
+#pdf( paste("./Plots/",date, ".Differentially Expressed CGAs.v17.pdf", sep=""), height = 19, width = 15)
+# superheat(t(CTA.Filt), pretty.order.cols =T,
+#           #title = "Differentially Expressed CGAs",
+#           #linkage.method = "ward.D2",
+#           legend=FALSE,
+#           grid.hline = FALSE,
+#           grid.vline = FALSE,
+#           X.text.size = 20,
+#           # grid.hline.size = 0.01,
+#           # grid.vline.size = 0.01,
+#           # heat.col.scheme = "grey",
+#           heat.lim = c(0, 1),
+#           #heat.pal = c("#004080",  "#88cc00"),
+#           heat.pal = c("#e0e0d1", "#004080"),
+#           bottom.label.text.angle=90,
+#           title.size = 6)
+# dev.off()
+pdf( paste("C:/Users/sindiris/R Scribble//RNASeq.RSEM/Figures/", 
+  "Differentially Expressed ",  selectedGeneList, ".pdf", sep=""), height = 10, width = 25)
+pheatmap(t(CTA.Filt), color =c("#e0e0d1", "#004080"), 
+         clustering_method = "ward.D",
+         cluster_cols = FALSE, 
+         border_color = NA, 
+         treeheight_row = 0,
+         fontsize = 12,
+         legend = FALSE )
+dev.off()
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
