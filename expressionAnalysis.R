@@ -30,10 +30,10 @@ rnaseqProject <- ProjectSetUp$new(
   plotsDataDir            = "FigureData",
   DiffGeneExpAnaDir       = "DiffExpResults",
   DiffGeneExpRDS          = "DiffGeneExpRDSOutput",
-  factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), 
-                                 "Normal.ribozero"=list("LIBRARY_TYPE"="Normal", "LibraryPrep" = "PolyA"),
-                                 "Tumors"=list("LIBRARY_TYPE"="Tumor", "LibraryPrep" = "PolyA"))
-  #factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), "Normal.ribozero"=list("LIBRARY_TYPE"="Normal", "LibraryPrep" = "Ribozero"))                                     
+  #factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), 
+  #                               "Normal.ribozero"=list("LIBRARY_TYPE"="Normal", "LibraryPrep" = "PolyA"),
+  #                               "Tumors"=list("LIBRARY_TYPE"="Tumor", "LibraryPrep" = "PolyA"))
+  factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), "Normal.ribozero"=list("LIBRARY_TYPE"="Normal", "LibraryPrep" = "Ribozero"))                                     
 )
 
 ## Add utility functions to the project
