@@ -327,6 +327,25 @@ CoreUtilities <- R6Class(
       CytolyticScores   <- apply(cytolyticDF,2, self$calculateGeoMean) %>% data.frame() %>% t()
       rownames(CytolyticScores) <- "CytolyticScore"
       return(CytolyticScores)
+    },
+    mergeDiffTestResults <- function(x, type="", saveDirPath="", extension="", colInterest=1, rowNamesCol =1,
+                                     fileSuffix=".txt"){
+      
+      print(paste(x))
+      file_Dir_Gene = x
+      fileName <- basename(file_Dir_Gene) 
+      dir.create(file.path(paste(saveDirPath,fileName,sep="/")))
+      GeneFiles             <- list.files(file_Dir_Gene); GeneFiles <- GeneFiles[grep(fileSuffix, GeneFiles)]
+      GeneFilesList         <- paste(file_Dir_Gene, "/", GeneFiles,sep="") ; length(GeneFilesList)
+      
+      countObj          <- do.call(cbind,lapply(GeneFilesList, getCountObjTXT, colNumb=colInterest, rowNames=rowNamesCol))
+      
+      write.table(countObj, paste(saveDirPath, paste(fileName, "/", type,"_MergedDiffExpResult.txt",sep=""), sep= "/"), sep="\t",row.names = TRUE, quote = FALSE)
+    },
+    getCountObjTXT <- function(fileName, colNumb=1, rowNames=1){
+      print(paste(fileName))
+      featureCountTxt <- read.csv(fileName, sep="\t", row.names = rowNames, header = 1);
+      return(featureCountTxt[,colNumb, drop=FALSE])
     }
   )
 )

@@ -14,10 +14,10 @@ rnaseqProject <- ProjectSetUp$new(
   time                    = unlist(strsplit(x = as.character(Sys.time()), "\\s+"))[[2]],
   projectName             = "RNASeq.RSEM",
   annotationRDS           = "C:/Users/sindiris/R Scribble/Annotation RDS/annotation_ENSEMBL_gene.RDS",
-  pcRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/pc.other.HGNCTableFlat.rds",
-  tfRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/TFs_no_epimachines.RDS",
-  csRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/CellSurface.RDS",
-  cgaRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/cancerGermlineAntigens.rds",
+  # pcRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/pc.other.HGNCTableFlat.rds",
+  # tfRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/TFs_no_epimachines.RDS",
+  # csRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/CellSurface.RDS",
+  # cgaRDS                  = "C:/Users/sindiris/R Scribble/Annotation RDS/cancerGermlineAntigens.rds",
   outputPrefix            = "landscape",
   filterGenes             = TRUE,
   filterGeneMethod        = "bySum",
@@ -170,7 +170,7 @@ selectedGeneList <- "transcriptionFactor"
 group2FPKM = 1; Zscored.logFC = 1.25 ; Zscore.group2 = 0
 #group2FPKM = 1 ; group1FPKM = 5;  PValue = 0.01 ; logFC =1 ; FDR = 0.05
 
-# Step 2  Perform MErging ####
+# Step 2  Perform Merging ####
 
 MergedDiffExpResultDir <- paste0("C:/Users/sindiris/R Scribble//RNASeq.RSEM/MergedDiffExp/",selectedGeneList)
 dir.create(MergedDiffExpResultDir)
