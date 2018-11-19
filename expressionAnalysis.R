@@ -33,7 +33,7 @@ rnaseqProject <- ProjectSetUp$new(
   #factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), 
   #                               "Normal.ribozero"=list("LIBRARY_TYPE"="Normal", "LibraryPrep" = "PolyA"),
   #                               "Tumors"=list("LIBRARY_TYPE"="Tumor", "LibraryPrep" = "PolyA"))
-  factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), "Normal.ribozero"=list("LIBRARY_TYPE"="Normal", "LibraryPrep" = "Ribozero"))                                     
+  #factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), "Normal.ribozero"=list("LIBRARY_TYPE"="Normal", "LibraryPrep" = "Ribozero"))                                     
 )
 
 ## Add utility functions to the project
@@ -77,11 +77,25 @@ expressionObj <- GeneExpNormalization$new(
   annotationDF   = rnaseqProject$annotationDF, 
   design         = rnaseqProject$metaDataDF[,rnaseqProject$factorName], 
   #design         = newMetaDataDF[,rnaseqProject$factorName],
-  proteinCodingOnly = FALSE
+  proteinCodingOnly = FALSE,
+  corUtilsFuncs     = corUtilsFuncs
 )
 
 ## Get expression in desired units
 expressionTMM.RPKM = expressionObj$edgeRMethod("TMM-RPKM")
+expressionTMM.Counts = expressionObj$edgeRMethod("RawCounts")
+
+## Start here ##
+AliasNames_df  <- dplyr::left_join( data.frame("SAMPLE_ID"=colnames(expressionTMM.RPKM)), rnaseqProject$validMetaDataDF[,c("SAMPLE_ID", "SAMPLE_ID.Alias")] )
+AliasColnames  <- c(as.character(AliasNames_df[c(1:7),1]), as.character(AliasNames_df[-c(1:7),2]))
+## Start here ##
+stopifnot( length(colnames(expressionTMM.RPKM)) == length(AliasColnames) )
+colnames(expressionTMM.RPKM) <- AliasColnames
+write.table(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
+                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.",rnaseqProject$date,".txt"),sep="/"),
+                                      sep="\t", row.names = FALSE, quote = FALSE)
+saveRDS(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
+                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.",rnaseqProject$date,".rds"),sep="/"))
 
 ## Perform Differential gene expression analysis
 

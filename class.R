@@ -52,6 +52,9 @@ ProjectSetUp <- R6Class(
         })
       }
       print(paste0("Dimension of metadata after applying parameter 'factorsToExclude' is ", paste(dim(self$metaDataDF)[1])))
+      print("Make R valid names in the metadata file and storing it as validMetaDataDF")
+      tempDF <- as.data.frame(lapply(self$metaDataDF[,c("PATIENT_ID","SAMPLE_DATA_ID","SAMPLE_ID","SAMPLE_ID.Alias")], make.names)) %>% data.frame()
+      self$validMetaDataDF <- cbind(tempDF, self$metaDataDF[,which(names(self$metaDataDF) != c("PATIENT_ID","SAMPLE_DATA_ID","SAMPLE_ID","SAMPLE_ID.Alias"))])
     },
     readAnnotation = function() {
       self$annotationDF <- readRDS(self$annotationRDS) %>% as.data.frame()
@@ -101,6 +104,7 @@ ProjectSetUp <- R6Class(
     cgaRDS                  = NULL,
     factorsToExclude        = NULL,
     fileDirs                = NULL, 
+    validMetaDataDF         = NULL,
     initialize              = function(date = NA, time =NA, projectName = NA, annotationRDS = NA, outputPrefix = NA,
                                        filterGenes = NA, filterGeneMethod = NA, factorName = NA, metaDataFileName = NA, 
                                        workDir = NA, outputdirRDSDir = NA, outputdirTXTDir = NA,gseaDir = NA, plotsDir = NA, 
@@ -163,7 +167,7 @@ CoreUtilities <- R6Class(
     ## Merge CSV or TXT files
     mergeTXTFiles = function( x, fileSuffix=NA, colNameSelect=NA, primaryID=NA ){
       selectedFileList    <- x[which(basename(x) %in% self$allFileList)]
-      print(paste0("Selecting ", length(selectedFileList), " files out of ", length(x), "from the given folder"))
+      print(paste0("Selecting ", length(selectedFileList), " files out of ", length(x), " from the given folder"))
       dataMatrixLists     <- lapply(selectedFileList, private$readTXTFiles, fileSuffix=fileSuffix,colNameSelect=colNameSelect, primaryID=primaryID)
       dataMatrix          <- purrr::reduce(dataMatrixLists, full_join, by=primaryID)
       return(dataMatrix)
@@ -272,7 +276,7 @@ CoreUtilities <- R6Class(
     },
     ## Annotate a gene expression df with "GeneID" as primary key
     featureNameAnot = function(querryDF=NA, identifier=NA){
-      annotDF <- dplyr::left_join(rnaseqProject$annotationDF, queryDF, by=identifier)
+      annotDF <- dplyr::left_join(rnaseqProject$annotationDF, querryDF, by=identifier)
       print(paste("Annotating expression DF"))
       print(dim(annotDF))
       return(annotDF)
@@ -348,6 +352,8 @@ GeneExpNormalization <- R6Class(
     annotationDF         = NULL,
     design               = NULL,
     proteinCodingOnly    = NULL,
+    corUtilsFuncs        = NULL,
+    saveFiles            = NULL,
     setUp                = function(){
       
       if( private$featureType == "Exon")      { private$featureType = "ExonID"       }
@@ -395,7 +401,7 @@ GeneExpNormalization <- R6Class(
   public    = list(
     
     initialize           = function(countObj = NA, featureType = NA, packageRNAseq = NA, annotationDF = NA, design = NA,
-                                    proteinCodingOnly = TRUE ) 
+                                    proteinCodingOnly = TRUE, corUtilsFuncs = NA, saveFiles=FALSE ) 
     {
       
       assert_that( class(countObj) == "matrix", msg = "Please provide raw count in matrix format")
@@ -408,6 +414,8 @@ GeneExpNormalization <- R6Class(
       private$annotationDF  <- annotationDF
       private$design        <- design
       private$proteinCodingOnly <- proteinCodingOnly
+      private$corUtilsFuncs  <- corUtilsFuncs
+      private$saveFiles      <- saveFiles
       private$setUp()
     },
     
@@ -416,12 +424,26 @@ GeneExpNormalization <- R6Class(
       assert_that(private$packageRNAseq == "edgeR", msg = paste0("GeneExpNormalization Object was created for ",private$packageRNAseq,
                                                                  ". Please create a new GeneExpNormalization Object for edgeR"))
       
-      assert_that(x %in% c("CPM", "TMM-RPKM", "TPM", "NormFactorDF"), msg = "This function can only generate \"CPM\", \"TMM-RPKM\", \"TPM\" values ")
+      assert_that(x %in% c("CPM", "TMM-RPKM", "TPM", "NormFactorDF", "RawCounts"), msg = "This function can only generate \"CPM\", \"TMM-RPKM\", \"TPM\" values ")
       
       if(x == "NormFactorDF") return(private$GeneDFNorm)
-      if(x == "CPM" )         return( as.data.frame(cpm(private$GeneDFNorm,  normalized.lib.sizes = TRUE,log = FALSE))   )
-      if(x == "TMM-RPKM" )   return( as.data.frame(rpkm(private$GeneDFNorm, normalized.lib.sizes = TRUE, log = FALSE))  )
-      if(x == "TPM" )         return(apply(rpkm(private$GeneDFNorm, normalized.lib.sizes = TRUE), 2 , super$fpkmToTpm)         )
+      if(x == "RawCounts") { 
+        rawCounts <-  private$GeneDFNorm$counts %>% data.frame() %>% tibble::rownames_to_column(var="GeneID")
+        return( private$corUtilsFuncs$featureNameAnot(querryDF=rawCounts, identifier="GeneID")  ) 
+      }
+      if(x == "CPM" )         { 
+        cpmDF <- as.data.frame(cpm(private$GeneDFNorm,  normalized.lib.sizes = TRUE,log = FALSE)) %>% tibble::rownames_to_column(var="GeneID")
+        return( private$corUtilsFuncs$featureNameAnot(querryDF=cpmDF, identifier="GeneID") )  
+      }
+      if(x == "TMM-RPKM" )    { 
+        rpkmDF <- as.data.frame(rpkm(private$GeneDFNorm, normalized.lib.sizes = TRUE, log = FALSE)) %>% tibble::rownames_to_column(var="GeneID")
+        return( private$corUtilsFuncs$featureNameAnot(querryDF=rpkmDF, identifier="GeneID") ) 
+      }
+      if(x == "TPM" )         { 
+        tpmDF <- apply(rpkm(private$GeneDFNorm, normalized.lib.sizes = TRUE), 2 , super$fpkmToTpm) %>% tibble::rownames_to_column(var="GeneID")
+        return( private$corUtilsFuncs$featureNameAnot(querryDF=tpmDF, identifier="GeneID") )  
+      }
+      
       
     },
     deseq2           = function(x) {
@@ -617,7 +639,7 @@ DifferentialGeneExp <- R6Class(
     private$GeneDF_DiffExp["AvglogFPKM"]  <- apply(geneExpression , 1, mean)
     
     ## Annotate Genes 
-    private$GeneDF_DiffExp                <- private$featureNameAnot(querryDF=private$GeneDF_DiffExp, identifier="GeneID")
+    private$GeneDF_DiffExp                <- corUtilsFuncs$featureNameAnot(querryDF=private$GeneDF_DiffExp, identifier="GeneID")
     
     ## Filter Genes
     folderName <- paste0(private$pairGroup1Name, "_", private$pairGroup2Name)
@@ -631,12 +653,12 @@ DifferentialGeneExp <- R6Class(
     return(private$GeneDF_DiffExp)
   },
   ## Annotate a gene expression df with "GeneID" as primary key
-  featureNameAnot = function(querryDF=NA, identifier=NA){
-    annotDF <- dplyr::left_join(rnaseqProject$annotationDF, querryDF, by=identifier)
-    print(paste("Annotating expression DF"))
-    print(dim(annotDF))
-    return(annotDF)
-  },
+  # featureNameAnot = function(querryDF=NA, identifier=NA){
+  #   annotDF <- dplyr::left_join(rnaseqProject$annotationDF, querryDF, by=identifier)
+  #   print(paste("Annotating expression DF"))
+  #   print(dim(annotDF))
+  #   return(annotDF)
+  # },
   filterGenes = function(filterName= NA , folderName = NA){
     
     rdsDir  <- paste0( private$fileDirs[7],"/", folderName, "/" )
