@@ -1,3 +1,5 @@
+### TASK 1
+
 ## load the file
 downstreamTargets <- read.csv("T:/Sivasish_Sindiri/Collaboration/TCR.Grants/NCI_GeneSet_RMS and EWS.txt", sep = "\t", header = TRUE,
                               stringsAsFactors = FALSE)
@@ -5,7 +7,10 @@ expressionTMM.RPKM <- readRDS("C:/Users/sindiris/R Scribble/RNASeq.RSEM/GeneRDSO
 metadata           <- data.frame(lapply(rnaseqProject$validMetaDataDF,as.character), stringsAsFactors =FALSE)
 
 metadata.RMS_FP.EWS <- metadata %>% dplyr::filter(DIAGNOSIS.Substatus.Tumor.Tissue %in% c("RMS.FP.Tumor","EWS.Tumor"))
-metadata.RMS_FP.EWS.MYCN.A <- metadata %>% dplyr::filter(DIAGNOSIS.Alias.TreeMap %in% c("RMS.FP","EWS", "NB.MYCN.A") & LIBRARY_TYPE %in% c("Tumor") )
+metadata.RMS_FP.EWS.MYCN.A.Spleen.Tumor <- metadata %>% dplyr::filter(DIAGNOSIS.Substatus.Tumor.Normal.Tissue %in% c("RMS.FP","EWS", "NB.MYCN.A", "NS.spleen") & 
+                                                           LIBRARY_TYPE %in% c("Tumor", "Normal") )
+metadata.RMS_FP.EWS.MYCN.A.Spleen.CellLine <- metadata %>% dplyr::filter(DIAGNOSIS.Substatus.Tumor.Normal.Tissue %in% c("RMS.FP","EWS", "NB.MYCN.A", "NS.spleen") & 
+                                                                  LIBRARY_TYPE %in% c("CellLine", "Normal") )
 
 annotationRDS           = readRDS("C:/Users/sindiris/R Scribble/Annotation RDS/annotation_ENSEMBL_gene.RDS")
 pcRDS                   = readRDS("C:/Users/sindiris/R Scribble/Annotation RDS/pc.other.HGNCTableFlat.rds")
@@ -43,27 +48,33 @@ write.table(foundGenesFromGeneSet, "T:/Sivasish_Sindiri/Collaboration/TCR.Grants
             row.names = TRUE, quote = FALSE)
 
 
-
-ssGSEA <- read.table("C:/Users/sindiris/R Scribble/RNASeq.RSEM/GSEA/results/RPKM_Data_Filt.NoCLNS.zscore.meta.Broad.PROJ.txt",sep = "\t", 
-                     header = T, row.names = 1, check.names = FALSE)
-ssGSEA.Selected <- ssGSEA[,1:658] %>% dplyr::select_(.dots = as.character(metadata.RMS_FP.EWS.MYCN.A$SAMPLE_ID.Alias))
-stopifnot( ncol(ssGSEA.Selected) == length(as.character(metadata.RMS_FP.EWS.MYCN.A$SAMPLE_ID.Alias)) )
-write.table(ssGSEA.Selected, "T:/Sivasish_Sindiri/Collaboration/TCR.Grants/ssGSEA.Selected.txt", sep = "\t", col.names = TRUE,
-            row.names = TRUE, quote = FALSE)
-
+### TASK 3
 
 expressionTMM.RPKM_HLA           <- expressionTMM.RPKM
 rownames(expressionTMM.RPKM_HLA) <- expressionTMM.RPKM$GeneName
-expressionTMM.RPKM_HLA           <- expressionTMM.RPKM_HLA %>%  dplyr::select_(.dots=as.character(metadata.RMS_FP.EWS.MYCN.A$SAMPLE_ID.Alias))
+## Toggle between cellline or tumor
+expressionTMM.RPKM_HLA           <- expressionTMM.RPKM_HLA %>%  dplyr::select_(.dots=as.character(metadata.RMS_FP.EWS.MYCN.A.Spleen.Tumor$SAMPLE_ID.Alias))
+#expressionTMM.RPKM_HLA           <- expressionTMM.RPKM_HLA %>%  dplyr::select_(.dots=as.character(metadata.RMS_FP.EWS.MYCN.A.Spleen.CellLine$SAMPLE_ID.Alias))
 cytolyticScore                   <- corUtilsFuncs$cytolyticScore(expressionTMM.RPKM_HLA)
 expressionTMM.RPKM_HLA_Cyto      <- t(rbind(expressionTMM.RPKM_HLA[c("HLA-A", "HLA-B", "HLA-C"),], cytolyticScore))
 AliasNames_df  <- dplyr::left_join( data.frame("SAMPLE_ID.Alias"=rownames(expressionTMM.RPKM_HLA_Cyto)), 
-                                      metadata.RMS_FP.EWS.MYCN.A[,c("SAMPLE_ID.Alias", "DIAGNOSIS.Alias.substatus.T"),],
+                                    metadata.RMS_FP.EWS.MYCN.A.Spleen.Tumor[,c("SAMPLE_ID.Alias", "DIAGNOSIS.Substatus.Tumor.Normal.Tissue"),],
+                                    #metadata.RMS_FP.EWS.MYCN.A.Spleen.CellLine[,c("SAMPLE_ID.Alias", "DIAGNOSIS.Substatus.Tumor.Normal.Tissue"),],
                                       by="SAMPLE_ID.Alias")
-Scores <- cbind(expressionTMM.RPKM_HLA_Cyto, AliasNames_df[,"DIAGNOSIS.Alias.substatus.T", drop=FALSE]) %>% 
-                                        dplyr::rename(Diagnosis=DIAGNOSIS.Alias.substatus.T) %>% 
-                                        dplyr::arrange(Diagnosis) %>% 
-                                        dplyr::mutate(Diagnosis = factor(Diagnosis))
+
+#### Zscore Function  
+zscore_All = function( x = NA) {
+medX <- median(x)
+sdX <- sd(x, na.rm = FALSE)
+y <- (x - medX) / sdX
+return(y)
+}
+
+#### factorize columns
+factorizeColumn = function( toFactor, asFactor){
+  factorColumn <- factor(toFactor, levels=asFactor, ordered = TRUE )
+  return(factorColumn)
+}
 
 #### One variable Plot
 OneVariablePlotSort <- function(colList, Scores, orderOfFactor, orderOfSignature, standardize=FALSE, logit =FALSE,
@@ -90,7 +101,8 @@ OneVariablePlotSort <- function(colList, Scores, orderOfFactor, orderOfSignature
       arrange(Signatures,Diagnosis,Scores) %>% 
       arrange(desc(Med)) %>% 
       ungroup() %>% 
-      mutate( Diagnosis = factorizeColumn(Diagnosis, unique(as.character(Diagnosis) ) ),
+      #mutate( Diagnosis = factorizeColumn(Diagnosis, orderOfFactor ),
+      mutate( Diagnosis = factorizeColumn(Diagnosis, unique(Diagnosis) ),
               Color =  factorizeColumn(Color, unique(as.character(Color) ) ) ) %>% arrange(Diagnosis)
     tidyScores[,"SNONorm"] <- xaxisSeq(tidyScores)
     
@@ -154,9 +166,9 @@ OneVariablePlotSort <- function(colList, Scores, orderOfFactor, orderOfSignature
     tidyScores             <- tidyScoresPre %>% filter(Signatures == x) %>%  dplyr::group_by(Signatures,Diagnosis) %>% 
       dplyr::mutate(Med=median(Scores)) %>% arrange(Signatures,Diagnosis,Scores) %>% 
       arrange(desc(Med)) %>% 
-      ungroup() #%>% 
-    #mutate( Diagnosis = factorizeColumn(Diagnosis)) %>% arrange(Diagnosis)
-    #mutate( Diagnosis = factorizeColumn(Diagnosis, orderOfFactor )) %>% arrange(Diagnosis)
+      ungroup() %>%
+      mutate( Diagnosis = factorizeColumn(Diagnosis, unique(Diagnosis) ) ) %>% arrange(Diagnosis)
+      #mutate( Diagnosis = factorizeColumn(Diagnosis, orderOfFactor )) %>% arrange(Diagnosis)
     tidyScores[,"SNONorm"] <- xaxisSeq(tidyScores)
     
     ##Make median Segment
@@ -170,8 +182,7 @@ OneVariablePlotSort <- function(colList, Scores, orderOfFactor, orderOfSignature
     plot <- ggplot(data=tidyScores, aes(x = Scores, y = Diagnosis, height = ..density..)) +
       # to avoid overlaps of mountains , rel_min_height = 0.005, scale=0.9
       geom_density_ridges2(aes(fill = Diagnosis)) +
-      scale_fill_manual(values=customColors) +
-      guides(fill = legendDisplay ) +
+      scale_fill_manual(values=Color, guide=FALSE) +
       geom_vline(data=tidyScores, mapping=aes(xintercept=0), linetype = "dashed", colour = "maroon", size=1 ) +
       scale_y_discrete(expand = c(0.01, 0), limits = unique(rev(tidyScores$Diagnosis))) +
       scale_x_continuous(expand = c(0.01, 0)) +
@@ -196,7 +207,7 @@ OneVariablePlotSort <- function(colList, Scores, orderOfFactor, orderOfSignature
   
   tidyScoresPre <- Scores %>% tidyr::gather(Signatures, Scores, colList);
   mergeDF       <-  merge(tidyScoresPre, customColorDF, by.x="Diagnosis", by.y="Diagnosis", all.x=TRUE)
-  tidyScoresPre  <- mergeDF[,c(1:4)] ; tidyScoresPre$Diagnosis <- factor(tidyScoresPre$Diagnosis, levels = orderOfFactor, ordered = TRUE)
+  tidyScoresPre  <- mergeDF[,c(1:4)] ; # tidyScoresPre$Diagnosis <- factor(tidyScoresPre$Diagnosis, levels = orderOfFactor, ordered = TRUE)
   
   if( plotType =="StringBean") {
     plotLists <- lapply(orderOfSignature, drawStringBeanPlot, tidyScoresPre)
@@ -208,24 +219,72 @@ OneVariablePlotSort <- function(colList, Scores, orderOfFactor, orderOfSignature
   return(plotLists)
 }   
 
-
 #### Plot the Immune Scores
-orderOfFactor <- as.character( unique(Scores$Diagnosis) )
+orderOfFactor <- c("EWS", "RMS.FP", "NB.MYCN.A", "NS.spleen" )
+Scores <- cbind(expressionTMM.RPKM_HLA_Cyto, AliasNames_df[,"DIAGNOSIS.Substatus.Tumor.Normal.Tissue", drop=FALSE]) %>% 
+                  dplyr::rename(Diagnosis=DIAGNOSIS.Substatus.Tumor.Normal.Tissue) %>% 
+                  dplyr::arrange(Diagnosis) %>% 
+                  dplyr::mutate(Diagnosis = factor(Diagnosis, ordered = TRUE, levels = orderOfFactor))
 orderOfSignature <- colnames(Scores)[-ncol(Scores)]
 colList <- c(1:(ncol(Scores)-1))
 #Generate custom colors
-DiagFreq <- table(Scores$Diagnosis)
-Color <- c("#990033", "#b36b00", "#0086b3")
+DiagFreq <- table(factor(Scores$Diagnosis,levels=orderOfFactor))
+Color <- c("#990033", "#b36b00", "#0086b3", "#248f24")
 customColorDF <- data.frame("Diagnosis"=names(DiagFreq), "Color"=Color)
 #customColors <- unlist(sapply(seq(1:length(DiagFreq)), function(x){rep(customColors[x],DiagFreq[x])}))
 
-plotLists <- OneVariablePlotSort(colList, Scores=Scores, orderOfFactor, orderOfSignature, standardize =TRUE, logit =TRUE ,
-                                 yLab = "Standardised enrichment scores", legendDisplay = FALSE, customColorDF = customColorDF )
-ImmuneScorePlots <- lapply(plotLists, function(l) l[[1]])
-SBName ="T:/Sivasish_Sindiri/Collaboration/TCR.Grants/TMM.RPKM.GP.log2.zscore.ssGSEA.pdf"
-ggsave(SBName, marrangeGrob(ImmuneScorePlots,ncol=4,nrow=1 ), width = 20, height = 8 )
+plotLists <- OneVariablePlotSort(colList, Scores=Scores, orderOfFactor, orderOfSignature, standardize =TRUE, logit =TRUE, 
+                                 yLab = "Standardised gene expression", legendDisplay = FALSE, customColorDF = customColorDF,sizeOfDots = 1.5 )
+ExpressionScorePlots <- lapply(plotLists, function(l) l[[1]])
+SBName ="T:/Sivasish_Sindiri/Collaboration/TCR.Grants/TMM.RPKM.GP.log2.zscore.RMS.EWS.MYCN.Spleen.Tumor.pdf"
+ggsave(SBName, marrangeGrob(ExpressionScorePlots,ncol=4,nrow=1 ), width = 20, height = 8 )
 
 
+
+### TASK 2
+colNamesTumorsNormal.TCGA <- read.table("C:/Users/sindiris/R Scribble/RNASeq.RSEM/MetadataMapper.khanlab.TCGA.txt",
+                                        sep = "\t", header = T, check.names = FALSE, comment.char = "", stringsAsFactors = FALSE)
+colNamesTumorsNormal.TCGA  <- colNamesTumorsNormal.TCGA  %>% arrange(desc(Source)) %>% dplyr::filter(!LIBRARY_TYPE %in% c("CellLine"))
+
+ssGSEA <- read.table("C:/Users/sindiris/R Scribble/RNASeq.RSEM/GSEA/results/txt/RPKM_Data_Filt.log2.meta.Broad.PROJ.gct.txt",sep = "\t", 
+                     header = T, row.names = 1, check.names = FALSE)
+
+## Checking metadata vs data ###
+metaData.colnames <- colNamesTumorsNormal.TCGA$SAMPLE_ID.Alias
+dataMatrix.colnames <- colnames(ssGSEA)
+TCGA.Colnames[which(!dataMatrix.colnames %in% metaData.colnames )]
+## Check complete
+
+selected.khanlab.TCGA.metadata  <- colNamesTumorsNormal.TCGA  %>% filter( DIAGNOSIS.Alias %in% c("LAML", "LUAD", "SKCM", "KIRC", "EWS", "RMS") )   %>% 
+  dplyr::select( SAMPLE_ID.Alias, DIAGNOSIS.Alias )
+
+ssGSEA.Selected <- ssGSEA %>% dplyr::select_(.dots = selected.khanlab.TCGA.metadata$SAMPLE_ID.Alias)
+
+## Checking metadata vs data ##
+stopifnot( ncol(ssGSEA.Selected) == length(as.character(selected.khanlab.TCGA.metadata$SAMPLE_ID.Alias)) )
+#write.table(ssGSEA.Selected, "T:/Sivasish_Sindiri/Collaboration/TCR.Grants/ssGSEA.Selected.txt", sep = "\t", col.names = TRUE,
+#            row.names = TRUE, quote = FALSE)
+## Checking complete
+
+orderOfFactor <- c("LAML", "LUAD", "SKCM", "KIRC", "EWS", "RMS") 
+Scores <- cbind(t(ssGSEA.Selected), selected.khanlab.TCGA.metadata[,"DIAGNOSIS.Alias", drop=FALSE]) %>% 
+  dplyr::rename(Diagnosis=DIAGNOSIS.Alias) %>% 
+  dplyr::arrange(Diagnosis) #%>%
+  #dplyr::mutate(Diagnosis = factor(Diagnosis, ordered = TRUE, levels = orderOfFactor))
+
+orderOfSignature <- colnames(Scores)[-ncol(Scores)]
+colList <- c(1:(ncol(Scores)-1))
+#Generate custom colors
+DiagFreq <- table(factor(Scores$Diagnosis,levels=orderOfFactor))
+Color <- c("#a6a6a6", "#a6a6a6", "#a6a6a6", "#a6a6a6", "#990033", "#b36b00")
+customColorDF <- data.frame("Diagnosis"=names(DiagFreq), "Color"=Color)
+#customColors <- unlist(sapply(seq(1:length(DiagFreq)), function(x){rep(customColors[x],DiagFreq[x])}))
+
+plotLists <- OneVariablePlotSort(colList, Scores=Scores, orderOfFactor, orderOfSignature, standardize =TRUE, logit =FALSE, plotType = "density",
+                                 yLab = "Standardised enrichment score", legendDisplay = FALSE, customColorDF = customColorDF,sizeOfDots = 1 )
+ExpressionScorePlots <- lapply(plotLists, function(l) l[[1]])
+SBName ="T:/Sivasish_Sindiri/Collaboration/TCR.Grants/TMM.RPKM.GP.log2.ssGSEA.zscore.khanlab.density.TCGA.pdf"
+ggsave(SBName, marrangeGrob(ExpressionScorePlots,ncol=3,nrow=1 ), width = 20, height = 8 )
 
 
 
