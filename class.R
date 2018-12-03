@@ -214,6 +214,7 @@ CoreUtilities <- R6Class(
   portable  = TRUE,
   ## Read CSV or TXT files
   private   = list(
+    ## Read TXT Files
     readTXTFiles  = function(x, fileSuffix=NA, colNameSelect=NA, primaryID=NA ){
       if(!is.na(fileSuffix)) 
       {
@@ -233,18 +234,41 @@ CoreUtilities <- R6Class(
       dataMatrixLists     <- lapply(selectedFileList, private$readTXTFiles, fileSuffix=fileSuffix,colNameSelect=colNameSelect, primaryID=primaryID)
       dataMatrix          <- purrr::reduce(dataMatrixLists, full_join, by=primaryID)
       return(dataMatrix)
+    },
+    ## Read RDS files
+    readRDSFiles  = function(x, fileFormat = NA, colInterest = NA, isRowNames= FALSE, rowNamesColInFile = NA ){
+
+      print(paste(x))
+      featureCountRDS <- readRDS(x)
+      countDF         <- featureCountRDS$count %>% data.frame()
+      return(countDF)
+      
+    },
+    ## Merge RDS files
+    mergeRDSFiles = function(x ){
+      # dataMatrixLists     <- lapply(unlist(x), private$readRDSFiles)
+      # rowNames            <- rownames( dataMatrixLists[[1]] )
+      # dataMatrix          <- rbindlist(dataMatrixLists, use.names = TRUE)[,as.matrix(.SD)]
+      # rownames(dataMatrix)<- rowNames
+      # return(as.data.frame(dataMatrix))
+      
+      dataMatrix          <- do.call(cbind,lapply(unlist(x),private$readRDSFiles))
+      return(dataMatrix)
+      
     }
   ),
   public    = list(
     workDir                = NULL,
     projectName            = NULL,
     allFileList            = NULL,
+    ProjectSetUpObject     = NULL,
     initialize             = function(ProjectSetUpObject = NA ){
       
       assert_that("ProjectSetUP" %in% class(ProjectSetUpObject), 
                   msg="Please setup Project using ProjectSetUp class !!\nProjectSetUpObject cannot be NA !!")
       self$workDir     <- ProjectSetUpObject$workDir
       self$projectName <- ProjectSetUpObject$projectName
+      self$ProjectSetUpObject <- ProjectSetUpObject
     },
     ## Get merged matrix
     getMergedMatrix = function(dir = NA, fileFormat = NA, colNameSelect = NA, colIndexSelect = NA, isRowNames = FALSE, rowNamesColInFile = NA,
@@ -270,15 +294,13 @@ CoreUtilities <- R6Class(
       
       switch(fileFormat,
              
-             #        "rds"     = {
-             #          mergedDataList        <- lapply( lapply(dirs, list.files, full.names=T),
-             #                                           private$mergeRDSFiles, fileFormat = fileFormat, colInterest = colIndexSelect, fileSuffix = fileSuffix,
-             #                                           colNameSelect = colNameSelect )
-             #          rowNames              <- rownames(mergedDataList[[1]])
-             #          mergedData            <- dplyr::bind_cols( mergedDataList)
-             #          rownames(mergedData)  <- rowNames
-             #          return(mergedData)
-             #        },
+            "rds"     = {
+                mergedDataList       <- lapply( lapply(dirs, list.files, full.names=T), private$mergeRDSFiles )
+                rowNames              <- rownames(mergedDataList[[1]])
+                mergedData            <- dplyr::bind_cols( mergedDataList)
+                rownames(mergedData)  <- rowNames
+                return(mergedData)
+                    },
              "txt"    = {
                mergedDataList        <- lapply( lapply(dirs, list.files, full.names=T),
                                                 private$mergeTXTFiles, fileSuffix = fileSuffix, colNameSelect = colNameSelect, primaryID=primaryID )
@@ -307,7 +329,7 @@ CoreUtilities <- R6Class(
     },
     ## matchAndChangeColNames columns
     matchAndChangeColNames = function(){
-      metaDT <-  setDT(rnaseqProject$metaDataDF)
+      metaDT <-  setDT(self$ProjectSetUpObject$metaDataDF)
       setDT(metaDT)
     },
     ## Factorise columns
@@ -318,8 +340,7 @@ CoreUtilities <- R6Class(
     ## Keep Protein Coding
     keepProteinCoding = function(geneMatrix=NULL, annotation=NULL, featureType="GeneID") {
       ###Keep only Protein Coding Genes
-      PC <- read.table("C:/Users/sindiris/R Scribble/Annotation RDS/HGNC-protein-coding-List.txt", header = T, sep="\t")
-      annotationPC <- annotation %>% filter(GeneName %in% PC$Genes)
+      annotationPC <- annotation %>% filter(GeneName %in% self$ProjectSetUpObject$pcDF[,"GeneName"])
       foundGenes <- which(row.names(geneMatrix) %in% annotationPC[,featureType] )
       geneMatrixNew <- geneMatrix %>% data.frame() %>% .[foundGenes,]
       annotationPC <- annotationPC %>% mutate(GeneID = self$factorizeColumn(annotationPC$GeneID, row.names(geneMatrixNew)))
@@ -331,14 +352,14 @@ CoreUtilities <- R6Class(
     },
     ## subsetMetaData
     subsetMetaData = function(colnamesDF=NA){
-      df <- dplyr::left_join(colnamesDF,rnaseqProject$metaDataDF, by="SAMPLE_ID") %>% filter(complete.cases(.))
-      if(!is.null(rnaseqProject$metaDataDF)) {
-        rnaseqProject$metaDataDF <- df
+      df <- dplyr::left_join(colnamesDF,self$ProjectSetUpObject$metaDataDF, by="SAMPLE_ID") %>% filter(complete.cases(.))
+      if(!is.null(self$ProjectSetUpObject$metaDataDF)) {
+        self$ProjectSetUpObject$metaDataDF <- df
       }
     },
     ## Annotate a gene expression df with "GeneID" as primary key
     featureNameAnot = function(querryDF=NA, identifier=NA){
-      annotDF <- dplyr::left_join(rnaseqProject$annotationDF, querryDF, by=identifier)
+      annotDF <- dplyr::left_join(self$ProjectSetUpObject$annotationDF, querryDF, by=identifier)
       print(paste("Annotating expression DF"))
       print(dim(annotDF))
       return(annotDF)
@@ -347,7 +368,7 @@ CoreUtilities <- R6Class(
     performClustering = function( df = NA) {
       RPKM_Data_Filt_t=t(df)
       hc<-hclust(dist(RPKM_Data_Filt_t,"euclidean"),"ward.D")
-      pdf(paste0(rnaseqProject$workDir,"/",rnaseqProject$projectName,"/",rnaseqProject$plotsDir,"/",rnaseqProject$projectName,"_hc.pdf"),height=15,width=15)
+      pdf(paste0(self$ProjectSetUpObject$workDir,"/",self$ProjectSetUpObject$projectName,"/",self$ProjectSetUpObject$plotsDir,"/",self$ProjectSetUpObject$projectName,"_hc.pdf"),height=15,width=15)
       plot(as.phylo(hc),type = "fan", label.offset=1, cex=1)
       dev.off()
     },
@@ -388,11 +409,73 @@ CoreUtilities <- R6Class(
       ## y <- sum(log2(x+1))/6
       return(y)
     },
+    ## Calculate Cytolytic Score
     cytolyticScore = function(expDF = NA ) {
       cytolyticDF       <- expDF[c("GZMA","GZMB","GZMH","GZMK", "GZMM", "PRF1"),] ; 
       CytolyticScores   <- apply(cytolyticDF,2, self$calculateGeoMean) %>% data.frame() %>% t()
       rownames(CytolyticScores) <- "CytolyticScore"
       return(CytolyticScores)
+    },
+    ## Add gene annotation and filter genes
+    filterAnotateGenes = function(filterName= NA , folderName = "data", queryDF = NA, rdsDir=NA, txtDir=NA){
+      
+      print(paste0( rdsDir ,"/", folderName, "/" ))
+      rdsDirPath  <- paste0( rdsDir ,"/", folderName, "/" )
+      txtDirPath  <- paste0( txtDir ,"/", folderName, "/" )
+      
+      if(!dir.exists(rdsDirPath)) { dir.create(rdsDirPath) }
+      if(!dir.exists(txtDirPath)) { dir.create(txtDirPath) }
+      
+      rdsfile <- paste0(rdsDirPath, paste0(folderName,"_",filterName,".rds") )
+      txtFile <- paste0(txtDirPath, paste0(folderName,"_",filterName,".txt") )
+      
+      switch(filterName,
+             
+             "proteinCoding"= {
+               #print("Before filtering for pritein coding genes")
+               GeneDF_DiffExp <- na.omit(dplyr::left_join(self$ProjectSetUpObject$pcDF, queryDF, by="GeneID"))
+               #private$GeneDF_DiffExp <- dplyr::left_join( private$GeneDF_DiffExp, rnaseqProject$csDF, by="GeneName")
+               #print("Filter matched ", dim(GeneDF_DiffExp_PC)[1], " out of  ", dim(rnaseqProject$pcDF)[1], " given protein coding genes")
+               #pcDF <- private$GeneDF_DiffExp %>% filter(GeneName %in% rnaseqProject$pcDF)
+             },
+             "cellsurface"= {
+               #print("filtering for cellsurface genes")
+               GeneDF_DiffExp <- queryDF %>% filter(GeneName %in% as.character(self$ProjectSetUpObject$csDF[,"GeneName"]))
+               GeneDF_DiffExp <- dplyr::left_join(GeneDF_DiffExp, self$ProjectSetUpObject$pcDF, by = "GeneID")
+               #print("Filter matched ", dim(GeneDF_DiffExp_csDF)[1], " out of  ", dim(rnaseqProject$csDF)[1], " given CS genes")
+             },
+             "transcriptionFactor"= {
+               # print("filtering for transcriptionFactor genes")
+               GeneDF_DiffExp <- queryDF %>% filter(GeneName %in% as.character(self$ProjectSetUpObject$tfDF[,"GeneName"]))
+               GeneDF_DiffExp <- dplyr::left_join(GeneDF_DiffExp, self$ProjectSetUpObject$pcDF, by = "GeneID")
+               #print("Filter matched ", dim(GeneDF_DiffExp_tfDF)[1], " out of  ", dim(rnaseqProject$tfDF)[1], " given TF genes")
+             },
+             "cancergermlineantigen"= {
+               # print("filtering for cancergermlineantigen genes")
+               GeneDF_DiffExp <- queryDF %>% filter(GeneName %in% as.character(self$ProjectSetUpObject$cgaDF[,"GeneName"]))
+               GeneDF_DiffExp <- dplyr::left_join(GeneDF_DiffExp, self$ProjectSetUpObject$pcDF, by = "GeneID")
+               #print("Filter matched ", dim(GeneDF_DiffExp_cgaDF)[1], " out of  ", dim(rnaseqProject$tfDF)[1], " given TF genes")
+             },
+             "all" = {
+               GeneDF_DiffExp <- queryDF
+               GeneDF_DiffExp <- dplyr::left_join(GeneDF_DiffExp, self$ProjectSetUpObject$pcDF,  by="GeneID")
+               GeneDF_DiffExp <- GeneDF_DiffExp %>% mutate(
+                 meanBrainExp  = ifelse(GeneName.x %in% self$ProjectSetUpObject$BrainExpDF[,"GeneName"], self$ProjectSetUpObject$BrainExpDF[,"MeanExp"], "N"),
+                 meanHeartExp  = ifelse(GeneName.x %in% self$ProjectSetUpObject$HeartExpDF[,"GeneName"], self$ProjectSetUpObject$HeartExpDF[,"MeanExp"], "N"),
+                 meanKidneyExp = ifelse(GeneName.x %in% self$ProjectSetUpObject$KidneyExpDF[,"GeneName"], self$ProjectSetUpObject$KidneyExpDF[,"MeanExp"], "N"),
+                 meanLiverExp  = ifelse(GeneName.x %in% self$ProjectSetUpObject$LiverExpDF[,"GeneName"], self$ProjectSetUpObject$LiverExpDF[,"MeanExp"], "N"),
+                 meanLungExp   = ifelse(GeneName.x %in% self$ProjectSetUpObject$LungExpDF[,"GeneName"], self$ProjectSetUpObject$LungExpDF[,"MeanExp"], "N"),
+                 
+                 CellSurface   = ifelse(GeneName.x %in% self$ProjectSetUpObject$csDF[,"GeneName"], "Y", "N"),
+                 TranscriptionFactor     = ifelse(GeneName.x %in% self$ProjectSetUpObject$tfDF[,"GeneName"], "Y", "N"),
+                 CancerGermlineAntigen   = ifelse(GeneName.x %in% self$ProjectSetUpObject$cgaDF[,"GeneName"], "Y", "N"),
+                 PAX3FOXO1     = ifelse(GeneName.x %in% self$ProjectSetUpObject$pax3Foxo1DF[,"GeneName"], "Y", "N"),
+                 EWSR1FL1      = ifelse(GeneName.x %in% self$ProjectSetUpObject$ewsr1Fli1DF[,"GeneName"], "Y", "N") )
+             }
+      )
+      saveRDS(GeneDF_DiffExp, rdsfile)
+      write.table(x = GeneDF_DiffExp, file = txtFile, sep="\t", row.names = FALSE, quote=FALSE)
+      return(GeneDF_DiffExp)
     }
   )
 )
@@ -416,6 +499,9 @@ GeneExpNormalization <- R6Class(
     proteinCodingOnly    = NULL,
     corUtilsFuncs        = NULL,
     saveFiles            = NULL,
+    filterName           = NULL,
+    subsetGenes          = NULL,
+    annotateALL          = NULL,
     setUp                = function(){
       
       if( private$featureType == "Exon")      { private$featureType = "ExonID"       }
@@ -427,6 +513,7 @@ GeneExpNormalization <- R6Class(
         dplyr::arrange_(.dots=c(private$featureType))
       
       if(private$proteinCodingOnly) {
+
         keepProteinCodingOut     <- super$keepProteinCoding(geneMatrix = private$countObj, 
                                                             annotation=private$annotationDF, featureType=private$featureType)
         private$countObj         <- keepProteinCodingOut[[1]]
@@ -463,7 +550,9 @@ GeneExpNormalization <- R6Class(
   public    = list(
     
     initialize           = function(countObj = NA, featureType = NA, packageRNAseq = NA, annotationDF = NA, design = NA,
-                                    proteinCodingOnly = TRUE, corUtilsFuncs = NA, saveFiles=FALSE ) 
+                                    proteinCodingOnly = TRUE, corUtilsFuncs = NA, saveFiles=FALSE, filterName = NA,
+                                    subsetGenes = FALSE, annotateALL = FALSE
+    ) 
     {
       
       assert_that( class(countObj) == "matrix", msg = "Please provide raw count in matrix format")
@@ -478,6 +567,9 @@ GeneExpNormalization <- R6Class(
       private$proteinCodingOnly <- proteinCodingOnly
       private$corUtilsFuncs  <- corUtilsFuncs
       private$saveFiles      <- saveFiles
+      private$filterName     <- filterName
+      private$subsetGenes    <- subsetGenes
+      private$annotateALL    <- annotateALL
       private$setUp()
     },
     
@@ -491,22 +583,45 @@ GeneExpNormalization <- R6Class(
       if(x == "NormFactorDF") return(private$GeneDFNorm)
       if(x == "RawCounts") { 
         rawCounts <-  private$GeneDFNorm$counts %>% data.frame() %>% tibble::rownames_to_column(var="GeneID")
-        return( private$corUtilsFuncs$featureNameAnot(querryDF=rawCounts, identifier="GeneID")  ) 
+        resultDF  <-  private$corUtilsFuncs$featureNameAnot(querryDF=rawCounts, identifier="GeneID")
       }
       if(x == "CPM" )         { 
         cpmDF <- as.data.frame(cpm(private$GeneDFNorm,  normalized.lib.sizes = TRUE,log = FALSE)) %>% tibble::rownames_to_column(var="GeneID")
-        return( private$corUtilsFuncs$featureNameAnot(querryDF=cpmDF, identifier="GeneID") )  
+        resultDF <- private$corUtilsFuncs$featureNameAnot(querryDF=cpmDF, identifier="GeneID")
       }
       if(x == "TMM-RPKM" )    { 
         rpkmDF <- as.data.frame(rpkm(private$GeneDFNorm, normalized.lib.sizes = TRUE, log = FALSE)) %>% tibble::rownames_to_column(var="GeneID")
-        return( private$corUtilsFuncs$featureNameAnot(querryDF=rpkmDF, identifier="GeneID") ) 
+        resultDF <- private$corUtilsFuncs$featureNameAnot(querryDF=rpkmDF, identifier="GeneID")
+        
+        if( private$annotateALL ){
+          resultDF <- private$corUtilsFuncs$filterAnotateGenes(filterName="all", queryDF = resultDF, folderName = "expression",
+                                                               rdsDir = private$fileDirs[1], txtDir = private$fileDirs[2] )
+        }
+        
+        if( private$subsetGenes ){
+          resultDF <- private$corUtilsFuncs$filterAnotateGenes(filterName=private$filterName, queryDF = resultDF, folderName = "expression",
+                                                               rdsDir = private$fileDirs[1], txtDir = private$fileDirs[2] )
+        }
+        
       }
       if(x == "TPM" )         { 
         tpmDF <- apply(rpkm(private$GeneDFNorm, normalized.lib.sizes = TRUE), 2 , super$fpkmToTpm) %>% tibble::rownames_to_column(var="GeneID")
-        return( private$corUtilsFuncs$featureNameAnot(querryDF=tpmDF, identifier="GeneID") )  
+        resultDF <- private$corUtilsFuncs$featureNameAnot(querryDF=tpmDF, identifier="GeneID")
+        
+        if( private$annotateALL ){
+          resultDF <- private$corUtilsFuncs$filterAnotateGenes(filterName="all", queryDF = resultDF, folderName = "expression",
+                                                             rdsDir = private$fileDirs[1], txtDir = private$fileDirs[2] )
+        }
+        if( private$subsetGenes ){
+          resultDF <- private$corUtilsFuncs$filterAnotateGenes(filterName=private$filterName         , queryDF = resultDF, folderName = "expression",
+                                                               rdsDir = private$fileDirs[1], txtDir = private$fileDirs[2] )
+        }
+        
       }
       
-      
+      ## Filter Genes
+
+      return(resultDF)
     },
     deseq2           = function(x) {
       
@@ -688,7 +803,7 @@ DifferentialGeneExp <- R6Class(
       countObj          = as.matrix(pairCountMatrix), 
       featureType       = self$featureType, 
       packageRNAseq     = self$packageRNAseq, 
-      annotationDF      = rnaseqProject$annotationDF, 
+      annotationDF      = private$corUtilsFuncs$ProjectSetUpObject$annotationDF, 
       design            = modelDesign[,2], 
       proteinCodingOnly = FALSE,
       corUtilsFuncs     = private$corUtilsFuncs
@@ -708,79 +823,19 @@ DifferentialGeneExp <- R6Class(
     
     ## Filter Genes
     folderName <- paste0(private$pairGroup1Name, "_", private$pairGroup2Name)
-    private$filterGenes(filterName="all", folderName = folderName )
+    private$corUtilsFuncs$filterAnotateGenes(filterName="all", queryDF = private$GeneDF_DiffExp, folderName = folderName,
+                                             rdsDir = private$fileDirs[7], txtDir = private$fileDirs[6] )
     if( self$subsetGenes ){
-      private$filterGenes(filterName="proteinCoding"         , folderName = folderName )
-      private$filterGenes(filterName="cellsurface"           , folderName = folderName )
-      private$filterGenes(filterName="transcriptionFactor"   , folderName = folderName )
-      private$filterGenes(filterName="cancergermlineantigen" , folderName = folderName )
+      private$corUtilsFuncs$filterAnotateGenes(filterName="proteinCoding"         , queryDF = private$GeneDF_DiffExp, folderName = folderName,
+                                               rdsDir = private$fileDirs[7], txtDir = private$fileDirs[6] )
+      private$corUtilsFuncs$filterAnotateGenes(filterName="cellsurface"           , queryDF = private$GeneDF_DiffExp, folderName = folderName,
+                                               rdsDir = private$fileDirs[7], txtDir = private$fileDirs[6] )
+      private$corUtilsFuncs$filterAnotateGenes(filterName="transcriptionFactor"   , queryDF = private$GeneDF_DiffExp, folderName = folderName,
+                                               rdsDir = private$fileDirs[7], txtDir = private$fileDirs[6] )
+      private$corUtilsFuncs$filterAnotateGenes(filterName="cancergermlineantigen" , queryDF = private$GeneDF_DiffExp, folderName = folderName,
+                                               rdsDir = private$fileDirs[7], txtDir = private$fileDirs[6] )
     }
     return(private$GeneDF_DiffExp)
-  },
-  ## Annotate a gene expression df with "GeneID" as primary key
-  # featureNameAnot = function(querryDF=NA, identifier=NA){
-  #   annotDF <- dplyr::left_join(rnaseqProject$annotationDF, querryDF, by=identifier)
-  #   print(paste("Annotating expression DF"))
-  #   print(dim(annotDF))
-  #   return(annotDF)
-  # },
-  filterGenes = function(filterName= NA , folderName = NA){
-    
-    rdsDir  <- paste0( private$fileDirs[7],"/", folderName, "/" )
-    txtDir  <- paste0( private$fileDirs[6],"/", folderName, "/" )
-    
-    if(!dir.exists(rdsDir)) { dir.create(rdsDir) }
-    if(!dir.exists(txtDir)) { dir.create(txtDir) }
-    
-    rdsfile <- paste0(rdsDir, paste0(folderName,"_",filterName,".rds") )
-    txtFile <- paste0(txtDir, paste0(folderName,"_",filterName,".txt") )
-    
-    switch(filterName,
-           
-           "proteinCoding"= {
-             #print("Before filtering for pritein coding genes")
-             GeneDF_DiffExp <- na.omit(dplyr::left_join(rnaseqProject$pcDF, private$GeneDF_DiffExp, by="GeneID"))
-             #private$GeneDF_DiffExp <- dplyr::left_join( private$GeneDF_DiffExp, rnaseqProject$csDF, by="GeneName")
-             #print("Filter matched ", dim(GeneDF_DiffExp_PC)[1], " out of  ", dim(rnaseqProject$pcDF)[1], " given protein coding genes")
-             #pcDF <- private$GeneDF_DiffExp %>% filter(GeneName %in% rnaseqProject$pcDF)
-           },
-           "cellsurface"= {
-             #print("filtering for cellsurface genes")
-             GeneDF_DiffExp <- private$GeneDF_DiffExp %>% filter(GeneName %in% as.character(rnaseqProject$csDF[,"GeneName"]))
-             GeneDF_DiffExp <- dplyr::left_join(GeneDF_DiffExp, rnaseqProject$pcDF, by = "GeneID")
-             #print("Filter matched ", dim(GeneDF_DiffExp_csDF)[1], " out of  ", dim(rnaseqProject$csDF)[1], " given CS genes")
-           },
-           "transcriptionFactor"= {
-             # print("filtering for transcriptionFactor genes")
-             GeneDF_DiffExp <- private$GeneDF_DiffExp %>% filter(GeneName %in% as.character(rnaseqProject$tfDF[,"GeneName"]))
-             GeneDF_DiffExp <- dplyr::left_join(GeneDF_DiffExp, rnaseqProject$pcDF, by = "GeneID")
-             #print("Filter matched ", dim(GeneDF_DiffExp_tfDF)[1], " out of  ", dim(rnaseqProject$tfDF)[1], " given TF genes")
-           },
-           "cancergermlineantigen"= {
-             # print("filtering for cancergermlineantigen genes")
-             GeneDF_DiffExp <- private$GeneDF_DiffExp %>% filter(GeneName %in% as.character(rnaseqProject$cgaDF[,"GeneName"]))
-             GeneDF_DiffExp <- dplyr::left_join(GeneDF_DiffExp, rnaseqProject$pcDF, by = "GeneID")
-             #print("Filter matched ", dim(GeneDF_DiffExp_cgaDF)[1], " out of  ", dim(rnaseqProject$tfDF)[1], " given TF genes")
-           },
-           "all" = {
-             GeneDF_DiffExp <- private$GeneDF_DiffExp
-             GeneDF_DiffExp <- dplyr::left_join(GeneDF_DiffExp, rnaseqProject$pcDF,  by="GeneID")
-             GeneDF_DiffExp <- GeneDF_DiffExp %>% mutate(
-                                                         meanBrainExp  = ifelse(GeneName.x %in% rnaseqProject$BrainExpDF[,"GeneName"], rnaseqProject$BrainExpDF[,"MeanExp"], "N"),
-                                                         meanHeartExp  = ifelse(GeneName.x %in% rnaseqProject$HeartExpDF[,"GeneName"], rnaseqProject$HeartExpDF[,"MeanExp"], "N"),
-                                                         meanKidneyExp = ifelse(GeneName.x %in% rnaseqProject$KidneyExpDF[,"GeneName"], rnaseqProject$KidneyExpDF[,"MeanExp"], "N"),
-                                                         meanLiverExp  = ifelse(GeneName.x %in% rnaseqProject$LiverExpDF[,"GeneName"], rnaseqProject$LiverExpDF[,"MeanExp"], "N"),
-                                                         meanLungExp   = ifelse(GeneName.x %in% rnaseqProject$LungExpDF[,"GeneName"], rnaseqProject$LungExpDF[,"MeanExp"], "N"),
-                                                         
-                                                         CellSurface   = ifelse(GeneName.x %in% rnaseqProject$csDF[,"GeneName"], "Y", "N"),
-                                                         TranscriptionFactor     = ifelse(GeneName.x %in% rnaseqProject$tfDF[,"GeneName"], "Y", "N"),
-                                                         CancerGermlineAntigen   = ifelse(GeneName.x %in% rnaseqProject$cgaDF[,"GeneName"], "Y", "N"),
-                                                         PAX3FOXO1     = ifelse(GeneName.x %in% rnaseqProject$pax3Foxo1DF[,"GeneName"], "Y", "N"),
-                                                         EWSR1FL1      = ifelse(GeneName.x %in% rnaseqProject$ewsr1Fli1DF[,"GeneName"], "Y", "N") )
-           }
-    )
-    saveRDS(GeneDF_DiffExp, rdsfile)
-    write.table(x = GeneDF_DiffExp, file = txtFile, sep="\t", row.names = FALSE, quote=FALSE)
   }
   ),
   public    = list
