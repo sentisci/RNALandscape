@@ -12,7 +12,7 @@ rnaseqProject <- ProjectSetUp$new(
   
   date                    = unlist(strsplit(x = as.character(Sys.time()), "\\s+"))[[1]],
   time                    = unlist(strsplit(x = as.character(Sys.time()), "\\s+"))[[2]],
-  projectName             = "RNASeq.RSEM",
+  projectName             = "Sondel.data",
   annotationRDS           = "C:/Users/sindiris/R Scribble/Annotation RDS/annotation_ENSEMBL_gene.RDS",
   pcRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/pc.other.HGNCTableFlat.rds",
   tfRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/TFs_no_epimachines.RDS",
@@ -27,10 +27,10 @@ rnaseqProject <- ProjectSetUp$new(
   LiverExpRDS             = "C:/Users/sindiris/R Scribble/Annotation RDS/VitalExpression/expressionTMM.RPKM.Liver.RDS", 
   LungExpRDS              = "C:/Users/sindiris/R Scribble/Annotation RDS/VitalExpression/expressionTMM.RPKM.Lung.RDS", 
   
-  outputPrefix            = "landscape",
+  outputPrefix            = "Sondel",
   filterGenes             = TRUE,
   filterGeneMethod        = "bySum",
-  factorName              = "DIAGNOSIS.Substatus.Tumor.Normal.Tissue",
+  factorName              = "DIAGNOSIS.Alias.substatus.T",
   metaDataFileName        = "MetadataMapper.txt",
   outputdirRDSDir         = "GeneRDSOutput",
   outputdirTXTDir         = "GeneTXTOutput",
@@ -42,7 +42,7 @@ rnaseqProject <- ProjectSetUp$new(
   #factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), 
   #                               "Normal.ribozero"=list("LIBRARY_TYPE"="Normal", "LibraryPrep" = "PolyA"),
   #                               "Tumors"=list("LIBRARY_TYPE"="Tumor", "LibraryPrep" = "PolyA"))
-  factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), "Normal.ribozero"=list("LIBRARY_TYPE"="Normal", "LibraryPrep" = "Ribozero"))                                     
+  #factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), "Normal.ribozero"=list("LIBRARY_TYPE"="Normal", "LibraryPrep" = "Ribozero"))                                     
 )
 
 ## Add utility functions to the project
@@ -50,12 +50,12 @@ corUtilsFuncs <- CoreUtilities$new(  ProjectSetUpObject = rnaseqProject )
 
 ## Generate expression matrix
 rm(mergeObjectsNoDup)
-mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Genes.v1", 
-                                                   fileFormat        = "txt", 
+mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Genes", 
+                                                   fileFormat        = "rds", 
                                                    colNameSelect     = "expected_count", 
                                                    isRowNames        = TRUE, 
                                                    rowNamesColInFile = 1,
-                                                   fileSuffix        = ".genes.results",
+                                                   fileSuffix        = "gene.fc.rds",
                                                    primaryID         = "gene_id",
                                                    metadata          = rnaseqProject$metaDataDF,
                                                    metadataFileRefCol= "SAMPLE_ID")
@@ -80,63 +80,52 @@ corUtilsFuncs$subsetMetaData(colnamesDF=colnamesDF)
 ## Instantiate a new Object of type GeneExpNormalization
 expressionObj <- GeneExpNormalization$new(
   
-  countObj       = as.matrix(mergeObjectsConso), 
-  featureType    = "Gene", 
-  packageRNAseq  = "edgeR", 
-  annotationDF   = rnaseqProject$annotationDF, 
-  design         = rnaseqProject$metaDataDF[,rnaseqProject$factorName], 
-  #design         = newMetaDataDF[,rnaseqProject$factorName],
+  countObj          = as.matrix(mergeObjectsConso), 
+  featureType       = "Gene", 
+  packageRNAseq     = "edgeR", 
+  annotationDF      = rnaseqProject$annotationDF, 
+  design            = rnaseqProject$metaDataDF[,rnaseqProject$factorName], 
+  #design           = newMetaDataDF[,rnaseqProject$factorName],
   proteinCodingOnly = FALSE,
-  corUtilsFuncs     = corUtilsFuncs
+  corUtilsFuncs     = corUtilsFuncs,
+  filterName        = "proteinCoding",
+  subsetGenes       = TRUE
 )
 
 ## Get expression in desired units
 expressionTMM.RPKM = expressionObj$edgeRMethod("TMM-RPKM")
-expressionTMM.Counts = expressionObj$edgeRMethod("RawCounts")
+# expressionTMM.Counts = expressionObj$edgeRMethod("RawCounts")
+expressionTMM.RPKM.ssGSEA <- expressionTMM.RPKM[,-c(1:11)]; rownames(expressionTMM.RPKM.ssGSEA) <- as.character(expressionTMM.RPKM$GeneName.x)
+broadGCTFile         = corUtilsFuncs$createBroadGCTFile(x =expressionTMM.RPKM.ssGSEA )
 
 ## Start here ##
 AliasNames_df  <- dplyr::left_join( data.frame("SAMPLE_ID"=colnames(expressionTMM.RPKM)), rnaseqProject$validMetaDataDF[,c("SAMPLE_ID", "SAMPLE_ID.Alias")] )
-AliasColnames  <- c(as.character(AliasNames_df[c(1:7),1]), as.character(AliasNames_df[-c(1:7),2]))
+AliasColnames  <- c(as.character(AliasNames_df[c(1:11),1]), as.character(AliasNames_df[-c(1:11),2]))
 ## Start here ##
 stopifnot( length(colnames(expressionTMM.RPKM)) == length(AliasColnames) )
 colnames(expressionTMM.RPKM) <- AliasColnames
 write.table(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
-                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.",rnaseqProject$date,".txt"),sep="/"),
-                                      sep="\t", row.names = FALSE, quote = FALSE)
+                                       paste0("RPKM_Data_Filt_Consolidated.GeneNames.",rnaseqProject$date,".txt"),sep="/"),
+                                       sep="\t", row.names = FALSE, quote = FALSE)
 saveRDS(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
-                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.",rnaseqProject$date,".rds"),sep="/"))
+                                       paste0("RPKM_Data_Filt_Consolidated.GeneNames.",rnaseqProject$date,".rds"),sep="/"))
+
+write.table(broadGCTFile, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$gseaDir,"rnk",
+                                       paste0("RPKM_Data_Filt_ssGSEA.",rnaseqProject$date,".txt"),sep="/"),
+             sep="\t", row.names = FALSE, col.names = FALSE, quote = FALSE)
 
 ## Perform Differential gene expression analysis
 
 ## Control groups ##
-Brain          <- c("NS.cerebellum","NS.cerebrum")
-Heart          <- c("NS.heart", "NS.heart")
-Kidney         <- c("NS.kidney")
-Liver          <- c("NS.liver")
-Lung           <- c("NS.lung")
-germline       <- c("NS.testis","NS.ovary")
-vitalNormals   <- c("NS.heart","NS.kidney","NS.liver","NS.lung")
-vital.Brain.Normals   <- c("NS.cerebellum","NS.cerebrum", "NS.heart","NS.kidney","NS.liver","NS.lung")
-othersNormals  <- c("NS.adrenalgland","NS.bladder","NS.colon","NS.ileum","NS.ovary","NS.pancreas","NS.prostate", 
-                    "NS.skeletalmuscle","NS.spleen", "NS.stomach","NS.testis", "NS.ureter", "NS.uterus")
-Normals        <- c("NS.adrenalgland","NS.bladder","NS.cerebellum","NS.cerebrum","NS.colon","NS.heart",
-                    "NS.ileum","NS.kidney","NS.liver","NS.lung","NS.ovary","NS.pancreas","NS.prostate", 
-                    "NS.skeletalmuscle","NS.spleen", "NS.stomach","NS.testis", "NS.ureter", "NS.uterus")
-NormalsNoGermLine <- c("NS.adrenalgland","NS.bladder","NS.cerebellum","NS.cerebrum","NS.colon","NS.heart",
-                    "NS.ileum","NS.kidney","NS.liver","NS.lung","NS.pancreas","NS.prostate", 
-                    "NS.skeletalmuscle","NS.spleen", "NS.stomach", "NS.ureter", "NS.uterus")
-
-tumorSubStatus.polyA <- c("RMS.FP" , "RMS.FN", "EWS" ,"ASPS", "DSRCT", "HBL", "ML", "NB.MYCN.NA","NB.MYCN.A", "NB.Unknown", "OS", 
-                          "SS", "Teratoma" ,"UDS" ,"YST")
-tumorSubStatus.ribozero <-  c("WT" ,"CCSK")
-Tumors         <-  c("ASPS","DSRCT", "EWS" ,"HBL", "ML", "NB" ,"OS", "RMS", "SS", "Teratoma" ,"UDS" ,"YST","WT", "CCSK")
+GroupA <- c("ML.B")
+GroupB <- c("ML.A")
 
 
 ## Testing 
 dgeObj  <- DifferentialGeneExp$new(
   countObj          = expressionObj$edgeRMethod("NormFactorDF")$counts,
-  group1            = list(list("Normals"=NormalsNoGermLine,each=FALSE)),
-  group2            = list(list("Tumor"=tumorSubStatus.polyA, each=TRUE)),
+  group1            = list(list("ML.B"=GroupA, each=FALSE)),
+  group2            = list(list("ML.A"=GroupB, each=FALSE)),
   packageRNAseq     = "edgeR",
   groupColumnName   = rnaseqProject$factorName,
   metadataDF        = rnaseqProject$metaDataDF,
