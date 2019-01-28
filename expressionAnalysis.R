@@ -31,7 +31,7 @@ rnaseqProject <- ProjectSetUp$new(
   filterGenes             = TRUE,
   filterGeneMethod        = "bySum",
   factorName              = "DIAGNOSIS.Substatus.Tumor.Normal.Tissue",
-  metaDataFileName        = "MetadataMapper.txt",
+  metaDataFileName        = "MetadataMapper.v3.txt",
   outputdirRDSDir         = "GeneRDSOutput",
   outputdirTXTDir         = "GeneTXTOutput",
   gseaDir                 = "GSEA",
@@ -50,7 +50,7 @@ corUtilsFuncs <- CoreUtilities$new(  ProjectSetUpObject = rnaseqProject )
 
 ## Generate expression matrix
 rm(mergeObjectsNoDup)
-mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Genes.v1", 
+mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Genes", 
                                                    fileFormat        = "txt", 
                                                    colNameSelect     = "expected_count", 
                                                    isRowNames        = TRUE, 
@@ -58,7 +58,7 @@ mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Gene
                                                    fileSuffix        = ".genes.results",
                                                    primaryID         = "gene_id",
                                                    metadata          = rnaseqProject$metaDataDF,
-                                                   metadataFileRefCol= "SAMPLE_ID")
+                                                   metadataFileRefCol= "Sample.Biowulf.ID")
 
 ## Evaluate presence of duplicate features and consolidate them
 setDT(mergeObjectsNoDup, keep.rownames = TRUE)
