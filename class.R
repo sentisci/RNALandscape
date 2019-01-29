@@ -21,8 +21,8 @@ ProjectSetUp <- R6Class(
       ## Create all the required dirs for the project.
       dir.create(projectDirPath)
       self$fileDirs <- paste(projectDirPath, c(self$outputdirRDSDir, self$outputdirTXTDir, self$gseaDir, 
-                                          self$plotsDir, self$plotsDataDir, self$DiffGeneExpAnaDir, self$DiffGeneExpRDS,
-                                          "GeneCountsInput", "TranscriptCountsInput", "ExonCountsInput" ), sep="/")
+                                               self$plotsDir, self$plotsDataDir, self$DiffGeneExpAnaDir, self$DiffGeneExpRDS,
+                                               "GeneCountsInput", "TranscriptCountsInput", "ExonCountsInput" ), sep="/")
       lapply(self$fileDirs, function(x){ if(!dir.exists(x)) dir.create(x) })
     },
     ## Generate filters to exclude given list
@@ -53,8 +53,8 @@ ProjectSetUp <- R6Class(
       }
       print(paste0("Dimension of metadata after applying parameter 'factorsToExclude' is ", paste(dim(self$metaDataDF)[1])))
       print("Make R valid names in the metadata file and storing it as validMetaDataDF")
-      tempDF <- as.data.frame(lapply(self$metaDataDF[,c("Patient.ID","Sample.Data.ID","Sample.ID","Sample.ID.Alias")], make.names)) %>% data.frame()
-      self$validMetaDataDF <- cbind(tempDF, self$metaDataDF[,which(names(self$metaDataDF) != c("Patient.ID","Sample.Data.ID","Sample.ID","Sample.ID.Alias"))])
+      tempDF <- as.data.frame(lapply(self$metaDataDF[,c("Patient.ID","Sample.Data.ID","Sample.Biowulf.ID.GeneExp","Sample.ID.Alias")], make.names)) %>% data.frame()
+      self$validMetaDataDF <- cbind(tempDF, self$metaDataDF[,which(names(self$metaDataDF) != c("Patient.ID","Sample.Data.ID","Sample.Biowulf.ID.GeneExp","Sample.ID.Alias"))])
     },
     readAnnotation = function() {
       self$annotationDF <- readRDS(self$annotationRDS) %>% as.data.frame()
@@ -338,7 +338,7 @@ CoreUtilities <- R6Class(
     },
     ## Annotate a gene expression df with "GeneID" as primary key
     featureNameAnot = function(querryDF=NA, identifier=NA){
-      annotDF <- dplyr::left_join(rnaseqProject$annotationDF, queryDF, by=identifier)
+      annotDF <- dplyr::left_join(rnaseqProject$annotationDF, querryDF, by=identifier)
       print(paste("Annotating expression DF"))
       print(dim(annotDF))
       return(annotDF)
@@ -489,7 +489,6 @@ GeneExpNormalization <- R6Class(
       assert_that(x %in% c("CPM", "TMM-RPKM", "TPM", "NormFactorDF", "RawCounts"), msg = "This function can only generate \"CPM\", \"TMM-RPKM\", \"TPM\" values ")
       
       if(x == "NormFactorDF") return(private$GeneDFNorm)
-
       if(x == "RawCounts") { 
         rawCounts <-  private$GeneDFNorm$counts %>% data.frame() %>% tibble::rownames_to_column(var="GeneID")
         return( private$corUtilsFuncs$featureNameAnot(querryDF=rawCounts, identifier="GeneID")  ) 
@@ -506,6 +505,7 @@ GeneExpNormalization <- R6Class(
         tpmDF <- apply(rpkm(private$GeneDFNorm, normalized.lib.sizes = TRUE), 2 , super$fpkmToTpm) %>% tibble::rownames_to_column(var="GeneID")
         return( private$corUtilsFuncs$featureNameAnot(querryDF=tpmDF, identifier="GeneID") )  
       }
+      
       
     },
     deseq2           = function(x) {
@@ -572,7 +572,7 @@ DifferentialGeneExp <- R6Class(
     
     ## Use the appropriate method depending upon the size of the replicates
     if( group1Count > 1 & group2Count > 1 )   {
-
+      
       print("Groups have replicates")
       ## Generate model & design for differential gene expression (edgeR only for now
       
@@ -741,7 +741,6 @@ DifferentialGeneExp <- R6Class(
              #print("Before filtering for pritein coding genes")
              GeneDF_DiffExp <- na.omit(dplyr::left_join(rnaseqProject$pcDF, private$GeneDF_DiffExp, by="GeneID"))
              #private$GeneDF_DiffExp <- dplyr::left_join( private$GeneDF_DiffExp, rnaseqProject$csDF, by="GeneName")
-
              #print("Filter matched ", dim(GeneDF_DiffExp_PC)[1], " out of  ", dim(rnaseqProject$pcDF)[1], " given protein coding genes")
              #pcDF <- private$GeneDF_DiffExp %>% filter(GeneName %in% rnaseqProject$pcDF)
            },
@@ -767,17 +766,17 @@ DifferentialGeneExp <- R6Class(
              GeneDF_DiffExp <- private$GeneDF_DiffExp
              GeneDF_DiffExp <- dplyr::left_join(GeneDF_DiffExp, rnaseqProject$pcDF,  by="GeneID")
              GeneDF_DiffExp <- GeneDF_DiffExp %>% mutate(
-                                                         meanBrainExp  = ifelse(GeneName.x %in% rnaseqProject$BrainExpDF[,"GeneName"], rnaseqProject$BrainExpDF[,"MeanExp"], "N"),
-                                                         meanHeartExp  = ifelse(GeneName.x %in% rnaseqProject$HeartExpDF[,"GeneName"], rnaseqProject$HeartExpDF[,"MeanExp"], "N"),
-                                                         meanKidneyExp = ifelse(GeneName.x %in% rnaseqProject$KidneyExpDF[,"GeneName"], rnaseqProject$KidneyExpDF[,"MeanExp"], "N"),
-                                                         meanLiverExp  = ifelse(GeneName.x %in% rnaseqProject$LiverExpDF[,"GeneName"], rnaseqProject$LiverExpDF[,"MeanExp"], "N"),
-                                                         meanLungExp   = ifelse(GeneName.x %in% rnaseqProject$LungExpDF[,"GeneName"], rnaseqProject$LungExpDF[,"MeanExp"], "N"),
-                                                         
-                                                         CellSurface   = ifelse(GeneName.x %in% rnaseqProject$csDF[,"GeneName"], "Y", "N"),
-                                                         TranscriptionFactor     = ifelse(GeneName.x %in% rnaseqProject$tfDF[,"GeneName"], "Y", "N"),
-                                                         CancerGermlineAntigen   = ifelse(GeneName.x %in% rnaseqProject$cgaDF[,"GeneName"], "Y", "N"),
-                                                         PAX3FOXO1     = ifelse(GeneName.x %in% rnaseqProject$pax3Foxo1DF[,"GeneName"], "Y", "N"),
-                                                         EWSR1FL1      = ifelse(GeneName.x %in% rnaseqProject$ewsr1Fli1DF[,"GeneName"], "Y", "N") )
+               meanBrainExp  = ifelse(GeneName.x %in% rnaseqProject$BrainExpDF[,"GeneName"], rnaseqProject$BrainExpDF[,"MeanExp"], "N"),
+               meanHeartExp  = ifelse(GeneName.x %in% rnaseqProject$HeartExpDF[,"GeneName"], rnaseqProject$HeartExpDF[,"MeanExp"], "N"),
+               meanKidneyExp = ifelse(GeneName.x %in% rnaseqProject$KidneyExpDF[,"GeneName"], rnaseqProject$KidneyExpDF[,"MeanExp"], "N"),
+               meanLiverExp  = ifelse(GeneName.x %in% rnaseqProject$LiverExpDF[,"GeneName"], rnaseqProject$LiverExpDF[,"MeanExp"], "N"),
+               meanLungExp   = ifelse(GeneName.x %in% rnaseqProject$LungExpDF[,"GeneName"], rnaseqProject$LungExpDF[,"MeanExp"], "N"),
+               
+               CellSurface   = ifelse(GeneName.x %in% rnaseqProject$csDF[,"GeneName"], "Y", "N"),
+               TranscriptionFactor     = ifelse(GeneName.x %in% rnaseqProject$tfDF[,"GeneName"], "Y", "N"),
+               CancerGermlineAntigen   = ifelse(GeneName.x %in% rnaseqProject$cgaDF[,"GeneName"], "Y", "N"),
+               PAX3FOXO1     = ifelse(GeneName.x %in% rnaseqProject$pax3Foxo1DF[,"GeneName"], "Y", "N"),
+               EWSR1FL1      = ifelse(GeneName.x %in% rnaseqProject$ewsr1Fli1DF[,"GeneName"], "Y", "N") )
            }
     )
     saveRDS(GeneDF_DiffExp, rdsfile)
@@ -837,4 +836,3 @@ DifferentialGeneExp <- R6Class(
   }
   )
 )
-

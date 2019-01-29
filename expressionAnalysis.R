@@ -91,20 +91,34 @@ expressionObj <- GeneExpNormalization$new(
 )
 
 ## Get expression in desired units
-expressionTMM.RPKM = expressionObj$edgeRMethod("TMM-RPKM")
+### RawCounts
 expressionTMM.Counts = expressionObj$edgeRMethod("RawCounts")
+### RPKM
+expressionTMM.RPKM = expressionObj$edgeRMethod("TMM-RPKM")
+### GSEA
+expressionTMM.RPKM.GSEA.Input = corUtilsFuncs$createBroadGCTFile(expressionTMM.RPKM)
 
 ## Start here ##
-AliasNames_df  <- dplyr::left_join( data.frame("SAMPLE_ID"=colnames(expressionTMM.RPKM)), rnaseqProject$validMetaDataDF[,c("SAMPLE_ID", "SAMPLE_ID.Alias")] )
+AliasNames_df  <- dplyr::left_join( data.frame("Sample.Biowulf.ID.GeneExp"=colnames(expressionTMM.RPKM)), rnaseqProject$validMetaDataDF[,c("Sample.Biowulf.ID.GeneExp", "Sample.ID.Alias")] )
 AliasColnames  <- c(as.character(AliasNames_df[c(1:7),1]), as.character(AliasNames_df[-c(1:7),2]))
 ## Start here ##
 stopifnot( length(colnames(expressionTMM.RPKM)) == length(AliasColnames) )
 colnames(expressionTMM.RPKM) <- AliasColnames
+
+## Write TMM-RPKM
 write.table(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
                                       paste0("RPKM_Data_Filt_Consolidated.GeneNames.",rnaseqProject$date,".txt"),sep="/"),
                                       sep="\t", row.names = FALSE, quote = FALSE)
 saveRDS(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
                                       paste0("RPKM_Data_Filt_Consolidated.GeneNames.",rnaseqProject$date,".rds"),sep="/"))
+
+## Write GSEA
+write.table(expressionTMM.RPKM.GSEA.Input, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$gseaDir,
+                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.",rnaseqProject$date,".txt"),sep="/"),
+            sep="\t", row.names = FALSE, quote = FALSE)
+saveRDS(expressionTMM.RPKM.GSEA.Input, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$gseaDir,
+                                  paste0("RPKM_Data_Filt_Consolidated.GeneNames.",rnaseqProject$date,".rds"),sep="/"))
+
 
 ## Perform Differential gene expression analysis
 
@@ -140,7 +154,7 @@ dgeObj  <- DifferentialGeneExp$new(
   packageRNAseq     = "edgeR",
   groupColumnName   = rnaseqProject$factorName,
   metadataDF        = rnaseqProject$metaDataDF,
-  samplesColumnName = "SAMPLE_ID",
+  samplesColumnName = "Sample.Biowulf.ID.GeneExp",
   expressionUnit    = "TMM-RPKM",
   featureType       = "Gene",
   writeFiles        = TRUE,
