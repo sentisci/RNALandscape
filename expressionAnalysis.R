@@ -17,6 +17,7 @@ rnaseqProject <- ProjectSetUp$new(
   pcRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/pc.other.HGNCTableFlat.rds",
   tfRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/TFs_no_epimachines.RDS",
   csRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/CellSurface.RDS",
+<<<<<<< HEAD
   cgaRDS                  = "C:/Users/sindiris/R Scribble/Annotation RDS/cancerGermlineAntigens.rds",
   ewsr1Fli1RDS            = "C:/Users/sindiris/R Scribble/Annotation RDS/EWSR1_FL1_DownstreamTargets.RDS",
   pax3Foxo1RDS             = "C:/Users/sindiris/R Scribble/Annotation RDS/PAX3_FOXO1_DownstreamTargets.RDS",
@@ -27,11 +28,18 @@ rnaseqProject <- ProjectSetUp$new(
   LiverExpRDS             = "C:/Users/sindiris/R Scribble/Annotation RDS/VitalExpression/expressionTMM.RPKM.Liver.RDS", 
   LungExpRDS              = "C:/Users/sindiris/R Scribble/Annotation RDS/VitalExpression/expressionTMM.RPKM.Lung.RDS", 
   
+=======
+  cgaRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/cancerGermlineAntigens.rds",
+>>>>>>> tumor_vs_normal_polya
   outputPrefix            = "landscape",
   filterGenes             = TRUE,
   filterGeneMethod        = "bySum",
   factorName              = "DIAGNOSIS.Substatus.Tumor.Normal.Tissue",
+<<<<<<< HEAD
   metaDataFileName        = "MetadataMapper.v3.txt",
+=======
+  metaDataFileName        = "MetadataMapper.txt",
+>>>>>>> tumor_vs_normal_polya
   outputdirRDSDir         = "GeneRDSOutput",
   outputdirTXTDir         = "GeneTXTOutput",
   gseaDir                 = "GSEA",
@@ -50,7 +58,7 @@ corUtilsFuncs <- CoreUtilities$new(  ProjectSetUpObject = rnaseqProject )
 
 ## Generate expression matrix
 rm(mergeObjectsNoDup)
-mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Genes", 
+mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Genes.v1", 
                                                    fileFormat        = "txt", 
                                                    colNameSelect     = "expected_count", 
                                                    isRowNames        = TRUE, 
@@ -92,6 +100,7 @@ expressionObj <- GeneExpNormalization$new(
 
 ## Get expression in desired units
 expressionTMM.RPKM = expressionObj$edgeRMethod("TMM-RPKM")
+<<<<<<< HEAD
 expressionTMM.Counts = expressionObj$edgeRMethod("RawCounts")
 
 ## Start here ##
@@ -105,6 +114,8 @@ write.table(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projec
                                       sep="\t", row.names = FALSE, quote = FALSE)
 saveRDS(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
                                       paste0("RPKM_Data_Filt_Consolidated.GeneNames.",rnaseqProject$date,".rds"),sep="/"))
+=======
+>>>>>>> tumor_vs_normal_polya
 
 ## Perform Differential gene expression analysis
 
@@ -125,6 +136,7 @@ Normals        <- c("NS.adrenalgland","NS.bladder","NS.cerebellum","NS.cerebrum"
 NormalsNoGermLine <- c("NS.adrenalgland","NS.bladder","NS.cerebellum","NS.cerebrum","NS.colon","NS.heart",
                     "NS.ileum","NS.kidney","NS.liver","NS.lung","NS.pancreas","NS.prostate", 
                     "NS.skeletalmuscle","NS.spleen", "NS.stomach", "NS.ureter", "NS.uterus")
+<<<<<<< HEAD
 
 tumorSubStatus.polyA <- c("RMS.FP" , "RMS.FN", "EWS" ,"ASPS", "DSRCT", "HBL", "ML", "NB.MYCN.NA","NB.MYCN.A", "NB.Unknown", "OS", 
                           "SS", "Teratoma" ,"UDS" ,"YST")
@@ -132,6 +144,15 @@ tumorSubStatus.ribozero <-  c("WT" ,"CCSK")
 Tumors         <-  c("ASPS","DSRCT", "EWS" ,"HBL", "ML", "NB" ,"OS", "RMS", "SS", "Teratoma" ,"UDS" ,"YST","WT", "CCSK")
 
 
+=======
+
+tumorSubStatus.polyA <- c("ASPS", "DSRCT", "EWS" ,"HBL", "ML", "NB.MYCN.NA","NB.MYCN.A", "NB.Unknown", "OS", "RMS.FP" , "RMS.FN", 
+                          "SS", "Teratoma" ,"UDS" ,"YST")
+tumorSubStatus.ribozero <-  c("WT" ,"CCSK")
+Tumors         <-  c("ASPS","DSRCT", "EWS" ,"HBL", "ML", "NB" ,"OS", "RMS", "SS", "Teratoma" ,"UDS" ,"YST","WT", "CCSK")
+
+
+>>>>>>> tumor_vs_normal_polya
 ## Testing 
 dgeObj  <- DifferentialGeneExp$new(
   countObj          = expressionObj$edgeRMethod("NormFactorDF")$counts,
@@ -145,8 +166,12 @@ dgeObj  <- DifferentialGeneExp$new(
   featureType       = "Gene",
   writeFiles        = TRUE,
   fileDirs          = rnaseqProject$fileDirs,
+<<<<<<< HEAD
   subsetGenes       = TRUE,
   corUtilsFuncs     = corUtilsFuncs 
+=======
+  subsetGenes       = TRUE
+>>>>>>> tumor_vs_normal_polya
 )
 
 DiffExpObj <- dgeObj$performDiffGeneExp()
