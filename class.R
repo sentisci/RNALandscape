@@ -331,7 +331,7 @@ CoreUtilities <- R6Class(
     },
     ## subsetMetaData
     subsetMetaData = function(colnamesDF=NA){
-      df <- dplyr::left_join(colnamesDF,rnaseqProject$metaDataDF, by="SAMPLE_ID") %>% filter(complete.cases(.))
+      df <- dplyr::left_join(colnamesDF,rnaseqProject$metaDataDF, by="Sample.Biowulf.ID.GeneExp") %>% filter(complete.cases(.))
       if(!is.null(rnaseqProject$metaDataDF)) {
         rnaseqProject$metaDataDF <- df
       }

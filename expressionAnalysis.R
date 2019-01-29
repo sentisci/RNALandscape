@@ -18,7 +18,7 @@ rnaseqProject <- ProjectSetUp$new(
   tfRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/TFs_no_epimachines.RDS",
   csRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/CellSurface.RDS",
   cgaRDS                  = "C:/Users/sindiris/R Scribble/Annotation RDS/cancerGermlineAntigens.rds",
-  ewsr1Fli1RDS            = "C:/Users/sindiris/R Scribble/Annotation RDS/EWSR1_FL1_DownstreamTargetsJ0123_T1D_E.cnvkit.cmd.RDS",
+  ewsr1Fli1RDS            = "C:/Users/sindiris/R Scribble/Annotation RDS/EWSR1_FL1_DownstreamTargets.RDS",
   pax3Foxo1RDS             = "C:/Users/sindiris/R Scribble/Annotation RDS/PAX3_FOXO1_DownstreamTargets.RDS",
   
   BrainExpRDS             = "C:/Users/sindiris/R Scribble/Annotation RDS/VitalExpression/expressionTMM.RPKM.Brain.RDS",
@@ -50,15 +50,15 @@ corUtilsFuncs <- CoreUtilities$new(  ProjectSetUpObject = rnaseqProject )
 
 ## Generate expression matrix
 rm(mergeObjectsNoDup)
-mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Genes", 
+mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Genes.v1", 
                                                    fileFormat        = "txt", 
                                                    colNameSelect     = "expected_count", 
                                                    isRowNames        = TRUE, 
                                                    rowNamesColInFile = 1,
-                                                   fileSuffix        = ".rsem_ENS.genes.results",
+                                                   fileSuffix        = ".genes.results",
                                                    primaryID         = "gene_id",
                                                    metadata          = rnaseqProject$metaDataDF,
-                                                   metadataFileRefCol= "Sample.Biowulf.ID")
+                                                   metadataFileRefCol= "Sample.Biowulf.ID.GeneExp")
 
 ## Evaluate presence of duplicate features and consolidate them
 setDT(mergeObjectsNoDup, keep.rownames = TRUE)
@@ -74,7 +74,7 @@ mergeObjectsConso <- mergeObjectsConso[,-c("GeneName")] %>% data.frame() %>% tib
 rnaseqProject$annotationDF <- rnaseqProject$annotationDF %>% dplyr::filter(GeneID %in% rownames(mergeObjectsConso))
   
 ## Subset metaDataDF by the number of samples in the folder
-colnamesDF    <- data.frame( "SAMPLE_ID"= colnames(mergeObjectsNoDup))
+colnamesDF    <- data.frame( "Sample.Biowulf.ID.GeneExp"= colnames(mergeObjectsNoDup))
 corUtilsFuncs$subsetMetaData(colnamesDF=colnamesDF)
 
 ## Instantiate a new Object of type GeneExpNormalization
