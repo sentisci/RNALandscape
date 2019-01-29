@@ -486,7 +486,7 @@ GeneExpNormalization <- R6Class(
       assert_that(private$packageRNAseq == "edgeR", msg = paste0("GeneExpNormalization Object was created for ",private$packageRNAseq,
                                                                  ". Please create a new GeneExpNormalization Object for edgeR"))
       
-      assert_that(x %in% c("CPM", "TMM-RPKM", "TPM", "NormFactorDF"), msg = "This function can only generate \"CPM\", \"TMM-RPKM\", \"TPM\" values ")
+      assert_that(x %in% c("CPM", "TMM-RPKM", "TPM", "NormFactorDF", "RawCounts"), msg = "This function can only generate \"CPM\", \"TMM-RPKM\", \"TPM\" values ")
       
       if(x == "NormFactorDF") return(private$GeneDFNorm)
 
