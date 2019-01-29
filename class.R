@@ -143,7 +143,10 @@ ProjectSetUp <- R6Class(
     
     factorsToExclude        = NULL,
     fileDirs                = NULL, 
+<<<<<<< HEAD
     validMetaDataDF         = NULL,
+=======
+>>>>>>> tumor_vs_normal_polya
     initialize              = function(date = NA, time =NA, projectName = NA, annotationRDS = NA, outputPrefix = NA,
                                        filterGenes = NA, filterGeneMethod = NA, factorName = NA, metaDataFileName = NA, 
                                        workDir = NA, outputdirRDSDir = NA, outputdirTXTDir = NA,gseaDir = NA, plotsDir = NA, 
@@ -338,7 +341,7 @@ CoreUtilities <- R6Class(
     },
     ## Annotate a gene expression df with "GeneID" as primary key
     featureNameAnot = function(querryDF=NA, identifier=NA){
-      annotDF <- dplyr::left_join(rnaseqProject$annotationDF, querryDF, by=identifier)
+      annotDF <- dplyr::left_join(rnaseqProject$annotationDF, queryDF, by=identifier)
       print(paste("Annotating expression DF"))
       print(dim(annotDF))
       return(annotDF)
@@ -486,9 +489,10 @@ GeneExpNormalization <- R6Class(
       assert_that(private$packageRNAseq == "edgeR", msg = paste0("GeneExpNormalization Object was created for ",private$packageRNAseq,
                                                                  ". Please create a new GeneExpNormalization Object for edgeR"))
       
-      assert_that(x %in% c("CPM", "TMM-RPKM", "TPM", "NormFactorDF", "RawCounts"), msg = "This function can only generate \"CPM\", \"TMM-RPKM\", \"TPM\" values ")
+      assert_that(x %in% c("CPM", "TMM-RPKM", "TPM", "NormFactorDF"), msg = "This function can only generate \"CPM\", \"TMM-RPKM\", \"TPM\" values ")
       
       if(x == "NormFactorDF") return(private$GeneDFNorm)
+<<<<<<< HEAD
       if(x == "RawCounts") { 
         rawCounts <-  private$GeneDFNorm$counts %>% data.frame() %>% tibble::rownames_to_column(var="GeneID")
         return( private$corUtilsFuncs$featureNameAnot(querryDF=rawCounts, identifier="GeneID")  ) 
@@ -506,6 +510,11 @@ GeneExpNormalization <- R6Class(
         return( private$corUtilsFuncs$featureNameAnot(querryDF=tpmDF, identifier="GeneID") )  
       }
       
+=======
+      if(x == "CPM" )         return( as.data.frame(cpm(private$GeneDFNorm,  normalized.lib.sizes = TRUE,log = FALSE))   )
+      if(x == "TMM-RPKM" )   return( as.data.frame(rpkm(private$GeneDFNorm, normalized.lib.sizes = TRUE, log = FALSE))  )
+      if(x == "TPM" )         return(apply(rpkm(private$GeneDFNorm, normalized.lib.sizes = TRUE), 2 , super$fpkmToTpm)         )
+>>>>>>> tumor_vs_normal_polya
       
     },
     deseq2           = function(x) {
@@ -545,7 +554,10 @@ DifferentialGeneExp <- R6Class(
   pairGroup2Name      = NULL,
   group2Samples       = NULL,
   fileDirs            = NULL,
+<<<<<<< HEAD
   corUtilsFuncs        = NULL,
+=======
+>>>>>>> tumor_vs_normal_polya
   setUP               = function(x) {},
   changeGroupName     = function(vectorOfNames, toChangeName, inVectorName){
     return(gsub( paste0(paste0("^",vectorOfNames) %>% paste0(.,"$"), collapse = "|"),toChangeName,inVectorName))
@@ -703,8 +715,13 @@ DifferentialGeneExp <- R6Class(
     private$GeneDF_DiffExp                <- private$MeanGroupExpression(group1Count = group1Count, group2Count = group2Count, geneExpMatrix = geneExpression)
     private$GeneDF_DiffExp["AvglogFPKM"]  <- apply(geneExpression[,-c(1:7)] , 1, mean)
     
+<<<<<<< HEAD
     ## Annotate Genes
     private$GeneDF_DiffExp                <- corUtilsFuncs$featureNameAnot(querryDF=private$GeneDF_DiffExp, identifier="GeneID")
+=======
+    ## Annotate Genes 
+    private$GeneDF_DiffExp                <- private$featureNameAnot(querryDF=private$GeneDF_DiffExp, identifier="GeneID")
+>>>>>>> tumor_vs_normal_polya
     
     ## Filter Genes
     folderName <- paste0(private$pairGroup1Name, "_", private$pairGroup2Name)
@@ -718,12 +735,21 @@ DifferentialGeneExp <- R6Class(
     return(private$GeneDF_DiffExp)
   },
   ## Annotate a gene expression df with "GeneID" as primary key
+<<<<<<< HEAD
   # featureNameAnot = function(querryDF=NA, identifier=NA){
   #   annotDF <- dplyr::left_join(rnaseqProject$annotationDF, querryDF, by=identifier)
   #   print(paste("Annotating expression DF"))
   #   print(dim(annotDF))
   #   return(annotDF)
   # },
+=======
+  featureNameAnot = function(querryDF=NA, identifier=NA){
+    annotDF <- dplyr::left_join(rnaseqProject$annotationDF, querryDF, by=identifier)
+    print(paste("Annotating expression DF"))
+    print(dim(annotDF))
+    return(annotDF)
+  },
+>>>>>>> tumor_vs_normal_polya
   filterGenes = function(filterName= NA , folderName = NA){
     
     rdsDir  <- paste0( private$fileDirs[7],"/", folderName, "/" )
@@ -738,9 +764,14 @@ DifferentialGeneExp <- R6Class(
     switch(filterName,
            
            "proteinCoding"= {
+<<<<<<< HEAD
              #print("Before filtering for pritein coding genes")
              GeneDF_DiffExp <- na.omit(dplyr::left_join(rnaseqProject$pcDF, private$GeneDF_DiffExp, by="GeneID"))
              #private$GeneDF_DiffExp <- dplyr::left_join( private$GeneDF_DiffExp, rnaseqProject$csDF, by="GeneName")
+=======
+             # print("filtering for pritein coding genes")
+             GeneDF_DiffExp <- na.omit(dplyr::left_join(rnaseqProject$pcDF, private$GeneDF_DiffExp, by="GeneID"))
+>>>>>>> tumor_vs_normal_polya
              #print("Filter matched ", dim(GeneDF_DiffExp_PC)[1], " out of  ", dim(rnaseqProject$pcDF)[1], " given protein coding genes")
              #pcDF <- private$GeneDF_DiffExp %>% filter(GeneName %in% rnaseqProject$pcDF)
            },
@@ -764,6 +795,7 @@ DifferentialGeneExp <- R6Class(
            },
            "all" = {
              GeneDF_DiffExp <- private$GeneDF_DiffExp
+<<<<<<< HEAD
              GeneDF_DiffExp <- dplyr::left_join(GeneDF_DiffExp, rnaseqProject$pcDF,  by="GeneID")
              GeneDF_DiffExp <- GeneDF_DiffExp %>% mutate(
                                                          meanBrainExp  = ifelse(GeneName.x %in% rnaseqProject$BrainExpDF[,"GeneName"], rnaseqProject$BrainExpDF[,"MeanExp"], "N"),
@@ -777,6 +809,8 @@ DifferentialGeneExp <- R6Class(
                                                          CancerGermlineAntigen   = ifelse(GeneName.x %in% rnaseqProject$cgaDF[,"GeneName"], "Y", "N"),
                                                          PAX3FOXO1     = ifelse(GeneName.x %in% rnaseqProject$pax3Foxo1DF[,"GeneName"], "Y", "N"),
                                                          EWSR1FL1      = ifelse(GeneName.x %in% rnaseqProject$ewsr1Fli1DF[,"GeneName"], "Y", "N") )
+=======
+>>>>>>> tumor_vs_normal_polya
            }
     )
     saveRDS(GeneDF_DiffExp, rdsfile)
@@ -800,7 +834,11 @@ DifferentialGeneExp <- R6Class(
   subsetGenes       = NULL,
   initialize        = function(countObj = NA, metadataDF = NA, packageRNAseq = NA, expressionUnit = NA, featureType = NA,
                                group1   = NA, group2   = NA, groupColumnName = NA, samplesColumnName = NA,
+<<<<<<< HEAD
                                writeFiles = FALSE, fileDirs = NA, corUtilsFuncs = NA , subsetGenes= TRUE ){
+=======
+                               writeFiles = FALSE, fileDirs = NA, subsetGenes= TRUE ){
+>>>>>>> tumor_vs_normal_polya
     
     private$countObj           <- countObj
     private$metadataDF         <- metadataDF
@@ -814,7 +852,10 @@ DifferentialGeneExp <- R6Class(
     self$writeFiles            <- writeFiles
     self$subsetGenes           <- subsetGenes
     private$fileDirs           <- fileDirs
+<<<<<<< HEAD
     private$corUtilsFuncs      <- corUtilsFuncs
+=======
+>>>>>>> tumor_vs_normal_polya
     
     ## Get the group names
     private$group1Flatten = private$flattenGroup(self$group1)
