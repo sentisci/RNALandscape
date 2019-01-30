@@ -231,7 +231,9 @@ CoreUtilities <- R6Class(
     mergeTXTFiles = function( x, fileSuffix=NA, colNameSelect=NA, primaryID=NA ){
       
       print(paste(" Total files in the input folder ", length(x)))
-      selectedFileList       <- x[which(self$allFileList  %in% basename(x))]; print(length(selectedFileList))
+      Df_results <- data.frame( basename(x), result = grepl(paste(self$allFileList, collapse = "|"),basename(x)))
+      selectedFileList <- x[which(Df_results$result == TRUE)]
+      
       notselectedFileListMeta        <- self$allFileList[which(!self$allFileList  %in% basename(x))]; print(length(notselectedFileListMeta))
       notselectedFileListFolder      <- x[which(!basename(x)  %in%  self$allFileList )]; print(length(notselectedFileListFolder))
       #if( length(notselectedFileListFolder) >= 1 | length(notselectedFileListMeta) >= 1) { 
@@ -245,6 +247,7 @@ CoreUtilities <- R6Class(
         }
       
       print(paste0("Selecting ", length(selectedFileList), " files out of ", length(x), " from the given folder"))
+      View(data.frame("Selected"=basename(selectedFileList)))
       
       dataMatrixLists     <- lapply(selectedFileList, private$readTXTFiles, fileSuffix=fileSuffix,colNameSelect=colNameSelect, primaryID=primaryID)
       dataMatrix          <- purrr::reduce(dataMatrixLists, full_join, by=primaryID)

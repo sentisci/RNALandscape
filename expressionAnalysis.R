@@ -63,22 +63,23 @@ mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Gene
                                                    primaryID         = "gene_id",
                                                    metadata          = rnaseqProject$metaDataDF,
                                                    metadataFileRefCol= "Sample.Biowulf.ID.GeneExp")
+#saveRDS(mergeObjectsNoDup, "../RNASeq.RSEM/GeneRDSOutput/mergeObjectsNoDup.RDS")
+
+mergeObjectsNoDup <- readRDS(mergeObjectsNoDup)
 
 ## Evaluate presence of duplicate features and consolidate them
 setDT(mergeObjectsNoDup, keep.rownames = TRUE)
 mergeObjectsNoDup.pre <- mergeObjectsNoDup %>% dplyr::rename(GeneID = rn)
 mergeObjectsNoDup.pre <- dplyr::left_join(rnaseqProject$annotationDF[,c("GeneID", "GeneName")], mergeObjectsNoDup.pre, by="GeneID") %>% data.table()
-mergeObjectsConso <- corUtilsFuncs$consolidateDF(mergeObjectsNoDup.pre[,-c("GeneID")], funcName = "max", 
-                                                 featureName = "GeneName")
-mergeObjectsConso <- dplyr::full_join(mergeObjectsConso, rnaseqProject$annotationDF[,c("GeneID", "GeneName")], by="GeneName") %>% 
-                          data.table()
+mergeObjectsConso <- corUtilsFuncs$consolidateDF(mergeObjectsNoDup.pre[,-c("GeneID")], funcName = "max", featureName = "GeneName")
+mergeObjectsConso <- dplyr::full_join(mergeObjectsConso, rnaseqProject$annotationDF[,c("GeneID", "GeneName")], by="GeneName") %>%  data.table()
 mergeObjectsConso <-   subset(mergeObjectsConso,!duplicated(mergeObjectsConso$GeneName))
 mergeObjectsConso <-   mergeObjectsConso[complete.cases(mergeObjectsConso), ]; dim(mergeObjectsConso)
 mergeObjectsConso <- mergeObjectsConso[,-c("GeneName")] %>% data.frame() %>% tibble::column_to_rownames(var = "GeneID") %>% as.matrix()
 rnaseqProject$annotationDF <- rnaseqProject$annotationDF %>% dplyr::filter(GeneID %in% rownames(mergeObjectsConso))
   
 ## Subset metaDataDF by the number of samples in the folder
-colnamesDF    <- data.frame( "Sample.Biowulf.ID.GeneExp"= colnames(mergeObjectsNoDup))
+colnamesDF    <- data.frame( "Sample.Biowulf.ID.GeneExp"= colnames(mergeObjectsConso))
 corUtilsFuncs$subsetMetaData(colnamesDF=colnamesDF)
 
 ## Instantiate a new Object of type GeneExpNormalization
