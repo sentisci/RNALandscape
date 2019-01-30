@@ -39,10 +39,14 @@ rnaseqProject <- ProjectSetUp$new(
   plotsDataDir            = "FigureData",
   DiffGeneExpAnaDir       = "DiffExpResults",
   DiffGeneExpRDS          = "DiffGeneExpRDSOutput",
-  #factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), 
-  #                               "Normal.ribozero"=list("LIBRARY_TYPE"="Normal", "LibraryPrep" = "PolyA"),
+  ## Keep only PolyA
+  #factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"),
+  #                           "Normal.ribozero"=list("LIBRARY_TYPE"="Normal", "LibraryPrep" = "PolyA"),
   #                               "Tumors"=list("LIBRARY_TYPE"="Tumor", "LibraryPrep" = "PolyA"))
-  factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), "Normal.ribozero"=list("LIBRARY_TYPE"="Normal", "LibraryPrep" = "Ribozero"))                                     
+  ## Keep only Ribozero
+  #factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), "Normal.ribozero"=list("LibraryPrep" = "Ribozero"))
+  ## Remove Celllines
+  factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"))
 )
 
 ## Add utility functions to the project
@@ -96,7 +100,8 @@ expressionTMM.Counts = expressionObj$edgeRMethod("RawCounts")
 ### RPKM
 expressionTMM.RPKM = expressionObj$edgeRMethod("TMM-RPKM")
 ### GSEA
-expressionTMM.RPKM.GSEA.Input = corUtilsFuncs$createBroadGCTFile(expressionTMM.RPKM)
+expressionTMM.RPKM.GSEA.Input <- expressionTMM.RPKM[, -c(1:7)]; rownames(expressionTMM.RPKM.GSEA.Input) <- expressionTMM.RPKM[,6]
+expressionTMM.RPKM.GSEA.print = corUtilsFuncs$createBroadGCTFile(expressionTMM.RPKM.GSEA.Input)
 
 ## Start here ##
 AliasNames_df  <- dplyr::left_join( data.frame("Sample.Biowulf.ID.GeneExp"=colnames(expressionTMM.RPKM)), rnaseqProject$validMetaDataDF[,c("Sample.Biowulf.ID.GeneExp", "Sample.ID.Alias")] )
@@ -107,17 +112,17 @@ colnames(expressionTMM.RPKM) <- AliasColnames
 
 ## Write TMM-RPKM
 write.table(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
-                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.",rnaseqProject$date,".txt"),sep="/"),
+                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.ribo.",rnaseqProject$date,".txt"),sep="/"),
                                       sep="\t", row.names = FALSE, quote = FALSE)
 saveRDS(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
-                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.",rnaseqProject$date,".rds"),sep="/"))
+                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.ribo.",rnaseqProject$date,".rds"),sep="/"))
 
 ## Write GSEA
-write.table(expressionTMM.RPKM.GSEA.Input, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$gseaDir,
-                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.",rnaseqProject$date,".txt"),sep="/"),
+write.table(expressionTMM.RPKM.GSEA.print, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$gseaDir,
+                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.ribo.",rnaseqProject$date,".txt"),sep="/"),
             sep="\t", row.names = FALSE, quote = FALSE)
-saveRDS(expressionTMM.RPKM.GSEA.Input, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$gseaDir,
-                                  paste0("RPKM_Data_Filt_Consolidated.GeneNames.",rnaseqProject$date,".rds"),sep="/"))
+saveRDS(expressionTMM.RPKM.GSEA.print, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$gseaDir,
+                                  paste0("RPKM_Data_Filt_Consolidated.GeneNames.ribo.",rnaseqProject$date,".rds"),sep="/"))
 
 
 ## Perform Differential gene expression analysis

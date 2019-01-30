@@ -47,6 +47,7 @@ ProjectSetUp <- R6Class(
       print(paste0("Dimension of metadata is ", paste(dim(self$metaDataDF))))
       if(!is.na(self$factorsToExclude)){
         filters <- private$generateFiltersToExclude(factorsToExclude=self$factorsToExclude)
+        print(paste(filters))
         test <- sapply(filters, function(x){
           self$metaDataDF <- dplyr::filter_(self$metaDataDF, .dots=list(x))
         })
@@ -228,10 +229,26 @@ CoreUtilities <- R6Class(
     },
     ## Merge CSV or TXT files
     mergeTXTFiles = function( x, fileSuffix=NA, colNameSelect=NA, primaryID=NA ){
-      selectedFileList    <- x[which(basename(x) %in% self$allFileList)]
+      
+      print(paste(" Total files in the input folder ", length(x)))
+      selectedFileList       <- x[which(self$allFileList  %in% basename(x))]; print(length(selectedFileList))
+      notselectedFileListMeta        <- self$allFileList[which(!self$allFileList  %in% basename(x))]; print(length(notselectedFileListMeta))
+      notselectedFileListFolder      <- x[which(!basename(x)  %in%  self$allFileList )]; print(length(notselectedFileListFolder))
+      #if( length(notselectedFileListFolder) >= 1 | length(notselectedFileListMeta) >= 1) { 
+      if( length(notselectedFileListMeta) >= 1) {                
+              cat( paste(" Following files are not present in input folder.Please record them in metadata file or remove from the input file folder"
+              ,paste(basename(notselectedFileListMeta), collapse = "\n")))
+              # cat("\n\n")
+              # cat( paste(" Following files are not present in metadata File .Please record them in metadata file or remove from the input file folder"
+              #       ,paste(basename(notselectedFileListFolder), collapse = "\n")))
+          stop("please check the above error")
+        }
+      
       print(paste0("Selecting ", length(selectedFileList), " files out of ", length(x), " from the given folder"))
+      
       dataMatrixLists     <- lapply(selectedFileList, private$readTXTFiles, fileSuffix=fileSuffix,colNameSelect=colNameSelect, primaryID=primaryID)
       dataMatrix          <- purrr::reduce(dataMatrixLists, full_join, by=primaryID)
+      
       return(dataMatrix)
     }
   ),
