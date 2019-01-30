@@ -63,9 +63,9 @@ mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Gene
                                                    primaryID         = "gene_id",
                                                    metadata          = rnaseqProject$metaDataDF,
                                                    metadataFileRefCol= "Sample.Biowulf.ID.GeneExp")
-#saveRDS(mergeObjectsNoDup, "../RNASeq.RSEM/GeneRDSOutput/mergeObjectsNoDup.RDS")
+saveRDS(mergeObjectsNoDup, "../RNASeq.RSEM/GeneRDSOutput/mergeObjectsNoDup.RDS")
 
-mergeObjectsNoDup <- readRDS(mergeObjectsNoDup)
+#mergeObjectsNoDup <- readRDS(mergeObjectsNoDup)
 
 ## Evaluate presence of duplicate features and consolidate them
 setDT(mergeObjectsNoDup, keep.rownames = TRUE)
