@@ -338,12 +338,19 @@ CoreUtilities <- R6Class(
     ## Keep Protein Coding
     keepProteinCoding = function(geneMatrix=NULL, annotation=NULL, featureType="GeneID") {
       ###Keep only Protein Coding Genes
-      PC <- read.table("C:/Users/sindiris/R Scribble/Annotation RDS/HGNC-protein-coding-List.txt", header = T, sep="\t")
-      annotationPC <- annotation %>% filter(GeneName %in% PC$Genes)
-      foundGenes <- which(row.names(geneMatrix) %in% annotationPC[,featureType] )
+      # PC <- read.table("C:/Users/sindiris/R Scribble/Annotation RDS/HGNC-protein-coding-List.txt", header = T, sep="\t")
+      # annotationPC <- annotation %>% filter(GeneName %in% PC$Genes)
+      # foundGenes <- which(row.names(geneMatrix) %in% annotationPC[,featureType] )
+      # geneMatrixNew <- geneMatrix %>% data.frame() %>% .[foundGenes,]
+      # annotationPC <- annotationPC %>% mutate(GeneID = self$factorizeColumn(annotationPC$GeneID, row.names(geneMatrixNew)))
+      # return(list(geneMatrixNew, annotationPC) )
+      
+      foundGenes <- which(row.names(geneMatrix) %in% rnaseqProject$pcDF[,featureType] )
       geneMatrixNew <- geneMatrix %>% data.frame() %>% .[foundGenes,]
-      annotationPC <- annotationPC %>% mutate(GeneID = self$factorizeColumn(annotationPC$GeneID, row.names(geneMatrixNew)))
-      return(list(geneMatrixNew, annotationPC) )
+      annotationPCNew <- annotation %>% filter(GeneID %in% rnaseqProject$pcDF[,featureType] )
+      
+      return(list(geneMatrixNew, annotationPCNew) )
+      
     },
     ## convert FPKM to TPM
     fpkmToTpm = function(fpkm){
@@ -357,8 +364,8 @@ CoreUtilities <- R6Class(
       }
     },
     ## Annotate a gene expression df with "GeneID" as primary key
-    featureNameAnot = function(querryDF=NA, identifier=NA){
-      annotDF <- dplyr::left_join(rnaseqProject$annotationDF, querryDF, by=identifier)
+    featureNameAnot = function(annotationDF=NA, querryDF=NA, identifier=NA){
+      annotDF <- dplyr::left_join( annotationDF, querryDF, by=identifier)
       print(paste("Annotating expression DF"))
       print(dim(annotDF))
       return(annotDF)
@@ -388,7 +395,7 @@ CoreUtilities <- R6Class(
       metaSS[1,1]               <- "#1.2"; 
       metaSS[2,c(2,3)]          <- c(nrow(RPKM_Data_Filt_Meta), ncol(RPKM_Data_Filt_Meta)-2) ;
       metaSS[3,]                <- colnames(RPKM_Data_Filt_Meta)
-      colnames( metaSS )        <- colnames(RPKM_Data_Filt_Meta)
+      #colnames( metaSS )        <- colnames(RPKM_Data_Filt_Meta)
       RPKM.Data.Filt.Meta.Broad <- rbind(as.data.frame(metaSS),RPKM_Data_Filt_Meta)
       return(RPKM.Data.Filt.Meta.Broad)
     },
@@ -451,6 +458,8 @@ GeneExpNormalization <- R6Class(
                                                             annotation=private$annotationDF, featureType=private$featureType)
         private$countObj         <- keepProteinCodingOut[[1]]
         private$annotationDF     <- keepProteinCodingOut[[2]]
+        print(paste0(" dim of gene exp ", dim(private$countObj) ))
+        print(paste0(" dim of annotation ", dim(private$annotationDF) ))
       }
       
       private$miniAnnotationDF <- private$annotationDF[,c(private$featureType, "Length")]
@@ -487,7 +496,7 @@ GeneExpNormalization <- R6Class(
     {
       
       assert_that( class(countObj) == "matrix", msg = "Please provide raw count in matrix format")
-      assert_that( nrow(countObj) == nrow(annotationDF), msg = "Please provide gene annotation as a \"data.frame\" ")
+      assert_that( nrow(countObj) == nrow(annotationDF), msg = "Mismatch  of gene/transcript entries in between countObj vs annotationDF " )
       assert_that( is.logical(proteinCodingOnly) , msg = "proteinCodingOnly parameter should be boolean")
       
       private$countObj <- countObj
@@ -511,19 +520,20 @@ GeneExpNormalization <- R6Class(
       if(x == "NormFactorDF") return(private$GeneDFNorm)
       if(x == "RawCounts") { 
         rawCounts <-  private$GeneDFNorm$counts %>% data.frame() %>% tibble::rownames_to_column(var="GeneID")
-        return( private$corUtilsFuncs$featureNameAnot(querryDF=rawCounts, identifier="GeneID")  ) 
+        return( private$corUtilsFuncs$featureNameAnot(querryDF=rawCounts, identifier="GeneID", annotationDF=private$annotationDF)  ) 
       }
       if(x == "CPM" )         { 
         cpmDF <- as.data.frame(cpm(private$GeneDFNorm,  normalized.lib.sizes = TRUE,log = FALSE)) %>% tibble::rownames_to_column(var="GeneID")
-        return( private$corUtilsFuncs$featureNameAnot(querryDF=cpmDF, identifier="GeneID") )  
+        return( private$corUtilsFuncs$featureNameAnot(querryDF=cpmDF, identifier="GeneID", annotationDF=private$annotationDF) )  
       }
       if(x == "TMM-RPKM" )    { 
         rpkmDF <- as.data.frame(rpkm(private$GeneDFNorm, normalized.lib.sizes = TRUE, log = FALSE)) %>% tibble::rownames_to_column(var="GeneID")
-        return( private$corUtilsFuncs$featureNameAnot(querryDF=rpkmDF, identifier="GeneID") ) 
+        print(paste0(" dim od rpkmDF ", dim(rpkmDF)))
+        return( private$corUtilsFuncs$featureNameAnot(querryDF=rpkmDF, identifier="GeneID", annotationDF=private$annotationDF) ) 
       }
       if(x == "TPM" )         { 
         tpmDF <- apply(rpkm(private$GeneDFNorm, normalized.lib.sizes = TRUE), 2 , super$fpkmToTpm) %>% tibble::rownames_to_column(var="GeneID")
-        return( private$corUtilsFuncs$featureNameAnot(querryDF=tpmDF, identifier="GeneID") )  
+        return( private$corUtilsFuncs$featureNameAnot(querryDF=tpmDF, identifier="GeneID", annotationDF=private$annotationDF) )  
       }
       
       
@@ -724,7 +734,7 @@ DifferentialGeneExp <- R6Class(
     private$GeneDF_DiffExp["AvglogFPKM"]  <- apply(geneExpression[,-c(1:7)] , 1, mean)
     
     ## Annotate Genes
-    private$GeneDF_DiffExp                <- corUtilsFuncs$featureNameAnot(querryDF=private$GeneDF_DiffExp, identifier="GeneID")
+    private$GeneDF_DiffExp                <- corUtilsFuncs$featureNameAnot(querryDF=private$GeneDF_DiffExp, identifier="GeneID", annotationDF = rnaseqProject$annotationDF)
     
     ## Filter Genes
     folderName <- paste0(private$pairGroup1Name, "_", private$pairGroup2Name)

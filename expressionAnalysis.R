@@ -54,10 +54,10 @@ corUtilsFuncs <- CoreUtilities$new(  ProjectSetUpObject = rnaseqProject )
 
 ## Generate expression matrix
 rm(mergeObjectsNoDup)
-mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Genes.v1", 
-                                                   fileFormat        = "txt", 
-                                                   colNameSelect     = "expected_count", 
-                                                   isRowNames        = TRUE, 
+mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Genes.v1",
+                                                   fileFormat        = "txt",
+                                                   colNameSelect     = "expected_count",
+                                                   isRowNames        = TRUE,
                                                    rowNamesColInFile = 1,
                                                    fileSuffix        = ".genes.results",
                                                    primaryID         = "gene_id",
@@ -65,7 +65,7 @@ mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Gene
                                                    metadataFileRefCol= "Sample.Biowulf.ID.GeneExp")
 saveRDS(mergeObjectsNoDup, "../RNASeq.RSEM/GeneRDSOutput/mergeObjectsNoDup.RDS")
 
-#mergeObjectsNoDup <- readRDS(mergeObjectsNoDup)
+#mergeObjectsNoDup <- readRDS("../RNASeq.RSEM/GeneRDSOutput/mergeObjectsNoDup.RDS")
 
 ## Evaluate presence of duplicate features and consolidate them
 setDT(mergeObjectsNoDup, keep.rownames = TRUE)
@@ -91,7 +91,7 @@ expressionObj <- GeneExpNormalization$new(
   annotationDF   = rnaseqProject$annotationDF, 
   design         = rnaseqProject$metaDataDF[,rnaseqProject$factorName], 
   #design         = newMetaDataDF[,rnaseqProject$factorName],
-  proteinCodingOnly = FALSE,
+  proteinCodingOnly = TRUE,
   corUtilsFuncs     = corUtilsFuncs
 )
 
@@ -113,17 +113,37 @@ colnames(expressionTMM.RPKM) <- AliasColnames
 
 ## Write TMM-RPKM
 write.table(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
-                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.ribo.",rnaseqProject$date,".txt"),sep="/"),
+                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.",rnaseqProject$date,".txt"),sep="/"),
                                       sep="\t", row.names = FALSE, quote = FALSE)
 saveRDS(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
-                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.ribo.",rnaseqProject$date,".rds"),sep="/"))
+                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.",rnaseqProject$date,".rds"),sep="/"))
 
 ## Write GSEA
 write.table(expressionTMM.RPKM.GSEA.print, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$gseaDir,
-                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.ribo.",rnaseqProject$date,".txt"),sep="/"),
+                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.",rnaseqProject$date,".txt"),sep="/"),
             sep="\t", row.names = FALSE, quote = FALSE)
 saveRDS(expressionTMM.RPKM.GSEA.print, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$gseaDir,
-                                  paste0("RPKM_Data_Filt_Consolidated.GeneNames.ribo.",rnaseqProject$date,".rds"),sep="/"))
+                                  paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.",rnaseqProject$date,".rds"),sep="/"))
+
+### Performing ssGSEA ##########
+
+## Add custom expression like cytolytic scre and HLA gene expression to the ssGSEA Outpuut file.
+cytolyticScore          <- corUtilsFuncs$cytolyticScore(expressionTMM.RPKM.GSEA.Input)
+HLA_cytolyticScore      <- rbind(expressionTMM.RPKM.GSEA.Input[c("HLA-A", "HLA-B", "HLA-C"),], cytolyticScore)
+
+## Read the ssGSEA output
+ssGSEAScores <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.2019-01-30.GCT.PROJ.gct")
+ssGSEAScores.HLA.Cyto <- rbind(ssGSEAScores,HLA_cytolyticScore)
+
+## Plot the one variable plot
+
+
+
+
+
+
+
+
 
 
 ## Perform Differential gene expression analysis
