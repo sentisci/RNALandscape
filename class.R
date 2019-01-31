@@ -107,6 +107,13 @@ ProjectSetUp <- R6Class(
     ## Read LungEx annotation file
     readLungExpRDS = function(){
       self$LungExpDF <- readRDS(self$LungExpRDS) 
+    },
+    ## Get Color map
+    getFactorColorMap = function(){
+      customColorsDF <-  self$metaDataDF[,c(self$factorName, "Color")] %>% data.frame() %>% dplyr::distinct()
+      customColorsDF[,self$factorName]  <- gsub(".Tumor", "", customColorsDF[,self$factorName])
+      colnames(customColorsDF)[1] <- "Diagnosis";
+      self$customColorsDF <- customColorsDF
     }
   ),
   public = list(
@@ -118,6 +125,7 @@ ProjectSetUp <- R6Class(
     filterGenes             = NULL,
     filterGeneMethod        = NULL,
     factorName              = NULL,
+    metadataFileRefCol      = NULL,
     metaDataFileName        = NULL,
     workDir                 = NULL,
     outputdirRDSDir         = NULL,
@@ -156,12 +164,13 @@ ProjectSetUp <- R6Class(
     factorsToExclude        = NULL,
     fileDirs                = NULL, 
     validMetaDataDF         = NULL,
+    customColorsDF          = NULL,
     initialize              = function(date = NA, time =NA, projectName = NA, annotationRDS = NA, outputPrefix = NA,
                                        filterGenes = NA, filterGeneMethod = NA, factorName = NA, metaDataFileName = NA, 
                                        workDir = NA, outputdirRDSDir = NA, outputdirTXTDir = NA,gseaDir = NA, plotsDir = NA, 
                                        plotsDataDir = NA, DiffGeneExpAnaDir = NA, DiffGeneExpRDS = NA, pcRDS = NA,tfRDS=NA,
                                        csRDS =NA, cgaRDS=NA, pax3Foxo1RDS=NA, ewsr1Fli1RDS=NA, factorsToExclude=NA,
-                                       BrainExpRDS=NA, HeartExpRDS=NA, KidneyExpRDS=NA, LiverExpRDS=NA, LungExpRDS=NA) {
+                                       BrainExpRDS=NA, HeartExpRDS=NA, KidneyExpRDS=NA, LiverExpRDS=NA, LungExpRDS=NA, metadataFileRefCol=NA) {
       
       self$date <- date
       self$time <- time
@@ -171,6 +180,7 @@ ProjectSetUp <- R6Class(
       self$filterGenes <- filterGenes
       self$filterGeneMethod <- filterGeneMethod
       self$factorName <- factorName
+      self$metadataFileRefCol <- metadataFileRefCol
       self$metaDataFileName <- metaDataFileName
       self$workDir <- "C:/Users/sindiris/R Scribble/"
       self$outputdirRDSDir <- outputdirRDSDir
@@ -200,6 +210,7 @@ ProjectSetUp <- R6Class(
       private$checkDirExists()
       private$readMetaData()
       private$readAnnotation()
+      private$getFactorColorMap()
       if (!is.na(pcRDS)){ private$readProteinCoding() }
       if (!is.na(tfRDS)){ private$readTranscriptionFactor() }
       if (!is.na(csRDS)){ private$readCellSurface() }
@@ -271,12 +282,14 @@ CoreUtilities <- R6Class(
     workDir                = NULL,
     projectName            = NULL,
     allFileList            = NULL,
+    project                = NULL,
     initialize             = function(ProjectSetUpObject = NA ){
       
       assert_that("ProjectSetUP" %in% class(ProjectSetUpObject), 
                   msg="Please setup Project using ProjectSetUp class !!\nProjectSetUpObject cannot be NA !!")
       self$workDir     <- ProjectSetUpObject$workDir
       self$projectName <- ProjectSetUpObject$projectName
+      
     },
     ## Get merged matrix
     getMergedMatrix = function(dir = NA, fileFormat = NA, colNameSelect = NA, colIndexSelect = NA, isRowNames = FALSE, rowNamesColInFile = NA,
@@ -407,7 +420,7 @@ CoreUtilities <- R6Class(
       metaSS[1,1]               <- "#1.2"; 
       metaSS[2,c(2,3)]          <- c(nrow(RPKM_Data_Filt_Meta), ncol(RPKM_Data_Filt_Meta)-2) ;
       metaSS[3,]                <- colnames(RPKM_Data_Filt_Meta)
-      #colnames( metaSS )        <- colnames(RPKM_Data_Filt_Meta)
+      colnames( metaSS )        <- colnames(RPKM_Data_Filt_Meta)
       RPKM.Data.Filt.Meta.Broad <- rbind(as.data.frame(metaSS),RPKM_Data_Filt_Meta)
       return(RPKM.Data.Filt.Meta.Broad)
     },
@@ -437,9 +450,9 @@ CoreUtilities <- R6Class(
       return(CytolyticScores)
     },
     ## make one variable plots
-    OneVariablePlotSort <- function(colList, Scores, orderOfFactor, orderOfSignature, standardize=FALSE, logit =FALSE,
-                                    plotType="StringBean",customColorDF=NA, yLab="Score", summaryHlines =FALSE, 
-                                    sizeOfDots = 1, legendDisplay=TRUE){
+    OneVariablePlotSort = function(colList=NA, Scores=NA, orderOfFactor=NA, orderOfSignature=NA, standardize=FALSE, logit =FALSE,
+                                   plotType="StringBean",customColorDF=NA, yLab="Score", summaryHlines =FALSE, 
+                                   sizeOfDots = 1, legendDisplay=TRUE){
       
       #if (unique(is.na(customColors))) { customColors = setNames( StatsFinal$Color, StatsFinal$Diagnosis) }
       #function
@@ -523,26 +536,26 @@ CoreUtilities <- R6Class(
       drawDensityPlot <- function(x, tidyScoresPre=NA , orderOfFactor=NA, customColors=NA, yLab =yLab){
         
         print(paste(x))
-        tidyScores             <- tidyScoresPre %>% filter(Signatures == x) %>%  dplyr::group_by(Signatures,Diagnosis) %>% 
-          dplyr::mutate(Med=median(Scores)) %>% arrange(Signatures,Diagnosis,Scores) %>% 
+        tidyScores             <- tidyScoresPre %>% filter(orderOfSignature == x) %>%  dplyr::group_by(orderOfSignature,Diagnosis) %>% 
+          dplyr::mutate(Med=median(Scores)) %>% arrange(orderOfSignature,Diagnosis,Scores) %>% 
           arrange(desc(Med)) %>% 
           ungroup() %>%
-          mutate( Diagnosis = factorizeColumn(Diagnosis, unique(Diagnosis) ) ) %>% arrange(Diagnosis)
+          mutate( Diagnosis = self$factorizeColumn(Diagnosis, unique(Diagnosis) ) ) %>% arrange(Diagnosis)
         #mutate( Diagnosis = factorizeColumn(Diagnosis, orderOfFactor )) %>% arrange(Diagnosis)
         tidyScores[,"SNONorm"] <- xaxisSeq(tidyScores)
         
         ##Make median Segment
-        medianY <- (tidyScores %>% dplyr::group_by(Diagnosis, Signatures) %>% dplyr::summarise(medianY=median(Scores)) %>% dplyr::arrange(Diagnosis,Signatures))$medianY
-        medianX <- (tidyScores %>% dplyr::group_by(Diagnosis, Signatures) %>% dplyr::summarise(medianX=median(SNONorm))  %>% dplyr::arrange(Diagnosis,Signatures))$medianX
+        medianY <- (tidyScores %>% dplyr::group_by(Diagnosis, orderOfSignature) %>% dplyr::summarise(medianY=median(Scores)) %>% dplyr::arrange(Diagnosis,orderOfSignature))$medianY
+        medianX <- (tidyScores %>% dplyr::group_by(Diagnosis, orderOfSignature) %>% dplyr::summarise(medianX=median(SNONorm))  %>% dplyr::arrange(Diagnosis,orderOfSignature))$medianX
         segmentDF <- data.frame( xstart = medianX-0.05, ystart=medianY, xend=medianX+0.15, yend=medianY)
-        segmentDF <- cbind(segmentDF, expand.grid(Diagnosis=unique(tidyScores$Diagnosis),Signatures=unique(tidyScores$Signatures)))
+        segmentDF <- cbind(segmentDF, expand.grid(Diagnosis=unique(tidyScores$Diagnosis),orderOfSignature=unique(tidyScores$orderOfSignature)))
         
         summaryStats <- tidyScores %>% group_by(Diagnosis) %>% summarise(maxV = max(Scores), minV =min(Scores) )
         
         plot <- ggplot(data=tidyScores, aes(x = Scores, y = Diagnosis, height = ..density..)) +
           # to avoid overlaps of mountains , rel_min_height = 0.005, scale=0.9
           geom_density_ridges2(aes(fill = Diagnosis)) +
-          scale_fill_manual(values=Color, guide=FALSE) +
+          scale_fill_manual(values=customColors, guide=FALSE) +
           geom_vline(data=tidyScores, mapping=aes(xintercept=0), linetype = "dashed", colour = "maroon", size=1 ) +
           scale_y_discrete(expand = c(0.01, 0), limits = unique(rev(tidyScores$Diagnosis))) +
           scale_x_continuous(expand = c(0.01, 0)) +
@@ -562,28 +575,21 @@ CoreUtilities <- R6Class(
       }
       
       if(standardize==TRUE){
-        Scores[,colList] <- apply(Scores[,colList,drop=FALSE], 2, zscore_All )
+        Scores[,colList] <- apply(Scores[,colList,drop=FALSE], 2, self$zscore_All )
       }
       
-      tidyScoresPre <- Scores %>% tidyr::gather(Signatures, Scores, colList);
+      tidyScoresPre <- Scores %>% tidyr::gather(orderOfSignature, Scores, colList);
       mergeDF       <-  merge(tidyScoresPre, customColorDF, by.x="Diagnosis", by.y="Diagnosis", all.x=TRUE)
       tidyScoresPre  <- mergeDF[,c(1:4)] ; # tidyScoresPre$Diagnosis <- factor(tidyScoresPre$Diagnosis, levels = orderOfFactor, ordered = TRUE)
       
       if( plotType =="StringBean") {
         plotLists <- lapply(orderOfSignature, drawStringBeanPlot, tidyScoresPre)
       } else {
-        customColorsVector <- setNames(as.character(customColorDF$Diagnosis), customColorDF$Color)
+        customColorsVector <- setNames( as.character(customColorDF$Color), as.character(customColorDF$Diagnosis))
         plotLists <- lapply(orderOfSignature, drawDensityPlot, tidyScoresPre=tidyScoresPre, orderOfFactor=orderOfFactor, customColors=customColorsVector,
                             yLab =yLab)
       }
       return(plotLists)
-    },
-    ## Get color map with factor name
-    getFactorColorMap   <- function(){
-            customColorsDF <- rnaseqProject$metaDataDF[,c(rnaseqProject$factorName, "Color")] %>% dplyr::distinct()
-            customColorsDF[,rnaseqProject$factorName]  <- gsub(".Tumor", "", customColorsDF[,rnaseqProject$factorName])
-            customColors <- setNames( customColorsDF$Color, customColorsDF[,rnaseqProject$factorName] )
-            return(customColors)
     }
   )
 )
@@ -674,7 +680,7 @@ GeneExpNormalization <- R6Class(
       private$setUp()
     },
     
-    edgeRMethod      = function(x) {
+    edgeRMethod      = function(x, logtransform=FALSE, zscore=FALSE) {
       
       assert_that(private$packageRNAseq == "edgeR", msg = paste0("GeneExpNormalization Object was created for ",private$packageRNAseq,
                                                                  ". Please create a new GeneExpNormalization Object for edgeR"))
@@ -691,8 +697,26 @@ GeneExpNormalization <- R6Class(
         return( private$corUtilsFuncs$featureNameAnot(querryDF=cpmDF, identifier="GeneID", annotationDF=private$annotationDF) )  
       }
       if(x == "TMM-RPKM" )    { 
-        rpkmDF <- as.data.frame(rpkm(private$GeneDFNorm, normalized.lib.sizes = TRUE, log = FALSE)) %>% tibble::rownames_to_column(var="GeneID")
-        print(paste0(" dim od rpkmDF ", dim(rpkmDF)))
+        rpkmDF =as.data.frame(rpkm(private$GeneDFNorm, normalized.lib.sizes = TRUE, log = FALSE))
+        if (isTRUE(logtransform) & isTRUE(zscore)) {
+          
+          print("Log transforming and standardising")
+          rpkmDF <- log2(rpkmDF+1) 
+          rpkmDF <- apply(rpkmDF, 1, function(x){
+            medX <- median(x)
+            sdX <- sd(x, na.rm = FALSE)
+            y <- (x - medX) / sdX
+            return(y)
+          }) %>% t() %>% data.frame()
+          
+        } else if ( isTRUE(logtransform) &  !isTRUE(zscore)  ){
+          
+          print("only Log transforming ")
+          rpkmDF <- log2(rpkmDF+1) 
+          
+        }
+        rpkmDF <- rpkmDF %>% tibble::rownames_to_column(var="GeneID")
+          
         return( private$corUtilsFuncs$featureNameAnot(querryDF=rpkmDF, identifier="GeneID", annotationDF=private$annotationDF) ) 
       }
       if(x == "TPM" )         { 
