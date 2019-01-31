@@ -136,13 +136,31 @@ ssGSEAScores <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Dat
 ssGSEAScores.HLA.Cyto <- rbind(ssGSEAScores,HLA_cytolyticScore)
 
 ## Plot the one variable plot
+## Sanity Check: Checking metadata vs data ##
+stopifnot( ncol(ssGSEAScores.HLA.Cyto) == length(as.character(rnaseqProject$metaDataDF$Sample.Biowulf.ID.GeneExp)) )
 
+## Filter specified Diagnosis
+selected.metadata  <- rnaseqProject$metaDataDF  %>% filter(! DIAGNOSIS.Alias %in% c("NS") ) %>% dplyr::select( Sample.Biowulf.ID.GeneExp, DIAGNOSIS.Alias )
+ssGSEAScores.HLA.Cyto.Selected <- ssGSEAScores.HLA.Cyto %>% dplyr::select_(.dots = selected.metadata$Sample.Biowulf.ID.GeneExp)
+dim(ssGSEAScores.HLA.Cyto.Selected)
 
+## sanity check
+## Checking metadata vs data ##
+stopifnot( ncol(ssGSEAScores.HLA.Cyto.Selected) == length(as.character(selected.metadata$Sample.Biowulf.ID.GeneExp)) )
 
+## Preparing the expression matrix for string plot, by appending metadata
+Scores <- cbind(t(ssGSEAScores.HLA.Cyto.Selected), selected.metadata[,"DIAGNOSIS.Alias", drop=FALSE]) %>% 
+  dplyr::rename(Diagnosis=DIAGNOSIS.Alias) #%>%
+#dplyr::mutate(Diagnosis = factor(Diagnosis, ordered = TRUE, levels = orderOfFactor))
 
-
-
-
+### Setting up variables for  string plot
+## Set the order of Diagnosis to appear
+orderOfFactor <- unique(selected.metadata$DIAGNOSIS.Alias)
+## Set the order of signature to appear
+orderOfSignature <- colnames(Scores)[-ncol(Scores)]
+## Total list of signatures
+colList <- c(1:(ncol(Scores)-1))
+## Generate custom colors
 
 
 
