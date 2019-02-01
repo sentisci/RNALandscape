@@ -1,5 +1,6 @@
 rm(list=ls())
-## Source all classes and packages
+
+## Source all classes and packages ####
 
 source("./utilityPackages.R")
 source("./statisticalPackages.R")
@@ -7,7 +8,7 @@ source("./class.R")
 
 ## Project Title: Expression Analysis for Landscape paper
 
-## ## Instantiate a new Object of type ProjectSetUp
+## Instantiate a new Object of type ProjectSetUp ####
 rnaseqProject <- ProjectSetUp$new(
   
   date                    = unlist(strsplit(x = as.character(Sys.time()), "\\s+"))[[1]],
@@ -50,10 +51,10 @@ rnaseqProject <- ProjectSetUp$new(
   factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"))
 )
 
-## Add utility functions to the project
+## Add utility functions to the project ####
 corUtilsFuncs <- CoreUtilities$new(  ProjectSetUpObject = rnaseqProject )
 
-## Generate expression matrix
+## Generate expression matrix ####
 rm(mergeObjectsNoDup)
 mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Genes.v1",
                                                    fileFormat        = "txt",
@@ -65,27 +66,34 @@ mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Gene
                                                    metadata          = rnaseqProject$metaDataDF,
                                                    metadataFileRefCol=rnaseqProject$metadataFileRefCol
                                                   )
-saveRDS(mergeObjectsNoDup, "../RNASeq.RSEM/GeneRDSOutput/mergeObjectsNoDup.RDS")
+saveRDS(mergeObjectsNoDup, "../RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.excluding celllines.RDS")
 
-#mergeObjectsNoDup <- readRDS("../RNASeq.RSEM/GeneRDSOutput/mergeObjectsNoDup.RDS")
+#mergeObjectsNoDup <- readRDS("../RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.excluding celllines.RDS")
 
-## Evaluate presence of duplicate features and consolidate them
+## Evaluate presence of duplicate features (genes) and consolidate them ####
 setDT(mergeObjectsNoDup, keep.rownames = TRUE)
-mergeObjectsNoDup.pre <- mergeObjectsNoDup %>% dplyr::rename(GeneID = rn)
-mergeObjectsNoDup.pre <- dplyr::left_join(rnaseqProject$annotationDF[,c("GeneID", "GeneName")], mergeObjectsNoDup.pre, by="GeneID") %>% data.table()
-mergeObjectsConso <- corUtilsFuncs$consolidateDF(mergeObjectsNoDup.pre[,-c("GeneID")], funcName = "max", featureName = "GeneName")
-mergeObjectsConso <- dplyr::full_join(mergeObjectsConso, rnaseqProject$annotationDF[,c("GeneID", "GeneName")], by="GeneName") %>%  data.table()
-mergeObjectsConso <-   subset(mergeObjectsConso,!duplicated(mergeObjectsConso$GeneName))
-mergeObjectsConso <-   mergeObjectsConso[complete.cases(mergeObjectsConso), ]; dim(mergeObjectsConso)
-mergeObjectsConso <- mergeObjectsConso[,-c("GeneName")] %>% data.frame() %>% tibble::column_to_rownames(var = "GeneID") %>% as.matrix()
-rnaseqProject$annotationDF <- rnaseqProject$annotationDF %>% dplyr::filter(GeneID %in% rownames(mergeObjectsConso))
-  
-## Subset metaDataDF by the number of samples in the folder
-colnamesDF    <- data.frame( "Sample.Biowulf.ID.GeneExp"= colnames(mergeObjectsConso))
+mergeObjectsNoDup.pre <- mergeObjectsNoDup          %>% 
+                         dplyr::rename(GeneID = rn) 
+mergeObjectsNoDup.pre <- dplyr::left_join(rnaseqProject$annotationDF[,c("GeneID", "GeneName")], mergeObjectsNoDup.pre, by="GeneID") %>% 
+                         data.table()
+mergeObjectsConso     <- corUtilsFuncs$consolidateDF(mergeObjectsNoDup.pre[,-c("GeneID")], funcName = "max", featureName = "GeneName")
+mergeObjectsConso     <- dplyr::full_join(mergeObjectsConso, rnaseqProject$annotationDF[,c("GeneID", "GeneName")], by="GeneName") %>%  
+                         data.table()
+mergeObjectsConso     <- subset(mergeObjectsConso,!duplicated(mergeObjectsConso$GeneName))
+mergeObjectsConso     <- mergeObjectsConso[complete.cases(mergeObjectsConso), ]; dim(mergeObjectsConso)
+mergeObjectsConso     <- mergeObjectsConso[,-c("GeneName")]         %>% 
+                         data.frame()                               %>% 
+                         tibble::column_to_rownames(var = "GeneID") %>% 
+                         as.matrix() ; dim(mergeObjectsConso)
+## matching above data frame with the annotationDF
+rnaseqProject$annotationDF <- rnaseqProject$annotationDF %>% dplyr::filter(GeneID %in% rownames(mergeObjectsConso)); dim(rnaseqProject$annotationDF)
+
+## Subset metaDataDF by the number of samples in the folder ####
+colnamesDF           <- data.frame( "Sample.Biowulf.ID.GeneExp"= colnames(mergeObjectsConso))
 corUtilsFuncs$subsetMetaData(colnamesDF=colnamesDF)
 
-## Instantiate a new Object of type GeneExpNormalization
-expressionObj <- GeneExpNormalization$new(
+## Instantiate a new Object of type GeneExpNormalization ####
+expressionObj        <- GeneExpNormalization$new(
   
   countObj          = as.matrix(mergeObjectsConso), 
   featureType       = "Gene", 
@@ -97,44 +105,46 @@ expressionObj <- GeneExpNormalization$new(
   corUtilsFuncs     = corUtilsFuncs
 )
 
-## Get expression in desired units
+## Get expression in desired units ####
 ### RawCounts
-expressionTMM.Counts = expressionObj$edgeRMethod("RawCounts")
+expressionTMM.Counts          = expressionObj$edgeRMethod("RawCounts")
 ### RPKM
-expressionTMM.RPKM   = expressionObj$edgeRMethod("TMM-RPKM", logtransform = TRUE, zscore = FALSE)
-### GSEA
+expressionTMM.RPKM            = expressionObj$edgeRMethod("TMM-RPKM", logtransform = TRUE, zscore = FALSE)
+### Prepare input for ssGSEA broad gene pattern
 expressionTMM.RPKM.GSEA.Input <- expressionTMM.RPKM[, -c(1:7)]; rownames(expressionTMM.RPKM.GSEA.Input) <- expressionTMM.RPKM[,6]
 expressionTMM.RPKM.GSEA.print = corUtilsFuncs$createBroadGCTFile(expressionTMM.RPKM.GSEA.Input)
 
-## Start here ##
-AliasNames_df  <- dplyr::left_join( data.frame("Sample.Biowulf.ID.GeneExp"=colnames(expressionTMM.RPKM)), rnaseqProject$validMetaDataDF[,c("Sample.Biowulf.ID.GeneExp", "Sample.ID.Alias")] )
-AliasColnames  <- c(as.character(AliasNames_df[c(1:7),1]), as.character(AliasNames_df[-c(1:7),2]))
-## Start here ##
-stopifnot( length(colnames(expressionTMM.RPKM)) == length(AliasColnames) )
-colnames(expressionTMM.RPKM) <- AliasColnames
+## Add additional annotations (sample Id alias) ####
+AliasNames_df                 <- dplyr::left_join( data.frame("Sample.Biowulf.ID.GeneExp"=colnames(expressionTMM.RPKM)), 
+                                                   rnaseqProject$validMetaDataDF[,c("Sample.Biowulf.ID.GeneExp", "Sample.ID.Alias")] )
+AliasColnames                 <- c(as.character(AliasNames_df[c(1:7),1]), as.character(AliasNames_df[-c(1:7),2]))
 
-## Write TMM-RPKM
+## Perform Sanity Check for the above operations #####
+stopifnot( length(colnames(expressionTMM.RPKM)) == length(AliasColnames) )
+colnames(expressionTMM.RPKM)  <- AliasColnames
+
+## Save expression (TMM-RPKM/whatwever asked for in the above step) to a file ####
 write.table(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
-                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.zscore",rnaseqProject$date,".txt"),sep="/"),
+                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.zscore.",rnaseqProject$date,".txt"),sep="/"),
                                       sep="\t", row.names = FALSE, quote = FALSE)
 saveRDS(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
-                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.zscore",rnaseqProject$date,".rds"),sep="/"))
+                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.zscore.",rnaseqProject$date,".rds"),sep="/"))
 
-## Write GSEA
+## Save input for ssGSEA ####
 write.table(expressionTMM.RPKM.GSEA.print, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$gseaDir,
-                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.zscore",rnaseqProject$date,".txt"),sep="/"),
-            sep="\t", row.names = FALSE, quote = FALSE)
+                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.zscore.",rnaseqProject$date,".txt"),sep="/"),
+                                      sep="\t", row.names = FALSE, quote = FALSE)
 saveRDS(expressionTMM.RPKM.GSEA.print, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$gseaDir,
-                                  paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.zscore",rnaseqProject$date,".rds"),sep="/"))
+                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.zscore.",rnaseqProject$date,".rds"),sep="/"))
 
-### Performing ssGSEA ##########
+### Performing ssGSEA output analysis. ( Plotting the scores across histology ) ##########
 
 ## Add custom expression like cytolytic scre and HLA gene expression to the ssGSEA Outpuut file.
 cytolyticScore          <- corUtilsFuncs$cytolyticScore(expressionTMM.RPKM.GSEA.Input)
 HLA_cytolyticScore      <- rbind(expressionTMM.RPKM.GSEA.Input[c("HLA-A", "HLA-B", "HLA-C"),], cytolyticScore)
 
 ## Read the ssGSEA output
-ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log22019-01-31.PROJ.gct")
+ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.zscore2019-01-31.PROJ.gct")
 ssGSEAScores.HLA.Cyto   <- rbind(ssGSEAScores,HLA_cytolyticScore)
 
 ## Plot the one variable plot
@@ -143,13 +153,12 @@ stopifnot( ncol(ssGSEAScores.HLA.Cyto) == length(as.character(rnaseqProject$meta
 
 ## Filter specified Diagnosis
 factorsToExclude              = paste(c("NS", "YST", "Teratoma"), collapse = "|")
-selected.metadata             <- rnaseqProject$metaDataDF  %>% filter_(  .dots = paste0("!grepl(", "'", factorsToExclude , "'" ,",", rnaseqProject$factorName, ")")) %>% 
+selected.metadata              <- rnaseqProject$metaDataDF  %>% filter_(  .dots = paste0("!grepl(", "'", factorsToExclude , "'" ,",", rnaseqProject$factorName, ")")) %>% 
                                                     dplyr::select_( .dots=c(rnaseqProject$metadataFileRefCol, rnaseqProject$factorName ) )
 ssGSEAScores.HLA.Cyto.Selected <- ssGSEAScores.HLA.Cyto %>% dplyr::select_(.dots = selected.metadata[, rnaseqProject$metadataFileRefCol])
 dim(ssGSEAScores.HLA.Cyto.Selected)
 
-## sanity check
-## Checking metadata vs data ##
+## sanity check Checking metadata vs data ##
 stopifnot( ncol(ssGSEAScores.HLA.Cyto.Selected) == length(as.character(selected.metadata$Sample.Biowulf.ID.GeneExp)) )
 
 ## Preparing the expression matrix for string plot, by appending metadata
@@ -171,34 +180,38 @@ plotLists        <- corUtilsFuncs$OneVariablePlotSort(colList, Scores=Scores, or
                                  yLab = "Standardised enrichment score", legendDisplay = FALSE, customColorDF = customColorDF )
 ## Save the plots
 EnrischmentScorePlots <- lapply(plotLists, function(l) l[[1]])
-SBName                <- paste(rnaseqProject$workDir, rnaseqProject$projectName, rnaseqProject$plotsDir,"TMM-RPKM.log2.ssGSEA.enrichmentScores.all.pc.log.zscore.pdf",sep="/")
-ggsave(SBName, marrangeGrob(EnrischmentScorePlots,ncol=2,nrow=1 ), width = 20, height = 10 )
+SBName                <- paste(rnaseqProject$workDir, rnaseqProject$projectName, rnaseqProject$plotsDir,"TMM-RPKM.ssGSEA.enrichmentScores.all.pc.log.zscore.pdf",sep="/")
+## ggsave(SBName, marrangeGrob(EnrischmentScorePlots,ncol=2,nrow=1 ), width = 20, height = 10 )
 
 
 ## Plot to do percent samples enriched across cancer types
-## Using raw scores
+
+## Using  scores
 dropSignatures    <- c("Macrophages_M0","Macrophages_M1", "Macrophages_M2","Dendritic_cells_activated")
 factorsToExclude  <- paste(c("NS", "YST", "Teratoma"), collapse = "|")
-Scores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log22019-01-31.PROJ.gct")
+## Read and parse the ssGSEA Output from Broad GenePattern
+Scores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.2019-01-31.PROJ.gct")
+## Standardizing the raw score to amplify the difference.
 ScoresZscore      <- apply(Scores[1:24,],1, corUtilsFuncs$zscore_All)                  
 ScoresZscore      %<>%   data.frame()                                                     %<>% 
                          tibble::rownames_to_column(var=rnaseqProject$metadataFileRefCol) %<>% 
                          dplyr::select(-one_of(dropSignatures ))
 
-## Massaging the data and prepare for heatmap
+## Preparing the data and prepare for heatmap
 ScoresForGather   <- tidyr::gather(ScoresZscore, key="GeneSet", value="Score", -!!rnaseqProject$metadataFileRefCol )
 ScoresForGather   <-  dplyr::left_join(ScoresForGather, 
                                        rnaseqProject$metaDataDF[,c(rnaseqProject$metadataFileRefCol, rnaseqProject$factorName)], 
                                        by=rnaseqProject$metadataFileRefCol)                                                        %>% 
                       dplyr::filter_(  .dots = paste0("!grepl(", "'", factorsToExclude , "'" ,",", rnaseqProject$factorName, ")")) %>% 
                       dplyr::rename_(.dots = setNames(list(rnaseqProject$factorName),c("Diagnosis")) )
-                        
+
+## Final check before plotting                        
 dim(ScoresForGather);head(ScoresForGather)
 
 ScoresForGatherPercent         <- ScoresForGather                                             %>% 
                                   dplyr::group_by(Diagnosis, GeneSet)                         %>% 
                                   dplyr::mutate(TotalCount = n(), Enriched = sum(Score > 0 )) %>% 
-                                  dplyr::mutate(SamplePercent = (Enriched/TotalCount)*100 )
+                                  dplyr::mutate(SamplePercent = (Enriched/TotalCount)*100 )   
 ScoresForGatherUnique          <- ScoresForGatherPercent[,c(2,4,7)]                           %>% 
                                   ungroup()                                                   %>% 
                                   distinct()
@@ -212,6 +225,7 @@ colnames(ScoresForSpreadHeat)  <- colnames(ScoresForSpread)
 ## Open the PDF File
 pdf( paste(rnaseqProject$workDir, rnaseqProject$projectName, rnaseqProject$plotsDir,"PercentSamplesEnrichmentScoreHeatMap.Cibersort.pdf", sep="/"), height=10, width = 20)
 
+### Using two different packages to plot
 ## Using SuperheatMap package
       # superheat(ScoresForSpreadHeat,
       #           bottom.label.text.angle=90,
@@ -228,7 +242,6 @@ breaks <- seq(min(ScoresForSpreadHeat),max(ScoresForSpreadHeat), by=0.1)
 # #green black red
 # matrix_color_vector <- colorpanel(n=length(breaks)-1,low="#4FFC07",mid="#0B0B0B",high="#F92908")
 #black red
-library(gplots)
 matrix_color_vector <- colorpanel(n=length(breaks)-1,low="#4FFC07",mid="#273746",high="#F92908")
 fheatmap(ScoresForSpreadHeat, display_tree_col = F,cluster_rows = T, mat_color = matrix_color_vector,
          row_fontsize = 5, col_fontsize = 5, cell_border = T, cell_border_col = "#A6ACAF",seed = 10,
@@ -236,7 +249,7 @@ fheatmap(ScoresForSpreadHeat, display_tree_col = F,cluster_rows = T, mat_color =
 dev.off()
 
 
-## Perform Differential gene expression analysis
+## Perform Differential gene expression analysis ####
 
 ## Control groups ##
 Brain          <- c("NS.cerebellum","NS.cerebrum")
