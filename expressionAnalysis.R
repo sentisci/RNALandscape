@@ -317,7 +317,7 @@ mergeDiffTestResults <- function(x, type="", saveDirPath="", extension="", colIn
 
 getCountObjTXT <- function(fileName, colNumb=1, rowNames=1){
   print(paste(fileName))
-  featureCountTxt <- read.csv(fileName, sep="\t", row.names = rowNames, header = 1);
+  featureCountTxt <- read.csv(fileName, sep="\t", row.names = "GeneName.x", header = 1);
   return(featureCountTxt[,colNumb, drop=FALSE])
 }
 
@@ -345,25 +345,24 @@ dir.create(MergedDiffExpResultDir)
 #ConditionGroup <- c(unique(sapply(dgeObj$pairedList, function(x){ return(paste(x[1],x[2],sep = "_"))  })), c("Normals_WT", "Normals_CCSK") )
 ConditionGroup <- c(unique(sapply(dgeObj$pairedList, function(x){ return(paste(x[1],x[2],sep = "_"))  })))
 groups <- list.dirs(paste("C:/Users/sindiris/R Scribble//RNASeq.RSEM//DiffExpResults/", sep=""))[-1]; groups[1]
-output <- sapply(groups, mergeDiffTestResults, type="Gene", colInterest=c(5,7,9,10,11,12), rowNamesCol = 5,
+output <- sapply(groups, mergeDiffTestResults, type="Gene", colInterest=c(5,7,9,10,11,12, 19:28), rowNamesCol = 5,
                  fileSuffix=paste0(selectedGeneList,".txt"),saveDirPath=MergedDiffExpResultDir)
 
 # Step 3  Core Function and save files ####
 allTumorStats <- do.call(cbind, lapply(ConditionGroup, function(x){
   tumorData <- read.table( paste(MergedDiffExpResultDir,"/",x,"/Gene_MergedDiffExpResult.txt",sep=""), sep="\t", 
-                           row.names = 1, header = T, stringsAsFactors = FALSE )
+                           row.names = 1, header = T, stringsAsFactors = FALSE ) %>% tibble::rownames_to_column(var="GeneName.x")
  
   ## Actual filtering
   groupsCompare <- unlist(strsplit(x, "_"))
   print(groupsCompare)
   filterDFByColNames <- c("logFC",	groupsCompare[2], groupsCompare[1])
   newColNames <- paste0("Zscored.",c("logFC",	groupsCompare[2], groupsCompare[1]))
-  tumorData <- read.table( paste(MergedDiffExpResultDir,"/",x,"/Gene_MergedDiffExpResult.txt",sep=""), 
-                           sep="\t", row.names = 1, header = T, stringsAsFactors = FALSE )
-  tumorDataPvalue <- tumorData %>% dplyr::filter(PValue <= 0.001); dim(tumorDataPvalue)
+
+  tumorDataPvalue <- tumorData %>% tibble::rownames_to_column(var="GeneName.x") %>% dplyr::filter(PValue <= 0.001); dim(tumorDataPvalue)
   tumorDataPvalue_Zscore <- apply(tumorDataPvalue[,c("logFC",	groupsCompare[2], groupsCompare[1])],2,corUtilsFuncs$zscore_All)
-  colnames(tumorDataPvalue_Zscore) <- newColNames
-  tumorDataPvalue_Zscore <- cbind(tumorDataPvalue[,c("GeneName.x"),drop = FALSE], tumorDataPvalue_Zscore)
+  colnames(tumorDataPvalue_Zscore) <- newColNames; 
+  tumorDataPvalue_Zscore <- cbind(tumorDataPvalue[,c("GeneName.x"),drop = FALSE], tumorDataPvalue_Zscore ) %>% data.frame()
   head(tumorDataPvalue_Zscore)
   tumorAllData <- left_join(tumorDataPvalue_Zscore, tumorData, by="GeneName.x") ; dim(tumorAllData)
   # tumorAllData.filt <- tumorAllData %>% dplyr::filter_(.dots=paste0(groupsCompare[2]," >= ", group2FPKM ,
@@ -371,15 +370,15 @@ allTumorStats <- do.call(cbind, lapply(ConditionGroup, function(x){
   #                               " & ", paste0("Zscored.",groupsCompare[2]), " >= ", Zscore.group2)) %>% 
   #                 dplyr::arrange_(.dots = paste0("desc(","Zscored.",groupsCompare[2], ")" ) )
   
-  tumorAllData.filt <- tumorAllData %>% dplyr::filter_(.dots=paste0(       groupsCompare[2], ">=", group2FPKM ,
-                                                                    " & ", groupsCompare[1], "=<", group1FPKM ,
-                                                                    " & ", logFC,            ">", logFoldDiff,
-                                                                    " & ", FDR,              "<", FDR_value ,
-                                                                    " & ", meanBrainExp,     "<", vitalFPKM ,
-                                                                    " & ", meanHeartExp,     "<", vitalFPKM ,
-                                                                    " & ", meanKidneyExp,    "<", vitalFPKM ,
-                                                                    " & ", meanLiverExp,     "<", vitalFPKM  ,
-                                                                    " & ", meanLiverExp,     "<", vitalFPKM , )) %>% 
+  tumorAllData.filt <- tumorAllData %>% dplyr::filter_(.dots=paste0(       groupsCompare[2], " > ", group2FPKM ,
+                                                                    " & ", groupsCompare[1], " < ", group1FPKM ,
+                                                                    " &   logFC >", logFoldDiff,
+                                                                    " &   FDR  <", FDR_value ,
+                                                                    " &  meanBrainExp  < ", vitalFPKM ,
+                                                                    " &  meanHeartExp  < ", vitalFPKM ,
+                                                                    " &  meanKidneyExp  < ", vitalFPKM ,
+                                                                    " &  meanLiverExp  < ", vitalFPKM  ,
+                                                                    " &  meanLiverExp  < ", vitalFPKM  )) %>% 
                                                                     dplyr::arrange_(.dots = paste0("desc(","Zscored.",groupsCompare[2], ")" ) )
   
   
