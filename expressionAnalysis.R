@@ -332,7 +332,7 @@ PValue = 0.001; FDR = 0.05
 selectedGeneList <- "cellsurface"
 #group2FPKM = 40; Zscored.logFC = 1 ; Zscore.group2 = 1
 #group2FPKM = 40 ; group1FPKM = 1;  PValue = 0.001 ; logFC =2 ; FDR = 0.05
-group2FPKM = 2 ; group1FPKM = 2;  PValue = 0.001 ; logFoldDiff =3 ; FDR_value = 0.001
+group2FPKM = 2 ; group1FPKM = 2;  PValue = 0.001 ; logFoldDiff =3 ; FDR_value = 0.001 ; vitalFPKM = 1
 
 #selectedGeneList <- "transcriptionFactor"
 #group2FPKM = 1; Zscored.logFC = 1.25 ; Zscore.group2 = 0
@@ -371,11 +371,16 @@ allTumorStats <- do.call(cbind, lapply(ConditionGroup, function(x){
   #                               " & ", paste0("Zscored.",groupsCompare[2]), " >= ", Zscore.group2)) %>% 
   #                 dplyr::arrange_(.dots = paste0("desc(","Zscored.",groupsCompare[2], ")" ) )
   
-  tumorAllData.filt <- tumorAllData %>% dplyr::filter_(.dots=paste0(       groupsCompare[2]," >= ", group2FPKM ,
-                                                                    " & ", groupsCompare[1], " =< ", group1FPKM ,
-                                                                    " & ", logFC, ">", logFoldDiff,
-                                                                    " & ", FDR, "<", FDR_value)) %>% 
-    dplyr::arrange_(.dots = paste0("desc(","Zscored.",groupsCompare[2], ")" ) )
+  tumorAllData.filt <- tumorAllData %>% dplyr::filter_(.dots=paste0(       groupsCompare[2], ">=", group2FPKM ,
+                                                                    " & ", groupsCompare[1], "=<", group1FPKM ,
+                                                                    " & ", logFC,            ">", logFoldDiff,
+                                                                    " & ", FDR,              "<", FDR_value ,
+                                                                    " & ", meanBrainExp,     "<", vitalFPKM ,
+                                                                    " & ", meanHeartExp,     "<", vitalFPKM ,
+                                                                    " & ", meanKidneyExp,    "<", vitalFPKM ,
+                                                                    " & ", meanLiverExp,     "<", vitalFPKM  ,
+                                                                    " & ", meanLiverExp,     "<", vitalFPKM , )) %>% 
+                                                                    dplyr::arrange_(.dots = paste0("desc(","Zscored.",groupsCompare[2], ")" ) )
   
   
   write.table(tumorAllData, paste(MergedDiffExpResultDir,"/",x,"/","rankFile.txt",sep=""), sep="\t", row.names = FALSE, quote = FALSE)
