@@ -66,7 +66,7 @@ mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Gene
                                                    metadata          = rnaseqProject$metaDataDF,
                                                    metadataFileRefCol=rnaseqProject$metadataFileRefCol
                                                   )
-saveRDS(mergeObjectsNoDup, "../RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.excluding Ribozero.RDS")
+saveRDS(mergeObjectsNoDup, "../RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.PolyA.RDS")
 
 #mergeObjectsNoDup <- readRDS("../RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.excluding celllines.RDS")
 
@@ -122,10 +122,10 @@ colnames(expressionTMM.RPKM)  <- AliasColnames
 
 ## Save expression (TMM-RPKM/whatwever asked for in the above step) to a file ####
 write.table(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
-                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.",rnaseqProject$date,".txt"),sep="/"),
+                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.polyA",rnaseqProject$date,".txt"),sep="/"),
                                       sep="\t", row.names = FALSE, quote = FALSE)
 saveRDS(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
-                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.",rnaseqProject$date,".rds"),sep="/"))
+                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.PolyA",rnaseqProject$date,".rds"),sep="/"))
 
 ### Performing ssGSEA output analysis. ( Plotting the scores across histology ) ##########
 
@@ -269,10 +269,10 @@ NormalsNoGermLine <- c("NS.adrenalgland","NS.bladder","NS.cerebellum","NS.cerebr
                     "NS.ileum","NS.kidney","NS.liver","NS.lung","NS.pancreas","NS.prostate", 
                     "NS.skeletalmuscle","NS.spleen", "NS.stomach", "NS.ureter", "NS.uterus")
 
-tumorSubStatus.polyA <- c("RMS.FP" , "RMS.FN", "EWS" ,"ASPS", "DSRCT", "HBL", "ML", "NB.MYCN.NA","NB.MYCN.A", "NB.Unknown", "OS", 
+tumorSubStatus.polyA    <- c("RMS.FP" , "RMS.FN", "EWS" ,"ASPS", "DSRCT", "HBL", "ML", "NB.MYCN.NA","NB.MYCN.A", "NB.Unknown", "OS", 
                           "SS", "Teratoma" ,"UDS" ,"YST")
 tumorSubStatus.ribozero <-  c("WT" ,"CCSK")
-Tumors         <-  c("ASPS","DSRCT", "EWS" ,"HBL", "ML", "NB" ,"OS", "RMS", "SS", "Teratoma" ,"UDS" ,"YST","WT", "CCSK")
+Tumors                  <-  c("ASPS","DSRCT", "EWS" ,"HBL", "ML", "NB" ,"OS", "RMS", "SS", "Teratoma" ,"UDS" ,"YST","WT", "CCSK")
 
 
 ## Testing 
@@ -321,28 +321,29 @@ getCountObjTXT <- function(fileName, colNumb=1, rowNames=1){
   return(featureCountTxt[,colNumb, drop=FALSE])
 }
 
-PValue = 0.001; FDR = 0.05
-
 # Step 1  Set the filters and annotation ####
+
+PValue = 0.001; FDR = 0.05
 
 #selectedGeneList <- "cancergermlineantigen"
 #group2FPKM = 1; Zscored.logFC = 0.25 ; Zscore.group2 = 0; 
 # group2FPKM = 0 ; group1FPKM = 1;  PValue = 0.01 ; logFC =1 ; FDR = 0.05
 
-#selectedGeneList <- "cellsurface"
+selectedGeneList <- "cellsurface"
 #group2FPKM = 40; Zscored.logFC = 1 ; Zscore.group2 = 1
 #group2FPKM = 40 ; group1FPKM = 1;  PValue = 0.001 ; logFC =2 ; FDR = 0.05
+group2FPKM = 2 ; group1FPKM = 2;  PValue = 0.001 ; logFoldDiff =3 ; FDR_value = 0.001
 
-selectedGeneList <- "transcriptionFactor"
-group2FPKM = 1; Zscored.logFC = 1.25 ; Zscore.group2 = 0
+#selectedGeneList <- "transcriptionFactor"
+#group2FPKM = 1; Zscored.logFC = 1.25 ; Zscore.group2 = 0
 #group2FPKM = 1 ; group1FPKM = 5;  PValue = 0.01 ; logFC =1 ; FDR = 0.05
 
 # Step 2  Perform MErging ####
 
 MergedDiffExpResultDir <- paste0("C:/Users/sindiris/R Scribble//RNASeq.RSEM/MergedDiffExpResults/",selectedGeneList)
 dir.create(MergedDiffExpResultDir)
-ConditionGroup <- c(unique(sapply(dgeObj$pairedList, function(x){ return(paste(x[1],x[2],sep = "_"))  })), c("Normals_WT", "Normals_CCSK") )
-#ConditionGroup <- c(unique(sapply(dgeObj$pairedList, function(x){ return(paste(x[1],x[2],sep = "_"))  })))
+#ConditionGroup <- c(unique(sapply(dgeObj$pairedList, function(x){ return(paste(x[1],x[2],sep = "_"))  })), c("Normals_WT", "Normals_CCSK") )
+ConditionGroup <- c(unique(sapply(dgeObj$pairedList, function(x){ return(paste(x[1],x[2],sep = "_"))  })))
 groups <- list.dirs(paste("C:/Users/sindiris/R Scribble//RNASeq.RSEM//DiffExpResults/", sep=""))[-1]; groups[1]
 output <- sapply(groups, mergeDiffTestResults, type="Gene", colInterest=c(5,7,9,10,11,12), rowNamesCol = 5,
                  fileSuffix=paste0(selectedGeneList,".txt"),saveDirPath=MergedDiffExpResultDir)
@@ -365,10 +366,17 @@ allTumorStats <- do.call(cbind, lapply(ConditionGroup, function(x){
   tumorDataPvalue_Zscore <- cbind(tumorDataPvalue[,c("GeneName.x"),drop = FALSE], tumorDataPvalue_Zscore)
   head(tumorDataPvalue_Zscore)
   tumorAllData <- left_join(tumorDataPvalue_Zscore, tumorData, by="GeneName.x") ; dim(tumorAllData)
-  tumorAllData.filt <- tumorAllData %>% dplyr::filter_(.dots=paste0(groupsCompare[2]," >= ", group2FPKM ,
-                                " & ","Zscored.logFC >= ", Zscored.logFC,
-                                " & ", paste0("Zscored.",groupsCompare[2]), " >= ", Zscore.group2)) %>% 
-                  dplyr::arrange_(.dots = paste0("desc(","Zscored.",groupsCompare[2], ")" ) )
+  # tumorAllData.filt <- tumorAllData %>% dplyr::filter_(.dots=paste0(groupsCompare[2]," >= ", group2FPKM ,
+  #                               " & ","Zscored.logFC >= ", Zscored.logFC,
+  #                               " & ", paste0("Zscored.",groupsCompare[2]), " >= ", Zscore.group2)) %>% 
+  #                 dplyr::arrange_(.dots = paste0("desc(","Zscored.",groupsCompare[2], ")" ) )
+  
+  tumorAllData.filt <- tumorAllData %>% dplyr::filter_(.dots=paste0(       groupsCompare[2]," >= ", group2FPKM ,
+                                                                    " & ", groupsCompare[1], " =< ", group1FPKM ,
+                                                                    " & ", logFC, ">", logFoldDiff,
+                                                                    " & ", FDR, "<", FDR_value)) %>% 
+    dplyr::arrange_(.dots = paste0("desc(","Zscored.",groupsCompare[2], ")" ) )
+  
   
   write.table(tumorAllData, paste(MergedDiffExpResultDir,"/",x,"/","rankFile.txt",sep=""), sep="\t", row.names = FALSE, quote = FALSE)
   ## select genes
