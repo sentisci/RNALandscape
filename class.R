@@ -590,6 +590,22 @@ CoreUtilities <- R6Class(
                             yLab =yLab)
       }
       return(plotLists)
+    },
+    ## memo sort
+    memoSort = function(M = NA) {
+      geneOrder <- sort(rowSums(M), decreasing=TRUE, index.return=TRUE)$ix;
+      scoreCol <- function(x) {
+        score <- 0;
+        for(i in 1:length(x)) {
+          if(x[i]) {
+            score <- score + 2^(length(x)-i);
+          }
+        }
+        return(score);
+      }
+      scores <- apply(M[geneOrder, ], 2, scoreCol);
+      sampleOrder <- sort(scores, decreasing=TRUE, index.return=TRUE)$ix;
+      return(M[geneOrder, sampleOrder]);
     }
   )
 )

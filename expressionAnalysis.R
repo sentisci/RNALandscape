@@ -300,6 +300,12 @@ head(DiffExpObj[[1]] %>% dplyr::arrange(-logFC))
 
 # Step 0  Define fucnctions ####
 
+getCountObjTXT <- function(fileName, colNumb=1, rowNames=1){
+  print(paste(fileName))
+  featureCountTxt <- read.csv(fileName, sep="\t", row.names = "GeneName", header = 1);
+  return(featureCountTxt[,colNumb, drop=FALSE])
+}
+
 mergeDiffTestResults <- function(x, type="", saveDirPath="", extension="", colInterest=1, rowNamesCol =1,
                                  fileSuffix=".txt"){
   
@@ -315,26 +321,20 @@ mergeDiffTestResults <- function(x, type="", saveDirPath="", extension="", colIn
   write.table(countObj, paste(saveDirPath, paste(fileName, "/", type,"_MergedDiffExpResult.txt",sep=""), sep= "/"), sep="\t",row.names = TRUE, quote = FALSE)
 }
 
-getCountObjTXT <- function(fileName, colNumb=1, rowNames=1){
-  print(paste(fileName))
-  featureCountTxt <- read.csv(fileName, sep="\t", row.names = "GeneName.x", header = 1);
-  return(featureCountTxt[,colNumb, drop=FALSE])
-}
-
 # Step 1  Set the filters and annotation ####
 
 PValue = 0.001; FDR = 0.05
 
-#selectedGeneList <- "cancergermlineantigen"
+#selectedGeneList <- "CancerGermlineAntigen"
 #group2FPKM = 1; Zscored.logFC = 0.25 ; Zscore.group2 = 0; 
 # group2FPKM = 0 ; group1FPKM = 1;  PValue = 0.01 ; logFC =1 ; FDR = 0.05
 
-selectedGeneList <- "cellsurface"
+selectedGeneList <- "CellSurface"
 #group2FPKM = 40; Zscored.logFC = 1 ; Zscore.group2 = 1
 #group2FPKM = 40 ; group1FPKM = 1;  PValue = 0.001 ; logFC =2 ; FDR = 0.05
 group2FPKM = 2 ; group1FPKM = 2;  PValue = 0.001 ; logFoldDiff =3 ; FDR_value = 0.001 ; vitalFPKM = 1
 
-#selectedGeneList <- "transcriptionFactor"
+#selectedGeneList <- "TranscriptionFactor"
 #group2FPKM = 1; Zscored.logFC = 1.25 ; Zscore.group2 = 0
 #group2FPKM = 1 ; group1FPKM = 5;  PValue = 0.01 ; logFC =1 ; FDR = 0.05
 
@@ -345,13 +345,12 @@ dir.create(MergedDiffExpResultDir)
 #ConditionGroup <- c(unique(sapply(dgeObj$pairedList, function(x){ return(paste(x[1],x[2],sep = "_"))  })), c("Normals_WT", "Normals_CCSK") )
 ConditionGroup <- c(unique(sapply(dgeObj$pairedList, function(x){ return(paste(x[1],x[2],sep = "_"))  })))
 groups <- list.dirs(paste("C:/Users/sindiris/R Scribble//RNASeq.RSEM//DiffExpResults/", sep=""))[-1]; groups[1]
-output <- sapply(groups, mergeDiffTestResults, type="Gene", colInterest=c(5,7,9,10,11,12, 19:28), rowNamesCol = 5,
+output <- sapply(groups, mergeDiffTestResults, type="Gene", colInterest=c(7,9,10,11,12, 15:28), rowNamesCol = 2,
                  fileSuffix=paste0(selectedGeneList,".txt"),saveDirPath=MergedDiffExpResultDir)
 
 # Step 3  Core Function and save files ####
 allTumorStats <- do.call(cbind, lapply(ConditionGroup, function(x){
-  tumorData <- read.table( paste(MergedDiffExpResultDir,"/",x,"/Gene_MergedDiffExpResult.txt",sep=""), sep="\t", 
-                           row.names = 1, header = T, stringsAsFactors = FALSE ) 
+  tumorData <- read.csv( paste(MergedDiffExpResultDir,"/",x,"/Gene_MergedDiffExpResult.txt",sep=""), sep="\t", header = T, stringsAsFactors = FALSE ) 
  
   ## Actual filtering
   groupsCompare <- unlist(strsplit(x, "_"))
@@ -372,16 +371,18 @@ allTumorStats <- do.call(cbind, lapply(ConditionGroup, function(x){
   #                               " & ","Zscored.logFC >= ", Zscored.logFC,
   #                               " & ", paste0("Zscored.",groupsCompare[2]), " >= ", Zscore.group2)) %>%
   #                 dplyr::arrange_(.dots = paste0("desc(","Zscored.",groupsCompare[2], ")" ) )
-
+  
+  write.table(tumorAllData, paste(MergedDiffExpResultDir,"/",x,"/",x,".rankFile.txt",sep=""), sep="\t", row.names = FALSE, quote = FALSE)
+  
   tumorAllData.filt <- tumorAllData %>% dplyr::filter_(.dots=paste0(       groupsCompare[2], " >= ", group2FPKM ,
                                                                     " & ", groupsCompare[1], " <= ", group1FPKM ,
                                                                     " &   logFC >", logFoldDiff,
                                                                     " &   FDR   <", FDR_value ,
-                                                                    " &  meanBrainExp  < ", vitalFPKM ,
-                                                                    " &  meanHeartExp  < ", vitalFPKM ,
-                                                                    " &  meanKidneyExp < ", vitalFPKM ,
-                                                                    " &  meanLiverExp  < ", vitalFPKM  ,
-                                                                    " &  meanLiverExp  < ", vitalFPKM  )) %>%
+                                                                    " &  Brain.MeanExp  < ", vitalFPKM ,
+                                                                    " &  Heart.MeanExp  < ", vitalFPKM ,
+                                                                    " &  Kidney.MeanExp < ", vitalFPKM ,
+                                                                    " &  Liver.MeanExp  < ", vitalFPKM  ,
+                                                                    " &  Lung.MeanExp   < ", vitalFPKM  )) %>%
                                                                     dplyr::arrange_(.dots = paste0("desc(","Zscored.",groupsCompare[2], ")" ) )
   
   write.table(tumorAllData.filt, paste(MergedDiffExpResultDir,"/",x,"/",x,".filtered.rankFile.txt",sep=""), sep="\t", row.names = FALSE, quote = FALSE)
@@ -395,28 +396,30 @@ allTumorStats <- do.call(cbind, lapply(ConditionGroup, function(x){
   return(statusDF)
 }))
 tumorStatusDF <- allTumorStats[, !duplicated(colnames(allTumorStats))]  %>% mutate(RowSum= rowSums(.[-1]))
-write.table(tumorStatusDF, paste(MergedDiffExpResultDir,"/",selectedGeneList,".Summarised.DExp.txt",sep=""), sep="\t", row.names = FALSE, quote = FALSE)
 
 # Step 4. Perform Clustering using "cluster_data" method from "fheatmap" ####
 tumorStatusDF.HM <- tumorStatusDF %>% tibble::column_to_rownames(var="GeneName") %>% dplyr::select(-one_of("RowSum"))
-roworder <- unlist( cluster_data(tumorStatusDF.HM, distance = "euclidean", method = "ward.D")["order"])
-colorder <- unlist( cluster_data(t(tumorStatusDF.HM), distance = "euclidean", method = "ward.D")["order"])
+tumorStatusDF.HM.memo <- corUtilsFuncs$memoSort(M=tumorStatusDF.HM)
+tumorStatusDF.HM.memo$RowSum <- apply(tumorStatusDF.HM.memo, 1, function(x) sum(x!=0))
+tumorStatusDF.HM.memo %<>% tibble::rownames_to_column(var="GeneName")
+write.table(tumorStatusDF.HM.memo, paste(MergedDiffExpResultDir,"/",selectedGeneList,".Summarised.DExp.txt",sep=""), sep="\t", row.names = FALSE, quote = FALSE)
+# roworder <- unlist( cluster_data(tumorStatusDF.HM, distance = "euclidean", method = "ward.D")["order"])
+# colorder <- unlist( cluster_data(t(tumorStatusDF.HM), distance = "euclidean", method = "ward.D")["order"])
 
 # Step 5. Organise the genes and tumors as per the above order . And save the file. ####
-allTumorStatsFinal <- tumorStatusDF.HM[roworder, colorder]
-allTumorStatsFinal$OnesSum <- apply(allTumorStatsFinal, 1, function(x) sum(x!=0))
+
 
 # Step 6. Select rows for heatmap ####
 allTumorStatsFinal <- read.table( paste(MergedDiffExpResultDir, "/", selectedGeneList,".Summarised.DExp", ".txt" ,sep=""),sep="\t", header = TRUE)
 CTA.Filt <- allTumorStatsFinal %>% filter(RowSum>=2) %>% 
   dplyr::arrange(RowSum)
 dim(CTA.Filt)
-CTA.Filt %>% filter(GeneName %in% c("CD99", "FGFR4", "ALK"))
+# %>% filter(GeneName %in% c("CD99", "FGFR4", "ALK"))
 
 # Step 8. Plot the heatmap ####
 CTA.Filt %<>% dplyr::select(-one_of("RowSum"))
 CTA.Filt %<>%  column_to_rownames(var="GeneName") 
-colnames(CTA.Filt) <- gsub("StatusSum", "", colnames(CTA.Filt))
+colnames(CTA.Filt) <- gsub("NormalsStatus", "", colnames(CTA.Filt))
 
 #pdf( paste("./Plots/",date, ".Differentially Expressed CGAs.v17.pdf", sep=""), height = 19, width = 15)
 # superheat(t(CTA.Filt), pretty.order.cols =T,
@@ -438,8 +441,8 @@ colnames(CTA.Filt) <- gsub("StatusSum", "", colnames(CTA.Filt))
 pdf( paste("C:/Users/sindiris/R Scribble//RNASeq.RSEM/Figures/", 
   "Differentially Expressed ",  selectedGeneList, ".pdf", sep=""), height = 10, width = 25)
 pheatmap(t(CTA.Filt), color =c("#e0e0d1", "#004080"), 
-         clustering_method = "ward.D",
-         cluster_rows = FALSE, 
+         cluster_rows = FALSE,
+         cluster_cols = FALSE,
          border_color = NA, 
          treeheight_row = 0,
          fontsize = 12,
