@@ -800,7 +800,7 @@ DifferentialGeneExp <- R6Class(
       ## Estimate Dispersion using estimateDisp() 
       GeneDF_Dispersion  <- estimateDisp(DGEobj, design = modelDesign )
       print("Predicting differntially expressed genes using exactTest()")
-      print(paste0(pairGroup1Name,"\t",group1Count, pairGroup2Name,"\t",group2Count))
+      print(paste0(pairGroup1Name,"  ",group1Count, "  ", pairGroup2Name,"  ",group2Count))
       private$GeneDF_DiffExp <- exactTest(GeneDF_Dispersion, pair = c(unique(modelGroup)))$table
       
       # # Using Quasilikelihood ratio test() **************** ISSUE groups getting sorted ************
@@ -928,28 +928,40 @@ DifferentialGeneExp <- R6Class(
     folderName <- paste0(private$pairGroup1Name, "_", private$pairGroup2Name)
     private$filterGenes(filterName="all", folderName = folderName )
     if( self$subsetGenes ){
-      private$filterGenes(filterName="proteinCoding"         , folderName = folderName )
-      private$filterGenes(filterName="cellsurface"           , folderName = folderName )
-      private$filterGenes(filterName="transcriptionFactor"   , folderName = folderName )
-      private$filterGenes(filterName="cancergermlineantigen" , folderName = folderName )
+      private$filterGenes(filterName="ProteinCoding"         , folderName = folderName )
+      private$filterGenes(filterName="CellSurface"           , folderName = folderName )
+      private$filterGenes(filterName="TranscriptionFactor"   , folderName = folderName )
+      private$filterGenes(filterName="CancerGermlineAntigen" , folderName = folderName )
     }
     return(private$GeneDF_DiffExp)
   },
   appendAnnotation = function(df=NA, annottype=NA){
-    print(paste("I am using this function for ", annottype))
     GeneDF_DiffExp <- df %>% mutate(
-                            meanBrainExp  = ifelse(GeneName.x %in% rnaseqProject$BrainExpDF[,"GeneName"], rnaseqProject$BrainExpDF[,"MeanExp"], "N"),
-                            meanHeartExp  = ifelse(GeneName.x %in% rnaseqProject$HeartExpDF[,"GeneName"], rnaseqProject$HeartExpDF[,"MeanExp"], "N"),
-                            meanKidneyExp = ifelse(GeneName.x %in% rnaseqProject$KidneyExpDF[,"GeneName"], rnaseqProject$KidneyExpDF[,"MeanExp"], "N"),
-                            meanLiverExp  = ifelse(GeneName.x %in% rnaseqProject$LiverExpDF[,"GeneName"], rnaseqProject$LiverExpDF[,"MeanExp"], "N"),
-                            meanLungExp   = ifelse(GeneName.x %in% rnaseqProject$LungExpDF[,"GeneName"], rnaseqProject$LungExpDF[,"MeanExp"], "N"),
+                            # meanBrainExp  = ifelse(GeneName.x %in% rnaseqProject$BrainExpDF[,"GeneName"], rnaseqProject$BrainExpDF[,"MeanExp"], "N"),
+                            # meanHeartExp  = ifelse(GeneName.x %in% rnaseqProject$HeartExpDF[,"GeneName"], rnaseqProject$HeartExpDF[,"MeanExp"], "N"),
+                            # meanKidneyExp = ifelse(GeneName.x %in% rnaseqProject$KidneyExpDF[,"GeneName"], rnaseqProject$KidneyExpDF[,"MeanExp"], "N"),
+                            # meanLiverExp  = ifelse(GeneName.x %in% rnaseqProject$LiverExpDF[,"GeneName"], rnaseqProject$LiverExpDF[,"MeanExp"], "N"),
+                            # meanLungExp   = ifelse(GeneName.x %in% rnaseqProject$LungExpDF[,"GeneName"], rnaseqProject$LungExpDF[,"MeanExp"], "N"),
                             
-                            CellSurface   = ifelse(GeneName.x %in% rnaseqProject$csDF[,"GeneName"], "Y", "N"),
-                            TranscriptionFactor     = ifelse(GeneName.x %in% rnaseqProject$tfDF[,"GeneName"], "Y", "N"),
-                            CancerGermlineAntigen   = ifelse(GeneName.x %in% rnaseqProject$cgaDF[,"GeneName"], "Y", "N"),
-                            PAX3FOXO1     = ifelse(GeneName.x %in% rnaseqProject$pax3Foxo1DF[,"GeneName"], "Y", "N"),
-                            EWSR1FL1      = ifelse(GeneName.x %in% rnaseqProject$ewsr1Fli1DF[,"GeneName"], "Y", "N")
+                            ProteinCoding = ifelse(GeneName %in% rnaseqProject$pcDF[,"GeneName"], "Y", "N"),
+                            CellSurface   = ifelse(GeneName %in% rnaseqProject$csDF[,"GeneName"], "Y", "N"),
+                            TranscriptionFactor     = ifelse(GeneName %in% rnaseqProject$tfDF[,"GeneName"], "Y", "N"),
+                            CancerGermlineAntigen   = ifelse(GeneName %in% rnaseqProject$cgaDF[,"GeneName"], "Y", "N"),
+                            PAX3FOXO1     = ifelse(GeneName %in% rnaseqProject$pax3Foxo1DF[,"GeneName"], "Y", "N"),
+                            EWSR1FL1      = ifelse(GeneName %in% rnaseqProject$ewsr1Fli1DF[,"GeneName"], "Y", "N")
           )
+    GeneDF_DiffExp <- Reduce(function(x,y) merge(x,y,by=c("GeneID", "GeneName"),all=TRUE) ,list(GeneDF_DiffExp,
+                                                             rnaseqProject$BrainExpDF[  which(GeneDF_DiffExp$GeneName %in% rnaseqProject$BrainExpDF$GeneName ), c("GeneID", "GeneName", "Brain.MeanExp") ],
+                                                             rnaseqProject$HeartExpDF[  which(GeneDF_DiffExp$GeneName %in% rnaseqProject$HeartExpDF$GeneName ), c("GeneID", "GeneName", "Heart.MeanExp") ],
+                                                             rnaseqProject$KidneyExpDF[ which(GeneDF_DiffExp$GeneName %in% rnaseqProject$KidneyExpDF$GeneName), c("GeneID", "GeneName", "Kidney.MeanExp")],
+                                                             rnaseqProject$LiverExpDF[  which(GeneDF_DiffExp$GeneName %in% rnaseqProject$LiverExpDF$GeneName ), c("GeneID", "GeneName", "Liver.MeanExp") ], 
+                                                             rnaseqProject$LungExpDF[   which(GeneDF_DiffExp$GeneName %in% rnaseqProject$LungExpDF$GeneName  ), c("GeneID", "GeneName", "Lung.MeanExp")  ]
+                                                             ))
+
+    if(!is.na(annottype) & !annottype %in% c("all")) {
+      GeneDF_DiffExp <- GeneDF_DiffExp %>% dplyr::filter_(.dots=paste0(annottype, " == \"Y\""))
+    } 
+ 
     return(GeneDF_DiffExp)
   },
   ## Annotate a gene expression df with "GeneID" as primary key
@@ -972,38 +984,25 @@ DifferentialGeneExp <- R6Class(
     
     switch(filterName,
            
-           "proteinCoding"= {
-             #print("Before filtering for pritein coding genes")
-             GeneDF_DiffExp <- na.omit(dplyr::left_join(rnaseqProject$pcDF, private$GeneDF_DiffExp, by="GeneID"))
-             GeneDF_DiffExp <- private$appendAnnotation(df=GeneDF_DiffExp, annottype ="proteinCoding" )
-             #private$GeneDF_DiffExp <- dplyr::left_join( private$GeneDF_DiffExp, rnaseqProject$csDF, by="GeneName")
-             #print("Filter matched ", dim(GeneDF_DiffExp_PC)[1], " out of  ", dim(rnaseqProject$pcDF)[1], " given protein coding genes")
-             #pcDF <- private$GeneDF_DiffExp %>% filter(GeneName %in% rnaseqProject$pcDF)
+           "ProteinCoding"= {
+             GeneDF_DiffExp <- dplyr::left_join(private$GeneDF_DiffExp, rnaseqProject$pcDF, by=c("GeneID","GeneName"))
+             GeneDF_DiffExp <- private$appendAnnotation(df=GeneDF_DiffExp, annottype ="ProteinCoding" )
            },
-           "cellsurface"= {
-             #print("filtering for cellsurface genes")
-             GeneDF_DiffExp <- private$GeneDF_DiffExp %>% filter(GeneName %in% as.character(rnaseqProject$csDF[,"GeneName"]))
-             GeneDF_DiffExp <- dplyr::left_join(GeneDF_DiffExp, rnaseqProject$pcDF, by = "GeneID")
-             GeneDF_DiffExp <- private$appendAnnotation(df=GeneDF_DiffExp, annottype ="cellsurface" )
-             #print("Filter matched ", dim(GeneDF_DiffExp_csDF)[1], " out of  ", dim(rnaseqProject$csDF)[1], " given CS genes")
+           "CellSurface"= {
+             GeneDF_DiffExp <- dplyr::left_join(private$GeneDF_DiffExp, rnaseqProject$pcDF,by=c("GeneID","GeneName"))
+             GeneDF_DiffExp <- private$appendAnnotation(df=GeneDF_DiffExp, annottype ="CellSurface" )
            },
-           "transcriptionFactor"= {
-             # print("filtering for transcriptionFactor genes")
-             GeneDF_DiffExp <- private$GeneDF_DiffExp %>% filter(GeneName %in% as.character(rnaseqProject$tfDF[,"GeneName"]))
-             GeneDF_DiffExp <- dplyr::left_join(GeneDF_DiffExp, rnaseqProject$pcDF, by = "GeneID")
-             GeneDF_DiffExp <- private$appendAnnotation(df=GeneDF_DiffExp, annottype ="transcriptionFactor" )
-             #print("Filter matched ", dim(GeneDF_DiffExp_tfDF)[1], " out of  ", dim(rnaseqProject$tfDF)[1], " given TF genes")
+           "TranscriptionFactor"= {
+             GeneDF_DiffExp <- dplyr::left_join(private$GeneDF_DiffExp, rnaseqProject$pcDF,by=c("GeneID","GeneName"))
+             GeneDF_DiffExp <- private$appendAnnotation(df=GeneDF_DiffExp, annottype ="TranscriptionFactor" )
            },
-           "cancergermlineantigen"= {
-             # print("filtering for cancergermlineantigen genes")
-             GeneDF_DiffExp <- private$GeneDF_DiffExp %>% filter(GeneName %in% as.character(rnaseqProject$cgaDF[,"GeneName"]))
-             GeneDF_DiffExp <- dplyr::left_join(GeneDF_DiffExp, rnaseqProject$pcDF, by = "GeneID")
-             GeneDF_DiffExp <- private$appendAnnotation(df=GeneDF_DiffExp, annottype ="cancergermlineantigen" )
-             #print("Filter matched ", dim(GeneDF_DiffExp_cgaDF)[1], " out of  ", dim(rnaseqProject$tfDF)[1], " given TF genes")
+           "CancerGermlineAntigen"= {
+             GeneDF_DiffExp <- dplyr::left_join(private$GeneDF_DiffExp, rnaseqProject$pcDF, by=c("GeneID","GeneName"))
+             GeneDF_DiffExp <- private$appendAnnotation(df=GeneDF_DiffExp, annottype ="CancerGermlineAntigen" )
            },
            "all" = {
              GeneDF_DiffExp <- private$GeneDF_DiffExp
-             GeneDF_DiffExp <- dplyr::left_join(GeneDF_DiffExp, rnaseqProject$pcDF,  by="GeneID")
+             GeneDF_DiffExp <- dplyr::left_join(GeneDF_DiffExp, rnaseqProject$pcDF, by=c("GeneID","GeneName"))
              GeneDF_DiffExp <- private$appendAnnotation(df=GeneDF_DiffExp, annottype ="all" )
            }
     )
