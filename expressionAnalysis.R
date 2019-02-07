@@ -317,30 +317,32 @@ mergeDiffTestResults <- function(x, type="", saveDirPath="", extension="", colIn
   GeneFilesList         <- paste(file_Dir_Gene, "/", GeneFiles,sep="") ; length(GeneFilesList)
   
   countObj          <- do.call(cbind,lapply(GeneFilesList, getCountObjTXT, colNumb=colInterest, rowNames=rowNamesCol))
+  countObj_print    <- countObj %>% tibble::rownames_to_column(var="GeneName")
   
-  write.table(countObj, paste(saveDirPath, paste(fileName, "/", type,"_MergedDiffExpResult.txt",sep=""), sep= "/"), sep="\t",row.names = TRUE, quote = FALSE)
+  write.table(countObj_print, paste(saveDirPath, paste(fileName, "/", type, ".DiffExp.txt",sep=""), sep= "/"), sep="\t",
+                                  row.names = FALSE, quote = FALSE)
 }
 
 # Step 1  Set the filters and annotation ####
 
 ## Javed's Filter for all three categories
-group2FPKM = 2 ; group1FPKM = 2;  PValue = 0.001 ; logFoldDiff =3 ; FDR_value = 0.05 ; vitalFPKM = 1
+#group2FPKM.T = 2 ; group1FPKM.T = 2;  PValue.T = 0.001 ; logFoldDiff.T =3 ; FDR_value.T = 0.05 ; vitalFPKM.T = 1
 
 #selectedGeneList <- "CancerGermlineAntigen"
-#group2FPKM = 1; Zscored.logFC = 0.25 ; Zscore.group2 = 0; 
-# group2FPKM = 0 ; group1FPKM = 1;  PValue = 0.01 ; logFC =1 ; FDR = 0.05
+# #group2FPKM = 1;
+# Zscored.logFC = 0.25 ; Zscore.group2 = 0; group2FPKM = 0 ; group1FPKM = 1;  PValue = 0.01 ; logFC =1 ; FDR = 0.05
 
-#selectedGeneList <- "CellSurface"
-#group2FPKM = 40; Zscored.logFC = 1 ; Zscore.group2 = 1
-#group2FPKM = 40 ; group1FPKM = 1;  PValue = 0.001 ; logFC =2 ; FDR = 0.05
+# selectedGeneList <- "CellSurface"
+# Zscored.logFC = 1 ; Zscore.group2 = 1; group2FPKM = 40 ; group1FPKM = 1;  PValue = 0.001 ; logFC =2 ; FDR = 0.05
 
+## Zscore Filtering
 selectedGeneList <- "TranscriptionFactor"
-group2FPKM = 1; Zscored.logFC = 1.25 ; Zscore.group2 = 0
-group2FPKM = 1 ; group1FPKM = 5;  PValue = 0.01 ; logFC =1 ; FDR = 0.05
-
-# Step 2  Perform MErging ####
+Zscored.logFC = 1 ; Zscore.group2 = 0.5; group2FPKM = 2 ; #group1FPKM = 5;  PValue = 0.01 ; logFC =1 ; FDR = 0.05
 
 MergedDiffExpResultDir <- paste0("C:/Users/sindiris/R Scribble//RNASeq.RSEM/MergedDiffExpResults/",selectedGeneList)
+
+# Step 2  Perform Merging of differential expression file across groups ####
+
 dir.create(MergedDiffExpResultDir)
 ConditionGroup <- c(unique(sapply(dgeObj$pairedList, function(x){ return(paste(x[1],x[2],sep = "_"))  })), c("Normals_WT", "Normals_CCSK") )
 #ConditionGroup <- c(unique(sapply(dgeObj$pairedList, function(x){ return(paste(x[1],x[2],sep = "_"))  })))
@@ -350,8 +352,8 @@ output <- sapply(groups, mergeDiffTestResults, type="Gene", colInterest=c(7,9,10
 
 # Step 3  Core Function and save files ####
 allTumorStats <- do.call(cbind, lapply(ConditionGroup, function(x){
-  tumorData <- read.csv( paste(MergedDiffExpResultDir,"/",x,"/Gene_MergedDiffExpResult.txt",sep=""), sep="\t", header = T, stringsAsFactors = FALSE ) 
- 
+  tumorData <- read.csv( paste(MergedDiffExpResultDir,"/",x,"/Gene.DiffExp.txt",sep=""), sep="\t", header = T, stringsAsFactors = FALSE ) 
+
   ## Actual filtering
   groupsCompare <- unlist(strsplit(x, "_"))
   print(groupsCompare)
@@ -359,13 +361,13 @@ allTumorStats <- do.call(cbind, lapply(ConditionGroup, function(x){
   newColNames <- paste0("Zscored.",c("logFC",	groupsCompare[2], groupsCompare[1]))
 
   ##Zscoreing matrix
-  tumorDataPvalue        <- tumorData %>% tibble::rownames_to_column(var="GeneName") ; print(dim(tumorData))
+  tumorDataPvalue        <- tumorData ; print(dim(tumorData))
   tumorDataPvalue_Zscore <- apply(tumorDataPvalue[,c("logFC",	groupsCompare[2], groupsCompare[1])],2,corUtilsFuncs$zscore_All)
   colnames(tumorDataPvalue_Zscore) <- newColNames;
   tumorDataPvalue_Zscore <- cbind(tumorDataPvalue[,c("GeneName"),drop = FALSE], tumorDataPvalue_Zscore ) %>% data.frame()
   tumorAllData <- left_join(tumorDataPvalue_Zscore, tumorDataPvalue, by="GeneName") ; dim(tumorAllData)
   
-  write.table(tumorAllData, paste(MergedDiffExpResultDir,"/",x,"/",x,".rankFile.txt",sep=""), sep="\t", row.names = FALSE, quote = FALSE)
+  write.table(tumorAllData, paste(MergedDiffExpResultDir,"/",x,"/",x,".allgenes.DiffExp.txt",sep=""), sep="\t", row.names = FALSE, quote = FALSE)
   
   ## Zscore Ranking filter
   tumorAllData.zscore <- tumorAllData %>% 
@@ -375,47 +377,71 @@ allTumorStats <- do.call(cbind, lapply(ConditionGroup, function(x){
                                       " & ", paste0("Zscored.",groupsCompare[2]), " >= ", Zscore.group2)) %>%
                                       dplyr::arrange_(.dots = paste0("desc(","Zscored.",groupsCompare[2], ")" ) )
   
-  write.table(tumorAllData.zscore, paste(MergedDiffExpResultDir,"/",x,"/",x,".filtered.ZscoringRank.txt",sep=""), sep="\t", row.names = FALSE, quote = FALSE)
+  ## Complete filtered gene List with zscoring filter
+  write.table(tumorAllData.zscore, paste(MergedDiffExpResultDir,"/",x,"/",x,".filteredgenes.ZscoringRank.txt",sep=""), sep="\t", row.names = FALSE, quote = FALSE)
+  
+  ## Complete filtered gene List (Binary) with zscoring filter
+  selectGenes <- tumorAllData.zscore %>%  dplyr::select(GeneName)
+  tumorData.zscoreRanking <- tumorDataPvalue
+  tumorData.zscoreRanking["status"] <- 0
+  statusDF.zscoreRanking <- tumorData.zscoreRanking %>% mutate(status=ifelse(GeneName %in% selectGenes$GeneName, 1, 0)) %>% dplyr::select(GeneName, status) %>%
+    rename(c('status'=paste(groupsCompare[2],groupsCompare[1],"Status", sep="")))
+  statusDF.zscoreRanking <- statusDF.zscoreRanking[, !duplicated(colnames(statusDF.zscoreRanking))] 
+  
+  # write.table(statusDF.zscoreRanking, paste(MergedDiffExpResultDir,"/",selectedGeneList,".Summarised.zscoreRank.txt",sep=""), sep="\t", row.names = FALSE, quote = FALSE)
+  
   
   ## Javed's Filtering
-  tumorAllData.filt <- tumorAllData %>% dplyr::filter_(.dots=paste0(       groupsCompare[2], " >= ", group2FPKM ,
-                                                                    " & ", groupsCompare[1], " <= ", group1FPKM ,
-                                                                    " &   logFC >", logFoldDiff,
-                                                                    " &   FDR   <", FDR_value ,
-                                                                    " &  Brain.MeanExp  < ", vitalFPKM ,
-                                                                    " &  Heart.MeanExp  < ", vitalFPKM ,
-                                                                    " &  Kidney.MeanExp < ", vitalFPKM ,
-                                                                    " &  Liver.MeanExp  < ", vitalFPKM  ,
-                                                                    " &  Lung.MeanExp   < ", vitalFPKM  )) %>%
+  tumorAllData.filt <- tumorAllData %>% dplyr::filter_(.dots=paste0(       groupsCompare[2], " >= ", group2FPKM.T ,
+                                                                    " & ", groupsCompare[1], " <= ", group1FPKM.T ,
+                                                                    " &   logFC >", logFoldDiff.T,
+                                                                    " &   FDR   <", FDR_value.T ,
+                                                                    " &  Brain.MeanExp  < ", vitalFPKM.T ,
+                                                                    " &  Heart.MeanExp  < ", vitalFPKM.T ,
+                                                                    " &  Kidney.MeanExp < ", vitalFPKM.T ,
+                                                                    " &  Liver.MeanExp  < ", vitalFPKM.T  ,
+                                                                    " &  Lung.MeanExp   < ", vitalFPKM.T  )) %>%
                                                                     dplyr::arrange_(.dots = paste0("desc(","Zscored.",groupsCompare[2], ")" ) )
   
-  write.table(tumorAllData.filt, paste(MergedDiffExpResultDir,"/",x,"/",x,".filtered.rankFile.txt",sep=""), sep="\t", row.names = FALSE, quote = FALSE)
-  # ## select genes
-  selectGenes <- tumorAllData.filt %>%  dplyr::select(GeneName)
-
-  tumorDataPvalue["status"] <- 0
-  statusDF <- tumorDataPvalue %>% mutate(status=ifelse(GeneName %in% selectGenes$GeneName, 1, 0)) %>% dplyr::select(GeneName, status) %>%
-                            rename(c('status'=paste(groupsCompare[2],groupsCompare[1],"Status", sep="")))
+  ## Complete filtered gene List with traditional filter
+  write.table(tumorAllData.filt, paste(MergedDiffExpResultDir,"/",x,"/",x,".filteredgene.traditionalRank.txt",sep=""), sep="\t", row.names = FALSE, quote = FALSE)
   
-  return(statusDF)
+  ## Complete filtered gene List (Binary) with traditional filter 
+  selectGenes <- tumorAllData.filt %>%  dplyr::select(GeneName)
+  tumorData.traditionalRanking <- tumorDataPvalue
+  tumorData.traditionalRanking["status"] <- 0
+  statusDF.traditionalRanking <- tumorData.traditionalRanking %>% mutate(status=ifelse(GeneName %in% selectGenes$GeneName, 1, 0)) %>% dplyr::select(GeneName, status) %>%
+                            rename(c('status'=paste(groupsCompare[2],groupsCompare[1],"Status", sep="")))
+  statusDF.traditionalRanking <- statusDF.traditionalRanking[, !duplicated(colnames(statusDF.traditionalRanking))] 
+  
+  # write.table(statusDF.traditionalRanking, paste(MergedDiffExpResultDir,"/",selectedGeneList,".Summarised.traditionalRank.txt",sep=""), sep="\t", row.names = FALSE, quote = FALSE)
+
+  
+  return(list(statusDF.zscoreRanking,statusDF.traditionalRanking))
 }))
-tumorStatusDF <- allTumorStats[, !duplicated(colnames(allTumorStats))]  %>% mutate(RowSum= rowSums(.[-1]))
 
-# Step 4. Prepare Clustering using "cluster_data" method from "fheatmap" / or using memo sort ####
-tumorStatusDF.HM <- tumorStatusDF %>% tibble::column_to_rownames(var="GeneName") %>% dplyr::select(-one_of("RowSum"))
+#tumorStatusDF <- allTumorStats[, !duplicated(colnames(allTumorStats))]  %>% mutate(RowSum= rowSums(.[-1]))
 
-## Memo sort
-tumorStatusDF.HM.memo <- corUtilsFuncs$memoSort(M=tumorStatusDF.HM)
-tumorStatusDF.HM.memo$RowSum <- apply(tumorStatusDF.HM.memo, 1, function(x) sum(x!=0))
-tumorStatusDF.HM.memo %<>% tibble::rownames_to_column(var="GeneName")
+# Step 4 Merge multiple DFs, memo-sort each DF and plot ####
+allTumorMergedStats <- lapply(1:nrow(allTumorStats), function(x){
+  mergedDF <- do.call(cbind, allTumorStats[x,])
+  mergedDF <- mergedDF[, !duplicated(colnames(mergedDF))]        %>% 
+                      tibble::column_to_rownames(var="GeneName")
+  mergedDF.Memo        <- corUtilsFuncs$memoSort(M=mergedDF)
+  mergedDF.Memo$RowSum <- apply(mergedDF.Memo, 1, function(x) sum(x!=0))
+  mergedDF.Memo %<>% tibble::rownames_to_column(var="GeneName")
+  return(mergedDF.Memo)
+})
 
-##fheatmap sort
-# roworder <- unlist( cluster_data(tumorStatusDF.HM, distance = "euclidean", method = "ward.D")["order"])
-# colorder <- unlist( cluster_data(t(tumorStatusDF.HM), distance = "euclidean", method = "ward.D")["order"])
+# Step 5 Save the files ####
+write.table(allTumorMergedStats[[1]], paste(MergedDiffExpResultDir,"/",selectedGeneList,".Summarised.ZscoreRank.Dexp.txt",  sep=""),
+              sep="\t", row.names = FALSE, quote = FALSE)
+write.table(allTumorMergedStats[[2]], paste(MergedDiffExpResultDir,"/",selectedGeneList,".Summarised.traditionalRank.Dexp.txt",sep=""),
+            sep="\t", row.names = FALSE, quote = FALSE)
 
 # Step 6. Select rows for heatmap ####
-allTumorStatsFinal <- read.table( paste(MergedDiffExpResultDir, "/", selectedGeneList,".Summarised.DiffExp", ".txt" ,sep=""),sep="\t", header = TRUE)
-CTA.Filt <- allTumorStatsFinal %>% filter(RowSum>=2) %>% 
+allTumorStatsFinal <- read.table(paste(MergedDiffExpResultDir,"/",selectedGeneList,".Summarised.ZscoreRank.Dexp.txt",sep=""),sep="\t", header = TRUE)
+CTA.Filt <- allTumorStatsFinal %>% filter(RowSum>=3) %>% 
   dplyr::arrange(RowSum)
 dim(CTA.Filt)
 # %>% filter(GeneName %in% c("CD99", "FGFR4", "ALK"))
@@ -425,7 +451,7 @@ CTA.Filt %<>% dplyr::select(-one_of("RowSum"))
 CTA.Filt %<>%  column_to_rownames(var="GeneName") 
 colnames(CTA.Filt) <- gsub("NormalsStatus", "", colnames(CTA.Filt))
 
-#pdf( paste("./Plots/",date, ".Differentially Expressed CGAs.v17.pdf", sep=""), height = 19, width = 15)
+pdf( paste(rnaseqProject$workDir, rnaseqProject$projectName, rnaseqProject$plotsDir, "zscore.Differentially Expressed TF.v18.pdf", sep="/"), height = 10, width = 25)
 superheat(t(CTA.Filt), pretty.order.cols =T,
           #title = "Differentially Expressed CGAs",
           #linkage.method = "ward.D2",
@@ -441,9 +467,9 @@ superheat(t(CTA.Filt), pretty.order.cols =T,
           heat.pal = c("#e0e0d1", "#004080"),
           bottom.label.text.angle=90,
           title.size = 6)
-# dev.off()
-pdf( paste("C:/Users/sindiris/R Scribble//RNASeq.RSEM/Figures/", 
-  "Differentially Expressed ",  selectedGeneList, ".pdf", sep=""), height = 10, width = 25)
+dev.off()
+
+pdf( paste(rnaseqProject$workDir, rnaseqProject$projectName, rnaseqProject$plotsDir, "zscore.Differentially Expressed cs.v19.pdf", sep="/"), height = 15, width = 25)
 pheatmap(t(CTA.Filt), color =c("#e0e0d1", "#004080"), 
          cluster_rows = FALSE,
          cluster_cols = FALSE,
