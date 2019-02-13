@@ -258,6 +258,7 @@ CoreUtilities <- R6Class(
       selectedFileList <- x[which(Df_results$result == TRUE)]
       
       notselectedFileListMeta        <- self$allFileList[which(!self$allFileList  %in% basename(x))]; print(length(notselectedFileListMeta))
+                                                                                                      print(notselectedFileListMeta)
       notselectedFileListFolder      <- x[which(!basename(x)  %in%  self$allFileList )]; print(length(notselectedFileListFolder))
       #if( length(notselectedFileListFolder) >= 1 | length(notselectedFileListMeta) >= 1) { 
       if( length(notselectedFileListMeta) >= 1) {                
@@ -606,6 +607,80 @@ CoreUtilities <- R6Class(
       scores <- apply(M[geneOrder, ], 2, scoreCol);
       sampleOrder <- sort(scores, decreasing=TRUE, index.return=TRUE)$ix;
       return(M[geneOrder, sampleOrder]);
+    },
+    ## TCR analysis functions
+    ## Filter specific clones
+    filterSpecificCloneTypes  = function(cloneData, cloneType){
+      cloneDataFilt           <- cloneData %>% dplyr::filter(grepl(cloneType,v) | grepl("NF",v))
+      return(cloneDataFilt)
+    }
+    ## make correlation plots for immune scores and clone count
+    correlationPlots = function(varName="", constName="", df=NA){
+      
+      print(paste(varName))
+      # plot <- ggscatter(df, x = constName, y =varName, 
+      #                   add = "reg.line", conf.int = TRUE, 
+      #                   cor.coef = TRUE, cor.method = "spearman",
+      #                   xlab = constName, ylab = varName)
+      
+      corrTest <- cor.test(df[,constName], df[,varName], method = "spearman")
+      if  ( corrTest$p.value < 2.2e-16 ) { corrTest$p.value = 2.2e-16 }
+      plot <- ggplot(df, aes_string(x=constName, y=varName)) + 
+        geom_smooth(method=lm,  fill="grey") +
+        geom_point(aes(colour = factor(Diagnosis)), show.legend = T, size=3, shape=16) + 
+        scale_colour_manual(values=setNames( StatsFinal$Color, StatsFinal$Diagnosis)  ) +
+        theme_bw() +
+        theme(axis.text=element_text(size=13)
+              ,axis.title=element_text(size=13,face="bold")) +
+        xlab("Log Total Clones") +
+        ylab(paste("Standardised Enrichment Score", sep=" "))+
+        ggtitle(paste("Corr.Coeff = ", signif(corrTest$estimate[[1]],5), "\np-value = ", signif(corrTest$p.value,5), "                                            ", varName,sep=""))
+      
+      return(list(plot))
+    }   
+    ## Prepare Input for entropy and clonality
+    makeEntropyInput = function(filename, inputDir="", outputDir="") {
+      outfileName <- paste0(outputDir, gsub("convert.|.clones.txt","",filename ), ".Entropy.txt")
+      exomeData <- read.csv( paste(inputDir, filename, sep=""), sep="\t", header = TRUE )
+      if(nrow(exomeData)>0){
+        exomeDataEntropy <- data.frame(VJcombo=paste(exomeData$v,exomeData$j,sep="."), Counts=exomeData$count, Vcassette=exomeData$v, 
+                                       Jcassette=exomeData$j, aaCDR3_filtered = exomeData$cdr3aa, ntCDR3= exomeData$cdr3nt)
+      } else {
+        exomeDataEntropy <- emptyDFEntropy
+      }
+      write.table(exomeDataEntropy, outfileName, sep = "\t", row.names = FALSE, quote = FALSE)
+    }
+    ## Convert immunoseq data to compatible file format
+    immunoseqv2 = function(x) {
+      filename = x
+      outfileName <- paste0("./immunoseqv2EntropyNitin/", gsub("convert.|.clones.txt","",filename ), ".Entropy.txt")
+      exomeData <- read.csv( paste("./immunoseqv2/", filename, sep=""), sep="\t", header = TRUE, stringsAsFactors = FALSE )
+      exomeDataFilt <- exomeData[,1:47] %>% dplyr::filter(sequenceStatus %in% c("In"))
+      colnames(exomeDataFilt)[3] <- "count..templates.reads."
+      
+      print(paste("./immunoseqv2/", filename, sep=""))
+      print(dim(exomeDataFilt))
+      
+      if(nrow(exomeDataFilt)>0){
+        
+        emptyVGeneName <- which(exomeDataFilt$vGeneName == "")
+        emptyJGeneName <- which(exomeDataFilt$jGeneName == "")
+        exomeDataFilt[emptyVGeneName, c("vGeneName")] <- sapply(exomeDataFilt[emptyVGeneName,c("vGeneNameTies")], function(x){  unlist(strsplit(as.character(x), ","))[1] })
+        exomeDataFilt[emptyJGeneName, c("jGeneName")] <- sapply(exomeDataFilt[emptyJGeneName,c("jGeneNameTies")], function(x){  unlist(strsplit(as.character(x), ","))[1] })
+        
+        
+        
+        exomeDataEntropy <- data.frame(VJcombo=paste(exomeDataFilt$vGeneName,exomeDataFilt$jGeneName,sep="."), 
+                                       Counts=exomeDataFilt$count..templates.reads., 
+                                       Vcassette=exomeDataFilt$vGeneName, 
+                                       Jcassette=exomeDataFilt$jGeneName, 
+                                       aaCDR3_filtered = exomeDataFilt$aminoAcid, 
+                                       ntCDR3= exomeDataFilt$nucleotide)
+      } else {
+        exomeDataEntropy <- emptyDFEntropy
+      }
+      write.table(exomeDataEntropy, outfileName, sep = "\t", row.names = FALSE, quote = FALSE)
+      
     }
   )
 )

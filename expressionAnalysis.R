@@ -42,9 +42,9 @@ rnaseqProject <- ProjectSetUp$new(
   DiffGeneExpAnaDir       = "DiffExpResults",
   DiffGeneExpRDS          = "DiffGeneExpRDSOutput",
   ## Keep only PolyA
-  factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"),
-                            "Normal.ribozero"=list("LIBRARY_TYPE"="Normal", "LibraryPrep" = "PolyA"),
-                                "Tumors"=list("LIBRARY_TYPE"="Tumor", "LibraryPrep" = "PolyA"))
+  #factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"),
+  #                          "Normal.ribozero"=list("LIBRARY_TYPE"="Normal", "LibraryPrep" = "PolyA"),
+  #                              "Tumors"=list("LIBRARY_TYPE"="Tumor", "LibraryPrep" = "PolyA"))
   ## Keep only Ribozero
   # factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), "Normal.ribozero"=list("LibraryPrep" = "Ribozero"))
   ## Remove Celllines
@@ -200,7 +200,7 @@ ScoresZscore      %<>%   data.frame()                                           
 
 ## Preparing the data and prepare for heatmap
 ScoresForGather   <- tidyr::gather(ScoresZscore, key="GeneSet", value="Score", -!!rnaseqProject$metadataFileRefCol )
-ScoresForGather   <-  dplyr::left_join(ScoresForGather, 
+ScoresForGather   <- dplyr::left_join(ScoresForGather, 
                                        rnaseqProject$metaDataDF[,c(rnaseqProject$metadataFileRefCol, rnaseqProject$factorName)], 
                                        by=rnaseqProject$metadataFileRefCol)                                                        %>% 
                       dplyr::filter_(  .dots = paste0("!grepl(", "'", factorsToExclude , "'" ,",", rnaseqProject$factorName, ")")) %>% 
@@ -328,7 +328,7 @@ mergeDiffTestResults <- function(x, type="", saveDirPath="", extension="", colIn
 ## Javed's Filter for all three categories
 #group2FPKM.T = 2 ; group1FPKM.T = 2;  PValue.T = 0.001 ; logFoldDiff.T =3 ; FDR_value.T = 0.05 ; vitalFPKM.T = 1
 
-#selectedGeneList <- "CancerGermlineAntigen"
+selectedGeneList <- "CancerGermlineAntigen"
 # #group2FPKM = 1;
 # Zscored.logFC = 0.25 ; Zscore.group2 = 0; group2FPKM = 0 ; group1FPKM = 1;  PValue = 0.01 ; logFC =1 ; FDR = 0.05
 
@@ -336,8 +336,8 @@ mergeDiffTestResults <- function(x, type="", saveDirPath="", extension="", colIn
 # Zscored.logFC = 1 ; Zscore.group2 = 1; group2FPKM = 40 ; group1FPKM = 1;  PValue = 0.001 ; logFC =2 ; FDR = 0.05
 
 ## Zscore Filtering
-selectedGeneList <- "TranscriptionFactor"
-Zscored.logFC = 1 ; Zscore.group2 = 0.5; group2FPKM = 2 ; #group1FPKM = 5;  PValue = 0.01 ; logFC =1 ; FDR = 0.05
+#selectedGeneList <- "TranscriptionFactor"
+#Zscored.logFC = 1 ; Zscore.group2 = 0.5; group2FPKM = 2 ; #group1FPKM = 5;  PValue = 0.01 ; logFC =1 ; FDR = 0.05
 
 MergedDiffExpResultDir <- paste0("C:/Users/sindiris/R Scribble//RNASeq.RSEM/MergedDiffExpResults/",selectedGeneList)
 
@@ -420,6 +420,15 @@ allTumorStats <- do.call(cbind, lapply(ConditionGroup, function(x){
   return(list(statusDF.zscoreRanking,statusDF.traditionalRanking))
 }))
 
+allInOneFile <- do.call(rbind, lapply(ConditionGroup, function(x){
+  tumorData <- read.csv( paste(MergedDiffExpResultDir,"/",x,"/Gene.DiffExp.txt",sep=""), sep="\t", header = T, stringsAsFactors = FALSE ) 
+  colnames(tumorData)[6] <- "Tumor"
+  tumorData$Group <- x
+  return(tumorData)
+})); dim(allInOneFile)
+write.table(allInOneFile, paste(MergedDiffExpResultDir,"/",selectedGeneList,".allSamples.txt",  sep=""),
+            sep="\t", row.names = FALSE, quote = FALSE)
+
 #tumorStatusDF <- allTumorStats[, !duplicated(colnames(allTumorStats))]  %>% mutate(RowSum= rowSums(.[-1]))
 
 # Step 4 Merge multiple DFs, memo-sort each DF and plot ####
@@ -479,6 +488,9 @@ pheatmap(t(CTA.Filt), color =c("#e0e0d1", "#004080"),
          legend = FALSE )
 dev.off()
 
+### Performing TCR analysis
+
+### Required Custom Functions ####
 
 
 
