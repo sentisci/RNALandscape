@@ -65,7 +65,7 @@ mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Gene
                                                    primaryID         = "gene_id",
                                                    metadata          = rnaseqProject$metaDataDF,
                                                    metadataFileRefCol=rnaseqProject$metadataFileRefCol
-                                                  )
+)
 saveRDS(mergeObjectsNoDup, "../RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.RiboZeros.RDS")
 
 #mergeObjectsNoDup <- readRDS("../RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.excluding celllines.RDS")
@@ -73,18 +73,18 @@ saveRDS(mergeObjectsNoDup, "../RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tu
 ## Evaluate presence of duplicate features (genes) and consolidate them ####
 setDT(mergeObjectsNoDup, keep.rownames = TRUE)
 mergeObjectsNoDup.pre <- mergeObjectsNoDup          %>% 
-                         dplyr::rename(GeneID = rn) 
+  dplyr::rename(GeneID = rn) 
 mergeObjectsNoDup.pre <- dplyr::left_join(rnaseqProject$annotationDF[,c("GeneID", "GeneName")], mergeObjectsNoDup.pre, by="GeneID") %>% 
-                         data.table()
+  data.table()
 mergeObjectsConso     <- corUtilsFuncs$consolidateDF(mergeObjectsNoDup.pre[,-c("GeneID")], funcName = "max", featureName = "GeneName")
 mergeObjectsConso     <- dplyr::full_join(mergeObjectsConso, rnaseqProject$annotationDF[,c("GeneID", "GeneName")], by="GeneName") %>%  
-                         data.table()
+  data.table()
 mergeObjectsConso     <- subset(mergeObjectsConso,!duplicated(mergeObjectsConso$GeneName))
 mergeObjectsConso     <- mergeObjectsConso[complete.cases(mergeObjectsConso), ]; dim(mergeObjectsConso)
 mergeObjectsConso     <- mergeObjectsConso[,-c("GeneName")]         %>% 
-                         data.frame()                               %>% 
-                         tibble::column_to_rownames(var = "GeneID") %>% 
-                         as.matrix() ; dim(mergeObjectsConso)
+  data.frame()                               %>% 
+  tibble::column_to_rownames(var = "GeneID") %>% 
+  as.matrix() ; dim(mergeObjectsConso)
 ## matching above data frame with the annotationDF
 rnaseqProject$annotationDF <- rnaseqProject$annotationDF %>% dplyr::filter(GeneID %in% rownames(mergeObjectsConso)); dim(rnaseqProject$annotationDF)
 
@@ -123,9 +123,9 @@ colnames(expressionTMM.RPKM)  <- AliasColnames
 ## Save expression (TMM-RPKM/whatwever asked for in the above step) to a file ####
 write.table(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
                                       paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.RiboZero",rnaseqProject$date,".txt"),sep="/"),
-                                      sep="\t", row.names = FALSE, quote = FALSE)
+            sep="\t", row.names = FALSE, quote = FALSE)
 saveRDS(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
-                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.RiboZero",rnaseqProject$date,".rds"),sep="/"))
+                                  paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.RiboZero",rnaseqProject$date,".rds"),sep="/"))
 
 ### Performing ssGSEA output analysis. ( Plotting the scores across histology ) ##########
 
@@ -136,7 +136,7 @@ expressionTMM.RPKM.GSEA.print = corUtilsFuncs$createBroadGCTFile(expressionTMM.R
 ## Save input for ssGSEA 
 write.table(expressionTMM.RPKM.GSEA.print, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$gseaDir,
                                                  paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.zscore.",rnaseqProject$date,".txt"),sep="/"),
-                                                 sep="\t", row.names = FALSE, quote = FALSE)
+            sep="\t", row.names = FALSE, quote = FALSE)
 saveRDS(expressionTMM.RPKM.GSEA.print, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$gseaDir,
                                              paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.zscore.",rnaseqProject$date,".rds"),sep="/"))
 
@@ -155,7 +155,7 @@ stopifnot( ncol(ssGSEAScores.HLA.Cyto) == length(as.character(rnaseqProject$meta
 ## Filter specified Diagnosis
 factorsToExclude              = paste(c("NS", "YST", "Teratoma"), collapse = "|")
 selected.metadata              <- rnaseqProject$metaDataDF  %>% filter_(  .dots = paste0("!grepl(", "'", factorsToExclude , "'" ,",", rnaseqProject$factorName, ")")) %>% 
-                                                    dplyr::select_( .dots=c(rnaseqProject$metadataFileRefCol, rnaseqProject$factorName ) )
+  dplyr::select_( .dots=c(rnaseqProject$metadataFileRefCol, rnaseqProject$factorName ) )
 ssGSEAScores.HLA.Cyto.Selected <- ssGSEAScores.HLA.Cyto %>% dplyr::select_(.dots = selected.metadata[, rnaseqProject$metadataFileRefCol])
 dim(ssGSEAScores.HLA.Cyto.Selected)
 
@@ -164,7 +164,7 @@ stopifnot( ncol(ssGSEAScores.HLA.Cyto.Selected) == length(as.character(selected.
 
 ## Preparing the expression matrix for string plot, by appending metadata
 Scores <- cbind(t(ssGSEAScores.HLA.Cyto.Selected), selected.metadata[,rnaseqProject$factorName, drop=FALSE]) %>% 
-          dplyr::rename_(.dots = setNames( list(rnaseqProject$factorName), list("Diagnosis") )) #%>%
+  dplyr::rename_(.dots = setNames( list(rnaseqProject$factorName), list("Diagnosis") )) #%>%
 #dplyr::mutate(Diagnosis = factor(Diagnosis, ordered = TRUE, levels = orderOfFactor))
 
 ### Setting up variables for  string plot
@@ -178,7 +178,7 @@ colList          <- c(1:(ncol(Scores)-1))
 customColorDF    <- rnaseqProject$customColorsDF
 ## Plot the onevariable plot
 plotLists        <- corUtilsFuncs$OneVariablePlotSort(colList, Scores=Scores, orderOfFactor, orderOfSignature, standardize =TRUE, logit =FALSE, plotType = "density",
-                                 yLab = "Standardised enrichment score", legendDisplay = FALSE, customColorDF = customColorDF )
+                                                      yLab = "Standardised enrichment score", legendDisplay = FALSE, customColorDF = customColorDF )
 ## Save the plots
 EnrischmentScorePlots <- lapply(plotLists, function(l) l[[1]])
 SBName                <- paste(rnaseqProject$workDir, rnaseqProject$projectName, rnaseqProject$plotsDir,"TMM-RPKM.ssGSEA.enrichmentScores.all.pc.log.zscore.pdf",sep="/")
@@ -195,27 +195,27 @@ Scores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPK
 ## Standardizing the raw score to amplify the difference.
 ScoresZscore      <- apply(Scores[1:24,],1, corUtilsFuncs$zscore_All)                  
 ScoresZscore      %<>%   data.frame()                                                     %<>% 
-                         tibble::rownames_to_column(var=rnaseqProject$metadataFileRefCol) %<>% 
-                         dplyr::select(-one_of(dropSignatures ))
+  tibble::rownames_to_column(var=rnaseqProject$metadataFileRefCol) %<>% 
+  dplyr::select(-one_of(dropSignatures ))
 
 ## Preparing the data and prepare for heatmap
 ScoresForGather   <- tidyr::gather(ScoresZscore, key="GeneSet", value="Score", -!!rnaseqProject$metadataFileRefCol )
 ScoresForGather   <- dplyr::left_join(ScoresForGather, 
-                                       rnaseqProject$metaDataDF[,c(rnaseqProject$metadataFileRefCol, rnaseqProject$factorName)], 
-                                       by=rnaseqProject$metadataFileRefCol)                                                        %>% 
-                      dplyr::filter_(  .dots = paste0("!grepl(", "'", factorsToExclude , "'" ,",", rnaseqProject$factorName, ")")) %>% 
-                      dplyr::rename_(.dots = setNames(list(rnaseqProject$factorName),c("Diagnosis")) )
+                                      rnaseqProject$metaDataDF[,c(rnaseqProject$metadataFileRefCol, rnaseqProject$factorName)], 
+                                      by=rnaseqProject$metadataFileRefCol)                                                        %>% 
+  dplyr::filter_(  .dots = paste0("!grepl(", "'", factorsToExclude , "'" ,",", rnaseqProject$factorName, ")")) %>% 
+  dplyr::rename_(.dots = setNames(list(rnaseqProject$factorName),c("Diagnosis")) )
 
 ## Final check before plotting                        
 dim(ScoresForGather);head(ScoresForGather)
 
 ScoresForGatherPercent         <- ScoresForGather                                             %>% 
-                                  dplyr::group_by(Diagnosis, GeneSet)                         %>% 
-                                  dplyr::mutate(TotalCount = n(), Enriched = sum(Score > 0 )) %>% 
-                                  dplyr::mutate(SamplePercent = (Enriched/TotalCount)*100 )   
+  dplyr::group_by(Diagnosis, GeneSet)                         %>% 
+  dplyr::mutate(TotalCount = n(), Enriched = sum(Score > 0 )) %>% 
+  dplyr::mutate(SamplePercent = (Enriched/TotalCount)*100 )   
 ScoresForGatherUnique          <- ScoresForGatherPercent[,c(2,4,7)]                           %>% 
-                                  ungroup()                                                   %>% 
-                                  distinct()
+  ungroup()                                                   %>% 
+  distinct()
 ScoresForSpread                <- tidyr::spread( ScoresForGatherUnique, Diagnosis, SamplePercent ) %>% t() 
 colnames(ScoresForSpread)      <- ScoresForSpread[1,]; 
 ScoresForSpreadHeat            <- ScoresForSpread[-1,]
@@ -228,13 +228,13 @@ pdf( paste(rnaseqProject$workDir, rnaseqProject$projectName, rnaseqProject$plots
 
 ### Using two different packages to plot
 ## Using SuperheatMap package
-      # superheat(ScoresForSpreadHeat,
-      #           bottom.label.text.angle=90,
-      #           title.size = 6,
-      #           heat.pal = c( "#4FFC07","#273746", "#F92908"),
-      #           pretty.order.rows = T,
-      #           pretty.order.cols = T
-      # )
+# superheat(ScoresForSpreadHeat,
+#           bottom.label.text.angle=90,
+#           title.size = 6,
+#           heat.pal = c( "#4FFC07","#273746", "#F92908"),
+#           pretty.order.rows = T,
+#           pretty.order.cols = T
+# )
 
 ## Using fheatmap (presently using)
 breaks <- seq(min(ScoresForSpreadHeat),max(ScoresForSpreadHeat), by=0.1)
@@ -266,11 +266,11 @@ Normals        <- c("NS.adrenalgland","NS.bladder","NS.cerebellum","NS.cerebrum"
                     "NS.ileum","NS.kidney","NS.liver","NS.lung","NS.ovary","NS.pancreas","NS.prostate", 
                     "NS.skeletalmuscle","NS.spleen", "NS.stomach","NS.testis", "NS.ureter", "NS.uterus")
 NormalsNoGermLine <- c("NS.adrenalgland","NS.bladder","NS.cerebellum","NS.cerebrum","NS.colon","NS.heart",
-                    "NS.ileum","NS.kidney","NS.liver","NS.lung","NS.pancreas","NS.prostate", 
-                    "NS.skeletalmuscle","NS.spleen", "NS.stomach", "NS.ureter", "NS.uterus")
+                       "NS.ileum","NS.kidney","NS.liver","NS.lung","NS.pancreas","NS.prostate", 
+                       "NS.skeletalmuscle","NS.spleen", "NS.stomach", "NS.ureter", "NS.uterus")
 
 tumorSubStatus.polyA    <- c("RMS.FP" , "RMS.FN", "EWS" ,"ASPS", "DSRCT", "HBL", "ML", "NB.MYCN.NA","NB.MYCN.A", "NB.Unknown", "OS", 
-                          "SS", "Teratoma" ,"UDS" ,"YST")
+                             "SS", "Teratoma" ,"UDS" ,"YST")
 tumorSubStatus.ribozero <-  c("WT" ,"CCSK")
 Tumors                  <-  c("ASPS","DSRCT", "EWS" ,"HBL", "ML", "NB" ,"OS", "RMS", "SS", "Teratoma" ,"UDS" ,"YST","WT", "CCSK")
 
@@ -320,7 +320,7 @@ mergeDiffTestResults <- function(x, type="", saveDirPath="", extension="", colIn
   countObj_print    <- countObj %>% tibble::rownames_to_column(var="GeneName")
   
   write.table(countObj_print, paste(saveDirPath, paste(fileName, "/", type, ".DiffExp.txt",sep=""), sep= "/"), sep="\t",
-                                  row.names = FALSE, quote = FALSE)
+              row.names = FALSE, quote = FALSE)
 }
 
 # Step 1  Set the filters and annotation ####
@@ -353,13 +353,13 @@ output <- sapply(groups, mergeDiffTestResults, type="Gene", colInterest=c(7,9,10
 # Step 3  Core Function and save files ####
 allTumorStats <- do.call(cbind, lapply(ConditionGroup, function(x){
   tumorData <- read.csv( paste(MergedDiffExpResultDir,"/",x,"/Gene.DiffExp.txt",sep=""), sep="\t", header = T, stringsAsFactors = FALSE ) 
-
+  
   ## Actual filtering
   groupsCompare <- unlist(strsplit(x, "_"))
   print(groupsCompare)
   filterDFByColNames <- c("logFC",	groupsCompare[2], groupsCompare[1])
   newColNames <- paste0("Zscored.",c("logFC",	groupsCompare[2], groupsCompare[1]))
-
+  
   ##Zscoreing matrix
   tumorDataPvalue        <- tumorData ; print(dim(tumorData))
   tumorDataPvalue_Zscore <- apply(tumorDataPvalue[,c("logFC",	groupsCompare[2], groupsCompare[1])],2,corUtilsFuncs$zscore_All)
@@ -371,11 +371,11 @@ allTumorStats <- do.call(cbind, lapply(ConditionGroup, function(x){
   
   ## Zscore Ranking filter
   tumorAllData.zscore <- tumorAllData %>% 
-                         dplyr::filter_(.dots=paste0( 
-                                        groupsCompare[2]," >= ", group2FPKM ,
-                                      " &  Zscored.logFC   >= ", Zscored.logFC,
-                                      " & ", paste0("Zscored.",groupsCompare[2]), " >= ", Zscore.group2)) %>%
-                                      dplyr::arrange_(.dots = paste0("desc(","Zscored.",groupsCompare[2], ")" ) )
+    dplyr::filter_(.dots=paste0( 
+      groupsCompare[2]," >= ", group2FPKM ,
+      " &  Zscored.logFC   >= ", Zscored.logFC,
+      " & ", paste0("Zscored.",groupsCompare[2]), " >= ", Zscore.group2)) %>%
+    dplyr::arrange_(.dots = paste0("desc(","Zscored.",groupsCompare[2], ")" ) )
   
   ## Complete filtered gene List with zscoring filter
   write.table(tumorAllData.zscore, paste(MergedDiffExpResultDir,"/",x,"/",x,".filteredgenes.ZscoringRank.txt",sep=""), sep="\t", row.names = FALSE, quote = FALSE)
@@ -393,15 +393,15 @@ allTumorStats <- do.call(cbind, lapply(ConditionGroup, function(x){
   
   ## Javed's Filtering
   tumorAllData.filt <- tumorAllData %>% dplyr::filter_(.dots=paste0(       groupsCompare[2], " >= ", group2FPKM.T ,
-                                                                    " & ", groupsCompare[1], " <= ", group1FPKM.T ,
-                                                                    " &   logFC >", logFoldDiff.T,
-                                                                    " &   FDR   <", FDR_value.T ,
-                                                                    " &  Brain.MeanExp  < ", vitalFPKM.T ,
-                                                                    " &  Heart.MeanExp  < ", vitalFPKM.T ,
-                                                                    " &  Kidney.MeanExp < ", vitalFPKM.T ,
-                                                                    " &  Liver.MeanExp  < ", vitalFPKM.T  ,
-                                                                    " &  Lung.MeanExp   < ", vitalFPKM.T  )) %>%
-                                                                    dplyr::arrange_(.dots = paste0("desc(","Zscored.",groupsCompare[2], ")" ) )
+                                                                           " & ", groupsCompare[1], " <= ", group1FPKM.T ,
+                                                                           " &   logFC >", logFoldDiff.T,
+                                                                           " &   FDR   <", FDR_value.T ,
+                                                                           " &  Brain.MeanExp  < ", vitalFPKM.T ,
+                                                                           " &  Heart.MeanExp  < ", vitalFPKM.T ,
+                                                                           " &  Kidney.MeanExp < ", vitalFPKM.T ,
+                                                                           " &  Liver.MeanExp  < ", vitalFPKM.T  ,
+                                                                           " &  Lung.MeanExp   < ", vitalFPKM.T  )) %>%
+    dplyr::arrange_(.dots = paste0("desc(","Zscored.",groupsCompare[2], ")" ) )
   
   ## Complete filtered gene List with traditional filter
   write.table(tumorAllData.filt, paste(MergedDiffExpResultDir,"/",x,"/",x,".filteredgene.traditionalRank.txt",sep=""), sep="\t", row.names = FALSE, quote = FALSE)
@@ -411,11 +411,11 @@ allTumorStats <- do.call(cbind, lapply(ConditionGroup, function(x){
   tumorData.traditionalRanking <- tumorDataPvalue
   tumorData.traditionalRanking["status"] <- 0
   statusDF.traditionalRanking <- tumorData.traditionalRanking %>% mutate(status=ifelse(GeneName %in% selectGenes$GeneName, 1, 0)) %>% dplyr::select(GeneName, status) %>%
-                            rename(c('status'=paste(groupsCompare[2],groupsCompare[1],"Status", sep="")))
+    rename(c('status'=paste(groupsCompare[2],groupsCompare[1],"Status", sep="")))
   statusDF.traditionalRanking <- statusDF.traditionalRanking[, !duplicated(colnames(statusDF.traditionalRanking))] 
   
   # write.table(statusDF.traditionalRanking, paste(MergedDiffExpResultDir,"/",selectedGeneList,".Summarised.traditionalRank.txt",sep=""), sep="\t", row.names = FALSE, quote = FALSE)
-
+  
   
   return(list(statusDF.zscoreRanking,statusDF.traditionalRanking))
 }))
@@ -435,7 +435,7 @@ write.table(allInOneFile, paste(MergedDiffExpResultDir,"/",selectedGeneList,".al
 allTumorMergedStats <- lapply(1:nrow(allTumorStats), function(x){
   mergedDF <- do.call(cbind, allTumorStats[x,])
   mergedDF <- mergedDF[, !duplicated(colnames(mergedDF))]        %>% 
-                      tibble::column_to_rownames(var="GeneName")
+    tibble::column_to_rownames(var="GeneName")
   mergedDF.Memo        <- corUtilsFuncs$memoSort(M=mergedDF)
   mergedDF.Memo$RowSum <- apply(mergedDF.Memo, 1, function(x) sum(x!=0))
   mergedDF.Memo %<>% tibble::rownames_to_column(var="GeneName")
@@ -444,7 +444,7 @@ allTumorMergedStats <- lapply(1:nrow(allTumorStats), function(x){
 
 # Step 5 Save the files ####
 write.table(allTumorMergedStats[[1]], paste(MergedDiffExpResultDir,"/",selectedGeneList,".Summarised.ZscoreRank.Dexp.txt",  sep=""),
-              sep="\t", row.names = FALSE, quote = FALSE)
+            sep="\t", row.names = FALSE, quote = FALSE)
 write.table(allTumorMergedStats[[2]], paste(MergedDiffExpResultDir,"/",selectedGeneList,".Summarised.traditionalRank.Dexp.txt",sep=""),
             sep="\t", row.names = FALSE, quote = FALSE)
 
@@ -491,14 +491,5 @@ dev.off()
 ### Performing TCR analysis
 
 ### Required Custom Functions ####
-
-
-
-
-
-
-
-
-
 
 

@@ -258,17 +258,17 @@ CoreUtilities <- R6Class(
       selectedFileList <- x[which(Df_results$result == TRUE)]
       
       notselectedFileListMeta        <- self$allFileList[which(!self$allFileList  %in% basename(x))]; print(length(notselectedFileListMeta))
-                                                                                                      print(notselectedFileListMeta)
+      print(notselectedFileListMeta)
       notselectedFileListFolder      <- x[which(!basename(x)  %in%  self$allFileList )]; print(length(notselectedFileListFolder))
       #if( length(notselectedFileListFolder) >= 1 | length(notselectedFileListMeta) >= 1) { 
       if( length(notselectedFileListMeta) >= 1) {                
-              cat( paste(" Following files are not present in input folder.Please record them in metadata file or remove from the input file folder"
-              ,paste(basename(notselectedFileListMeta), collapse = "\n")))
-              # cat("\n\n")
-              # cat( paste(" Following files are not present in metadata File .Please record them in metadata file or remove from the input file folder"
-              #       ,paste(basename(notselectedFileListFolder), collapse = "\n")))
-          stop("please check the above error")
-        }
+        cat( paste(" Following files are not present in input folder.Please record them in metadata file or remove from the input file folder"
+                   ,paste(basename(notselectedFileListMeta), collapse = "\n")))
+        # cat("\n\n")
+        # cat( paste(" Following files are not present in metadata File .Please record them in metadata file or remove from the input file folder"
+        #       ,paste(basename(notselectedFileListFolder), collapse = "\n")))
+        stop("please check the above error")
+      }
       
       print(paste0("Selecting ", length(selectedFileList), " files out of ", length(x), " from the given folder"))
       View(data.frame("Selected"=basename(selectedFileList)))
@@ -807,7 +807,7 @@ GeneExpNormalization <- R6Class(
           
         }
         rpkmDF <- rpkmDF %>% tibble::rownames_to_column(var="GeneID")
-          
+        
         return( private$corUtilsFuncs$featureNameAnot(querryDF=rpkmDF, identifier="GeneID", annotationDF=private$annotationDF) ) 
       }
       if(x == "TPM" )         { 
@@ -1028,31 +1028,31 @@ DifferentialGeneExp <- R6Class(
   },
   appendAnnotation = function(df=NA, annottype=NA){
     GeneDF_DiffExp <- df %>% mutate(
-                            # meanBrainExp  = ifelse(GeneName.x %in% rnaseqProject$BrainExpDF[,"GeneName"], rnaseqProject$BrainExpDF[,"MeanExp"], "N"),
-                            # meanHeartExp  = ifelse(GeneName.x %in% rnaseqProject$HeartExpDF[,"GeneName"], rnaseqProject$HeartExpDF[,"MeanExp"], "N"),
-                            # meanKidneyExp = ifelse(GeneName.x %in% rnaseqProject$KidneyExpDF[,"GeneName"], rnaseqProject$KidneyExpDF[,"MeanExp"], "N"),
-                            # meanLiverExp  = ifelse(GeneName.x %in% rnaseqProject$LiverExpDF[,"GeneName"], rnaseqProject$LiverExpDF[,"MeanExp"], "N"),
-                            # meanLungExp   = ifelse(GeneName.x %in% rnaseqProject$LungExpDF[,"GeneName"], rnaseqProject$LungExpDF[,"MeanExp"], "N"),
-                            
-                            ProteinCoding = ifelse(GeneName %in% rnaseqProject$pcDF[,"GeneName"], "Y", "N"),
-                            CellSurface   = ifelse(GeneName %in% rnaseqProject$csDF[,"GeneName"], "Y", "N"),
-                            TranscriptionFactor     = ifelse(GeneName %in% rnaseqProject$tfDF[,"GeneName"], "Y", "N"),
-                            CancerGermlineAntigen   = ifelse(GeneName %in% rnaseqProject$cgaDF[,"GeneName"], "Y", "N"),
-                            PAX3FOXO1     = ifelse(GeneName %in% rnaseqProject$pax3Foxo1DF[,"GeneName"], "Y", "N"),
-                            EWSR1FL1      = ifelse(GeneName %in% rnaseqProject$ewsr1Fli1DF[,"GeneName"], "Y", "N")
-          )
+      # meanBrainExp  = ifelse(GeneName.x %in% rnaseqProject$BrainExpDF[,"GeneName"], rnaseqProject$BrainExpDF[,"MeanExp"], "N"),
+      # meanHeartExp  = ifelse(GeneName.x %in% rnaseqProject$HeartExpDF[,"GeneName"], rnaseqProject$HeartExpDF[,"MeanExp"], "N"),
+      # meanKidneyExp = ifelse(GeneName.x %in% rnaseqProject$KidneyExpDF[,"GeneName"], rnaseqProject$KidneyExpDF[,"MeanExp"], "N"),
+      # meanLiverExp  = ifelse(GeneName.x %in% rnaseqProject$LiverExpDF[,"GeneName"], rnaseqProject$LiverExpDF[,"MeanExp"], "N"),
+      # meanLungExp   = ifelse(GeneName.x %in% rnaseqProject$LungExpDF[,"GeneName"], rnaseqProject$LungExpDF[,"MeanExp"], "N"),
+      
+      ProteinCoding = ifelse(GeneName %in% rnaseqProject$pcDF[,"GeneName"], "Y", "N"),
+      CellSurface   = ifelse(GeneName %in% rnaseqProject$csDF[,"GeneName"], "Y", "N"),
+      TranscriptionFactor     = ifelse(GeneName %in% rnaseqProject$tfDF[,"GeneName"], "Y", "N"),
+      CancerGermlineAntigen   = ifelse(GeneName %in% rnaseqProject$cgaDF[,"GeneName"], "Y", "N"),
+      PAX3FOXO1     = ifelse(GeneName %in% rnaseqProject$pax3Foxo1DF[,"GeneName"], "Y", "N"),
+      EWSR1FL1      = ifelse(GeneName %in% rnaseqProject$ewsr1Fli1DF[,"GeneName"], "Y", "N")
+    )
     GeneDF_DiffExp <- Reduce(function(x,y) merge(x,y,by=c("GeneID", "GeneName"),all=TRUE) ,list(GeneDF_DiffExp,
-                                                             rnaseqProject$BrainExpDF[  which(GeneDF_DiffExp$GeneName %in% rnaseqProject$BrainExpDF$GeneName ), c("GeneID", "GeneName", "Brain.MeanExp") ],
-                                                             rnaseqProject$HeartExpDF[  which(GeneDF_DiffExp$GeneName %in% rnaseqProject$HeartExpDF$GeneName ), c("GeneID", "GeneName", "Heart.MeanExp") ],
-                                                             rnaseqProject$KidneyExpDF[ which(GeneDF_DiffExp$GeneName %in% rnaseqProject$KidneyExpDF$GeneName), c("GeneID", "GeneName", "Kidney.MeanExp")],
-                                                             rnaseqProject$LiverExpDF[  which(GeneDF_DiffExp$GeneName %in% rnaseqProject$LiverExpDF$GeneName ), c("GeneID", "GeneName", "Liver.MeanExp") ], 
-                                                             rnaseqProject$LungExpDF[   which(GeneDF_DiffExp$GeneName %in% rnaseqProject$LungExpDF$GeneName  ), c("GeneID", "GeneName", "Lung.MeanExp")  ]
-                                                             ))
-
+                                                                                                rnaseqProject$BrainExpDF[  which(GeneDF_DiffExp$GeneName %in% rnaseqProject$BrainExpDF$GeneName ), c("GeneID", "GeneName", "Brain.MeanExp") ],
+                                                                                                rnaseqProject$HeartExpDF[  which(GeneDF_DiffExp$GeneName %in% rnaseqProject$HeartExpDF$GeneName ), c("GeneID", "GeneName", "Heart.MeanExp") ],
+                                                                                                rnaseqProject$KidneyExpDF[ which(GeneDF_DiffExp$GeneName %in% rnaseqProject$KidneyExpDF$GeneName), c("GeneID", "GeneName", "Kidney.MeanExp")],
+                                                                                                rnaseqProject$LiverExpDF[  which(GeneDF_DiffExp$GeneName %in% rnaseqProject$LiverExpDF$GeneName ), c("GeneID", "GeneName", "Liver.MeanExp") ], 
+                                                                                                rnaseqProject$LungExpDF[   which(GeneDF_DiffExp$GeneName %in% rnaseqProject$LungExpDF$GeneName  ), c("GeneID", "GeneName", "Lung.MeanExp")  ]
+    ))
+    
     if(!is.na(annottype) & !annottype %in% c("all")) {
       GeneDF_DiffExp <- GeneDF_DiffExp %>% dplyr::filter_(.dots=paste0(annottype, " == \"Y\""))
     } 
- 
+    
     return(GeneDF_DiffExp)
   },
   ## Annotate a gene expression df with "GeneID" as primary key
