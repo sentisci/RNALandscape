@@ -613,7 +613,7 @@ CoreUtilities <- R6Class(
     filterSpecificCloneTypes  = function(cloneData, cloneType){
       cloneDataFilt           <- cloneData %>% dplyr::filter(grepl(cloneType,v) | grepl("NF",v))
       return(cloneDataFilt)
-    }
+    },
     ## make correlation plots for immune scores and clone count
     correlationPlots = function(varName="", constName="", df=NA){
       
@@ -637,7 +637,7 @@ CoreUtilities <- R6Class(
         ggtitle(paste("Corr.Coeff = ", signif(corrTest$estimate[[1]],5), "\np-value = ", signif(corrTest$p.value,5), "                                            ", varName,sep=""))
       
       return(list(plot))
-    }   
+    }   ,
     ## Prepare Input for entropy and clonality
     makeEntropyInput = function(filename, inputDir="", outputDir="") {
       outfileName <- paste0(outputDir, gsub("convert.|.clones.txt","",filename ), ".Entropy.txt")
@@ -649,7 +649,7 @@ CoreUtilities <- R6Class(
         exomeDataEntropy <- emptyDFEntropy
       }
       write.table(exomeDataEntropy, outfileName, sep = "\t", row.names = FALSE, quote = FALSE)
-    }
+    },
     ## Convert immunoseq data to compatible file format
     immunoseqv2 = function(x) {
       filename = x
