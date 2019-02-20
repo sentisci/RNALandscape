@@ -57,7 +57,7 @@ ProjectSetUp <- R6Class(
       print(paste0("Dimension of metadata after applying parameter 'factorsToExclude' is ", paste(dim(self$metaDataDF)[1])))
       print("Make R valid names in the metadata file and storing it as validMetaDataDF")
       tempDF <- as.data.frame(lapply(self$metaDataDF[,c("Patient.ID","Sample.Data.ID","Sample.Biowulf.ID.GeneExp","Sample.ID.Alias")], make.names)) %>% data.frame()
-      self$validMetaDataDF <- cbind(tempDF, self$metaDataDF[,which(names(self$metaDataDF) != c("Patient.ID","Sample.Data.ID","Sample.Biowulf.ID.GeneExp","Sample.ID.Alias"))])
+      self$validMetaDataDF <- cbind(tempDF, self$metaDataDF[,which(!names(self$metaDataDF) %in% c("Patient.ID","Sample.Data.ID","Sample.Biowulf.ID.GeneExp","Sample.ID.Alias"))])
     },
     ## Read reference annotation file ENSEMBL or UCSC
     readAnnotation = function() {
@@ -110,7 +110,9 @@ ProjectSetUp <- R6Class(
     },
     ## Get Color map
     getFactorColorMap = function(){
-      customColorsDF <-  self$metaDataDF[,c(self$factorName, "Color")] %>% data.frame() %>% dplyr::distinct()
+      customColorsDF <- self$metaDataDF %>% dplyr::filter(! LIBRARY_TYPE %in% c("CellLine", "Normal"))
+      print(dim(customColorsDF)); print(dim( self$metaDataDF))
+      customColorsDF <-  customColorsDF[,c(self$factorName, "Color")] %>% data.frame() %>% dplyr::distinct()
       customColorsDF[,self$factorName]  <- gsub(".Tumor", "", customColorsDF[,self$factorName])
       colnames(customColorsDF)[1] <- "Diagnosis";
       self$customColorsDF <- customColorsDF
@@ -384,9 +386,11 @@ CoreUtilities <- R6Class(
     },
     ## subsetMetaData
     subsetMetaData = function(colnamesDF=NA){
-      df <- dplyr::left_join(colnamesDF,rnaseqProject$metaDataDF, by="Sample.Biowulf.ID.GeneExp") %>% filter(complete.cases(.))
-      if(!is.null(rnaseqProject$metaDataDF)) {
-        rnaseqProject$metaDataDF <- df
+      df <- dplyr::left_join(colnamesDF,rnaseqProject$validMetaDataDF, by="Sample.Biowulf.ID.GeneExp") %>% dplyr::filter(complete.cases(.))
+      if( ncol(df) == ncol(rnaseqProject$validMetaDataDF) | nrow(df) == nrow(rnaseqProject$validMetaDataDF ) ) {
+        rnaseqProject$validMetaDataDF <- df
+      } else {
+        stop("There are possible multiple issues in the provided metadata input file. For example, syntatically incorrect entries/names in metadata")
       }
     },
     ## Annotate a gene expression df with "GeneID" as primary key
@@ -467,38 +471,35 @@ CoreUtilities <- R6Class(
         }
         return(xvals)
       }
-      drawStringBeanPlot <- function(x, tidyScoresPre){
+      drawStringBeanPlot <- function(x, tidyScoresPre, customColors=NA, yLab =yLab){
         
         print(paste(x))
-        tidyScores             <- tidyScoresPre %>% filter(Signatures == x) %>%  dplyr::group_by(Signatures,Diagnosis) %>% 
-          dplyr::mutate(Med=median(Scores)) %>% 
-          arrange(Signatures,Diagnosis,Scores) %>% 
+        tidyScores             <- tidyScoresPre %>% filter(orderOfSignature == x) %>%  dplyr::group_by(orderOfSignature,Diagnosis) %>% 
+          dplyr::mutate(Med=median(Scores)) %>% arrange(orderOfSignature,Diagnosis,Scores) %>% 
           arrange(desc(Med)) %>% 
-          ungroup() %>% 
-          #mutate( Diagnosis = factorizeColumn(Diagnosis, orderOfFactor ),
-          mutate( Diagnosis = factorizeColumn(Diagnosis, unique(Diagnosis) ),
-                  Color =  factorizeColumn(Color, unique(as.character(Color) ) ) ) %>% arrange(Diagnosis)
-        tidyScores[,"SNONorm"] <- xaxisSeq(tidyScores)
+          ungroup() %>%
+          mutate( Diagnosis = self$factorizeColumn(Diagnosis, unique(Diagnosis) ) ) %>% arrange(Diagnosis)
+        #mutate( Diagnosis = factorizeColumn(Diagnosis, orderOfFactor )) %>% arrange(Diagnosis)
+        tidyScores[,"SNONorm"] <- xaxisSeq(tidyScores)      
         
         ##Make median Segment
-        medianY <- (tidyScores %>% dplyr::group_by(Diagnosis, Signatures) %>% dplyr::summarise(medianY=median(Scores))  %>% dplyr::arrange(Diagnosis,Signatures))$medianY
-        medianX <- (tidyScores %>% dplyr::group_by(Diagnosis, Signatures) %>% dplyr::summarise(medianX=median(SNONorm)) %>% dplyr::arrange(Diagnosis,Signatures))$medianX
+        medianY <- (tidyScores %>% dplyr::group_by(Diagnosis, orderOfSignature) %>% dplyr::summarise(medianY=median(Scores)) %>% dplyr::arrange(Diagnosis,orderOfSignature))$medianY
+        medianX <- (tidyScores %>% dplyr::group_by(Diagnosis, orderOfSignature) %>% dplyr::summarise(medianX=median(SNONorm))  %>% dplyr::arrange(Diagnosis,orderOfSignature))$medianX
         segmentDF <- data.frame( xstart = medianX-0.05, ystart=medianY, xend=medianX+0.15, yend=medianY)
-        segmentDF <- cbind(segmentDF, expand.grid(Diagnosis=unique(tidyScores$Diagnosis),Signatures=unique(tidyScores$Signatures)))
+        segmentDF <- cbind(segmentDF, expand.grid(Diagnosis=unique(tidyScores$Diagnosis),orderOfSignature=unique(tidyScores$orderOfSignature)))
         
         summaryStats <- tidyScores %>% group_by(Diagnosis) %>% summarise(maxV = max(Scores), minV =min(Scores) )
         scoreSummary <- summary(tidyScores$Scores)
         
         plot <- ggplot() +
           geom_point(data=tidyScores, aes(SNONorm, Scores, colour = factor(Diagnosis) ),show.legend = F, size=sizeOfDots) +
-          scale_colour_manual(values=Color  ) +
+          scale_colour_manual(values=customColors  ) +
           #geom_violin(data=tidyScores, aes(SNONorm, Scores, color = factor(Diagnosis)),show.legend = F)+
-          facet_grid(Signatures~Diagnosis ,switch = "both") +
+          facet_grid(orderOfSignature~Diagnosis ,switch = "both") +
           #ylim( min(summaryStats$minV)-0.05,max(summaryStats$maxV)+0.05) + 
           #ylim(-3,2.5) +
           labs( title= x ) +
           ylab( yLab ) +
-          theme_bw() +
           geom_hline(yintercept=0, size=0.1) +
           theme( title = element_text(size=13, face="bold")
                  ,axis.title.x = element_blank()
@@ -510,8 +511,9 @@ CoreUtilities <- R6Class(
                  ,strip.text.x=element_text(size=10,face="bold", angle=90, vjust=1)
                  ,strip.background=element_blank()
                  ,panel.grid.major.x=element_blank()
+                 ,panel.grid.major.y=element_blank()
                  ,panel.grid.minor.x=element_blank()
-                 ,panel.border = element_rect(colour = "black", fill=NA, size=0.0000000002, linetype = 1)
+                 ,panel.border = element_rect(colour = "lightgrey", fill=NA, size=0.0000000002, linetype = 1)
                  ,panel.spacing = unit(0, "cm")
                  ,strip.switch.pad.grid = unit(0, "cm")
           ) +
@@ -583,10 +585,12 @@ CoreUtilities <- R6Class(
       mergeDF       <-  merge(tidyScoresPre, customColorDF, by.x="Diagnosis", by.y="Diagnosis", all.x=TRUE)
       tidyScoresPre  <- mergeDF[,c(1:4)] ; # tidyScoresPre$Diagnosis <- factor(tidyScoresPre$Diagnosis, levels = orderOfFactor, ordered = TRUE)
       
+      ## Set customColors
+      customColorsVector <- setNames( as.character(customColorDF$Color), as.character(customColorDF$Diagnosis))
+      
       if( plotType =="StringBean") {
-        plotLists <- lapply(orderOfSignature, drawStringBeanPlot, tidyScoresPre)
+        plotLists <- lapply(orderOfSignature, drawStringBeanPlot, tidyScoresPre, customColors=customColorsVector,yLab =yLab)
       } else {
-        customColorsVector <- setNames( as.character(customColorDF$Color), as.character(customColorDF$Diagnosis))
         plotLists <- lapply(orderOfSignature, drawDensityPlot, tidyScoresPre=tidyScoresPre, orderOfFactor=orderOfFactor, customColors=customColorsVector,
                             yLab =yLab)
       }

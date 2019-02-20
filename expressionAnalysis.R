@@ -323,7 +323,7 @@ mergeDiffTestResults <- function(x, type="", saveDirPath="", extension="", colIn
               row.names = FALSE, quote = FALSE)
 }
 
-# Step 1  Set the filters and annotation ####
+# Step 1.  Set the filters and annotation ####
 
 ## Javed's Filter for all three categories
 #group2FPKM.T = 2 ; group1FPKM.T = 2;  PValue.T = 0.001 ; logFoldDiff.T =3 ; FDR_value.T = 0.05 ; vitalFPKM.T = 1
@@ -341,7 +341,7 @@ selectedGeneList <- "CancerGermlineAntigen"
 
 MergedDiffExpResultDir <- paste0("C:/Users/sindiris/R Scribble//RNASeq.RSEM/MergedDiffExpResults/",selectedGeneList)
 
-# Step 2  Perform Merging of differential expression file across groups ####
+# Step 2.  Perform Merging of differential expression file across groups ####
 
 dir.create(MergedDiffExpResultDir)
 ConditionGroup <- c(unique(sapply(dgeObj$pairedList, function(x){ return(paste(x[1],x[2],sep = "_"))  })), c("Normals_WT", "Normals_CCSK") )
@@ -350,7 +350,7 @@ groups <- list.dirs(paste("C:/Users/sindiris/R Scribble//RNASeq.RSEM//DiffExpRes
 output <- sapply(groups, mergeDiffTestResults, type="Gene", colInterest=c(7,9,10,11,12, 15:28), rowNamesCol = 2,
                  fileSuffix=paste0(selectedGeneList,".txt"),saveDirPath=MergedDiffExpResultDir)
 
-# Step 3  Core Function and save files ####
+# Step 3.  Core Function and save files ####
 allTumorStats <- do.call(cbind, lapply(ConditionGroup, function(x){
   tumorData <- read.csv( paste(MergedDiffExpResultDir,"/",x,"/Gene.DiffExp.txt",sep=""), sep="\t", header = T, stringsAsFactors = FALSE ) 
   
@@ -431,7 +431,7 @@ write.table(allInOneFile, paste(MergedDiffExpResultDir,"/",selectedGeneList,".al
 
 #tumorStatusDF <- allTumorStats[, !duplicated(colnames(allTumorStats))]  %>% mutate(RowSum= rowSums(.[-1]))
 
-# Step 4 Merge multiple DFs, memo-sort each DF and plot ####
+# Step 4.  Merge multiple DFs, memo-sort each DF and plot ####
 allTumorMergedStats <- lapply(1:nrow(allTumorStats), function(x){
   mergedDF <- do.call(cbind, allTumorStats[x,])
   mergedDF <- mergedDF[, !duplicated(colnames(mergedDF))]        %>% 
@@ -442,20 +442,20 @@ allTumorMergedStats <- lapply(1:nrow(allTumorStats), function(x){
   return(mergedDF.Memo)
 })
 
-# Step 5 Save the files ####
+# Step 5.  Save the files ####
 write.table(allTumorMergedStats[[1]], paste(MergedDiffExpResultDir,"/",selectedGeneList,".Summarised.ZscoreRank.Dexp.txt",  sep=""),
             sep="\t", row.names = FALSE, quote = FALSE)
 write.table(allTumorMergedStats[[2]], paste(MergedDiffExpResultDir,"/",selectedGeneList,".Summarised.traditionalRank.Dexp.txt",sep=""),
             sep="\t", row.names = FALSE, quote = FALSE)
 
-# Step 6. Select rows for heatmap ####
+# Step 6.  Select rows for heatmap ####
 allTumorStatsFinal <- read.table(paste(MergedDiffExpResultDir,"/",selectedGeneList,".Summarised.ZscoreRank.Dexp.txt",sep=""),sep="\t", header = TRUE)
 CTA.Filt <- allTumorStatsFinal %>% filter(RowSum>=3) %>% 
   dplyr::arrange(RowSum)
 dim(CTA.Filt)
 # %>% filter(GeneName %in% c("CD99", "FGFR4", "ALK"))
 
-# Step 8. Plot the heatmap ####
+# Step 8.  Plot the heatmap ####
 CTA.Filt %<>% dplyr::select(-one_of("RowSum"))
 CTA.Filt %<>%  column_to_rownames(var="GeneName") 
 colnames(CTA.Filt) <- gsub("NormalsStatus", "", colnames(CTA.Filt))
@@ -493,7 +493,7 @@ dev.off()
 ## Perfroming TCR analysis ####
 
 ### Placeholder DF ####
-emptyDF <- data.frame(count=c(0), freq=c(0), cdr3nt=c("NA"),cdr3aa=c("NF"),v=c("NF"),d=c("NF"),j=c("NF"),VEnd=c(0),DStart=c(0),
+emptyDF <- data.frame(count=c(0), freq=c(0), cdr3nt=c("None"),cdr3aa=c("NF"),v=c("NF"),d=c("NF"),j=c("NF"),VEnd=c(0),DStart=c(0),
                       DEnd=c(0),JStart=c(0),SampleName=c(0))
 emptyDFEntropy <- data.frame(VJcombo=c(), Counts =c(), Vcassette=c(), Jcassette=c(), aaCDR3_filtered = c(), ntCDR3= c())
 
@@ -501,98 +501,185 @@ emptyDFEntropyResults <- data.frame(FileName=c(), Hcdr3 =c(), Htot=c(), CLcdr3=c
                                     Hcdr3_max=c(), Hvj_max =c(), Htot_max=c(), CLcdr3_max=c(), Num_CDR3= c(), Num_VJ= c(),
                                     Num_totCDR3 =c())
 
-### List files and read data into a single data matrix ####
-fileList <- list.files("./TCR.clones.files/")
-#fileList <- c("convert.Sample_RMS248_C14C7ACXX.clones.txt")
-AllClonesData             <- rbindlist( lapply(fileList, function(x){
+readCloneFiles <- function(x, cloneType=NA){
   print(x)
-  exomeData <- read.csv( paste("./TCR.clones.files/", x, sep=""), sep="\t", header = TRUE )
+  exomeData <- read.csv( paste(TCRDir, x, sep=""), sep="\t", header = TRUE )
   if(nrow(exomeData)>0){
     exomeData$SampleName <- x
+    if( !cloneType %in% unique(substr(exomeData$v,1,3)) ) {
+      emptyDF$SampleName <- c(x)
+      exomeData <- rbind(exomeData, emptyDF)
+    }
+    
   } else {
     emptyDF$SampleName <- c(x)
     exomeData <- emptyDF
   }
+  
   return(exomeData)
-}) )
+}
+
+## Start analysis for clone type: Choose clone type ####
+## cloneType = "IGH" ;
+ cloneType = "TRB";
+
+### List files and read data into a single data matrix ####
+TCRDir <- paste0(rnaseqProject$workDir,rnaseqProject$projectName,"/TCR.clones.files/")
+TCRResultsDir <- paste0(rnaseqProject$workDir,rnaseqProject$projectName,"/TCR.Results/")
+fileList <- list.files(TCRDir) ; length(fileList)
+AllClonesData             <- rbindlist( lapply(fileList, readCloneFiles, cloneType=cloneType) ) ; dim(AllClonesData)
 
 ### Filter Clones by clone types ####
-cloneObjIG                <- filterSpecificCloneTypes(cloneData = AllClonesData, cloneType = "IGH")
-cloneObjIG.Expansion.GE3  <- cloneObjIG %>%  dplyr::filter(grepl("IGH",v) & count >= 3)
-cloneObjTCR               <- filterSpecificCloneTypes(cloneData = AllClonesData, cloneType = "TRB")
-cloneObjTCR.Expansion.GE3  <- cloneObjTCR %>% dplyr::filter(grepl("TRB",v) & count >= 3)
-
-### Section 1b Select DF ######
-### To Do  : Add switch case to select Clone df based on user input ###
-
-### For now Select DF manually ####
-#cloneType = "IGHClones"  ; countObj <- cloneObjIG %>% as.data.frame()
-cloneType = "TRBClones"  ; countObj <- cloneObjTCR %>% as.data.frame()
+cloneObj               <- corUtilsFuncs$filterSpecificCloneTypes(cloneData = AllClonesData, cloneType = cloneType) %>% 
+                          dplyr::rename(Sample.ID=SampleName) %>% 
+                          dplyr::mutate(Sample.ID = gsub("Sample_|convert.|.clones.txt","", Sample.ID)) %>% 
+                          data.frame() ; dim(cloneObj); head(cloneObj)
+cloneObj.Expansion.GE3 <- cloneObj %>%  dplyr::filter(grepl(cloneType,v) & count >= 3); dim(cloneObj); head(cloneObj)
 
 ### Attach metadata and generate countObj ####
-countObj <- countObj %>% dplyr::rename(Sample.ID=SampleName); 
-countObj$Sample.ID <- gsub("Sample_|convert.|.clones.txt","", countObj$Sample.ID)
+#countObj <- countObj %>% dplyr::rename(Sample.ID=SampleName); 
+#countObj$Sample.ID <- gsub("Sample_|convert.|.clones.txt","", countObj$Sample.ID)
 #countObj$SAMPLE_ID <- gsub("-","_", countObj$SAMPLE_ID)
-countObj.Annot <- dplyr::full_join(countObj, rnaseqProject$metaDataDF, by="Sample.ID") %>% 
-  dplyr::select_(.dots=c("count", "freq", "cdr3nt", "cdr3aa", "v", "d", "j", "VEnd", "DStart", "DEnd", "JStart", "Sample.ID", "Sample.ID.Alias",
-                         "LIBRARY_TYPE","DIAGNOSIS.Substatus.Tumor.Normal.Tissue")) ; head(countObj.Annot)
+countObj.Annot        <- dplyr::full_join(cloneObj, rnaseqProject$metaDataDF, by="Sample.ID") %>% 
+                         dplyr::select_(.dots=c("count", "freq", "cdr3nt", "cdr3aa", "v", "d", "j", "VEnd", 
+                                                "DStart", "DEnd", "JStart", "Sample.ID", "Sample.ID.Alias",
+                                                "LIBRARY_TYPE",rnaseqProject$factorName)) %>% 
+                          dplyr::filter(complete.cases(.))
+dim(countObj.Annot);head(countObj.Annot)
 
 ### Section 2 Aggregating and summarizing ####
 
-### Summarize By Samples ####
-countObj.Annot.gb.Samples <- countObj.Annot  %>% dplyr::group_by(Sample.ID) %>% 
-  dplyr::summarise(
-    TotalClones=n(),
-    TotalCloneSum=sum(count),
-    Diagnosis= paste(unique(DIAGNOSIS.Substatus.Tumor.Normal.Tissue), collapse = ',' )
-  )  %>% 
-  dplyr::rename_(.dots=setNames(list("TotalClones"),c(cloneType))); dim(countObj.Annot.gb.Samples); head(countObj.Annot.gb.Samples); tbl_df(countObj.Annot.gb.Samples)
-countObj.Annot.gb.Samples.Annotate  <- left_join(countObj.Annot.gb.Samples, rnaseqProject$metaDataDF[,c("Sample.ID","Sample.ID.Alias","LIBRARY_TYPE","DIAGNOSIS.Substatus.Tumor.Normal.Tissue")], 
-                                                 by="Sample.ID")
+### Summarize By Samples 
+countObj.Annot.gb.Samples  <- countObj.Annot  %>% dplyr::group_by(Sample.ID) %>% 
+                                                  dplyr::summarise(
+                                                  TotalCloneSum=sum(count),
+                                                  TotalClones=ifelse(n()==1 & TotalCloneSum==0, 0, n()) )  %>% 
+                                                  dplyr::rename_(.dots=setNames(list("TotalClones"),c(cloneType)))
+dim(countObj.Annot.gb.Samples); head(countObj.Annot.gb.Samples); tbl_df(countObj.Annot.gb.Samples)
+
+countObj.Annot.gb.Samples.Annotate  <- left_join(countObj.Annot.gb.Samples, 
+                                                 rnaseqProject$metaDataDF[,c("Sample.ID","Sample.ID.Alias","LIBRARY_TYPE", rnaseqProject$factorName)], 
+                                                 by="Sample.ID") %>% dplyr::filter(complete.cases(.))
 ###Replace NA by 0
 countObj.Annot.gb.Samples.Annotate[which(is.na(countObj.Annot.gb.Samples.Annotate$TotalCloneSum)), c(cloneType,"TotalCloneSum")] <- 0
-countObj.Annot.gb.Samples.Annotate[which(countObj.Annot.gb.Samples.Annotate$TotalCloneSum == 0), "TRBClones"] <- 0
+countObj.Annot.gb.Samples.Annotate[which(countObj.Annot.gb.Samples.Annotate$TotalCloneSum == 0), cloneType] <- 0
 
 ### Saving files
-saveRDS(countObj.Annot.gb.Samples, paste("./Results/countObj.Annot.gb.Samples.Annotate.v2",".", cloneType,".RDS" , sep="") )
-write.table(countObj.Annot.gb.Samples, paste("./Results/countObj.Annot.gb.Samples.v2.",".", cloneType,".txt" , sep=""), sep="\t", quote = F, row.names = F)
-write.table(countObj.Annot.gb.Samples.Annotate, paste("./Results/countObj.Annot.gb.Samples",".Annotate.v2.", cloneType,".txt" , sep=""), sep="\t", quote = F, row.names = F)
+# saveRDS(countObj.Annot.gb.Samples, paste0(TCRResultsDir,"countObj.Annot.gb.Samples.Annotate",".", cloneType,".RDS" , sep="") )
+# write.table(countObj.Annot.gb.Samples.Annotate,paste0(TCRResultsDir,"countObj.Annot.gb.Samples",".", cloneType,".txt" , sep=""), sep="\t", quote = F, row.names = F)
 
-### Summarize By Diagnosis ####
-countObj.Annot.gb.Diagnosis  <- countObj.Annot  %>% dplyr::group_by(cdr3aa, v, d, j, DIAGNOSIS.Alias) %>% 
-  summarise(
-    TotalSamples=n(), 
-    Samples = paste(Sample.ID, collapse = ','), 
-    CloneCount = paste(count, collapse = ','),
-    MedianCloneCount = median(count)
-  )
-# saveRDS(countObj.Annot.gb.Diagnosis, "./Results/countObj.Annot.gb.Diagnosis.RDS")
-# write.table(countObj.Annot.gb.Diagnosis, "./Results/countObj.Annot.gb.Diagnosis.txt", sep="\t", quote = F, row.names = F)
+### Summarize By Diagnosis
+countObj.Annot.gb.Diagnosis  <- countObj.Annot  %>% dplyr::group_by_(.dots= list("cdr3aa", "v", "d", "j", rnaseqProject$factorName)) %>% 
+                                                    summarise(
+                                                      TotalSamples=n(), 
+                                                      Samples = paste(Sample.ID, collapse = ','), 
+                                                      CloneCount = paste(count, collapse = ','),
+                                                      MedianCloneCount = median(count)
+                                                    ) # %>% 
+                                                      # dplyr::filter(complete.cases(.))
+# saveRDS(countObj.Annot.gb.Diagnosis, paste0(TCRResultsDir,"countObj.Annot.gb.Diagnosis.Annotate",".", cloneType,".RDS" , sep=""))
+# write.table(countObj.Annot.gb.Diagnosis, paste0(TCRResultsDir,"countObj.Annot.gb.Diagnosis",".", cloneType,".txt" , sep=""), sep="\t", quote = F, row.names = F)
+
+### Section 3 Filter normal TCR and Samples ####
+countObj.Annot.CL.Normal <- countObj.Annot %>% dplyr::filter(LIBRARY_TYPE %in% c("Normal", "CellLine")); dim(countObj.Annot.CL.Normal)
+cdr3_Normal_CellLine     <- countObj.Annot.CL.Normal %>% filter(cdr3aa != c("NF")) %>% distinct(cdr3aa)
+countObj.Annot.Tumor     <- countObj.Annot %>% 
+                                    dplyr::filter( !LIBRARY_TYPE %in% c("Normal", "CellLine") ) %>% 
+                                    dplyr::filter( !cdr3aa %in% c(cdr3_Normal_CellLine$cdr3aa)); dim(countObj.Annot.Tumor) 
+## Summarise
+countObj.gb.Samples.Annotate.NoNS  <- countObj.Annot.Tumor  %>% dplyr::group_by(Sample.ID) %>% 
+                                                  dplyr::summarise(
+                                                  TotalCloneSum=sum(count),
+                                                  TotalClones=ifelse(n()==1 & TotalCloneSum==0, 0, n()) )  %>% 
+                                                  dplyr::rename_(.dots=setNames(list("TotalClones"),c(cloneType)))
+dim(countObj.gb.Samples.Annotate.NoNS); head(countObj.gb.Samples.Annotate.NoNS); tbl_df(countObj.gb.Samples.Annotate.NoNS)
+
+countObj.gb.Samples.Annotate.NoNS  <- left_join(countObj.gb.Samples.Annotate.NoNS, 
+                                                 rnaseqProject$metaDataDF[,c("Sample.ID","Sample.ID.Alias","LIBRARY_TYPE", rnaseqProject$factorName)], 
+                                                 by="Sample.ID") %>% dplyr::filter(complete.cases(.))
+## Change to factors
+countObj.gb.Samples.Annotate.NoNS     <- countObj.gb.Samples.Annotate.NoNS %>% 
+                                          dplyr::mutate(LIBRARY_TYPE=factor(countObj.gb.Samples.Annotate.NoNS$LIBRARY_TYPE, 
+                                                               levels = unique(countObj.gb.Samples.Annotate.NoNS$LIBRARY_TYPE))) %>%
+                                          dplyr::mutate(DIAGNOSIS.Substatus.Tumor.Normal.Tissue=factor(countObj.gb.Samples.Annotate.NoNS$DIAGNOSIS.Substatus.Tumor.Normal.Tissue, 
+                                                               levels = unique(countObj.gb.Samples.Annotate.NoNS$DIAGNOSIS.Substatus.Tumor.Normal.Tissue)))
+# saveRDS(countObj.gb.Samples.Annotate.NoNS, paste0(TCRResultsDir,"countObj.gb.Samples.Annotate.NoNS",".", cloneType,".RDS" , sep=""))
+# write.table(countObj.gb.Samples.Annotate.NoNS, paste0(TCRResultsDir,"countObj.gb.Samples.Annotate.NoNS",".", cloneType,".txt" , sep=""), sep="\t", quote = F, row.names = F)
 
 ### plot for TCR COunt Bean plot
-
 ### Prepare data for one variable plot ####
 
-  selectCol="TotalCloneSum" ; StatsFinalCol="Diagnosis" ; SampleNames <- "Sample.ID.Alias"
-  tcrcloneCountPre          <- countObj.Annot.gb.Samples.Annotate.NoNS %>% 
-    dplyr::select_(.dots=c(paste0("selectCol"), paste0("StatsFinalCol"), paste0("SampleNames")))
+selectCol="TotalCloneSum" ; StatsFinalCol=rnaseqProject$factorName ; SampleNames <- "Sample.ID.Alias"
+tcrcloneCountPre          <- countObj.gb.Samples.Annotate.NoNS %>% 
+                                dplyr::select_(.dots=c(paste0("selectCol"), paste0("StatsFinalCol"), paste0("SampleNames")))
   
-  tcrcloneCountPre.Diag   <- tcrcloneCountPre %>%  dplyr::rename_(.dots = setNames(list(SampleNames,StatsFinalCol),c("Samples","Diagnosis"))) 
-  ScoresPre               <- tcrcloneCountPre.Diag[,!(colnames(tcrcloneCountPre.Diag) %in% c("Samples")), drop=FALSE]
-  orderOfFactor           <- as.character( unique(ScoresPre$Diagnosis) )
-  orderOfSignature        <- colnames(ScoresPre)[-ncol(ScoresPre)]
-  colList                 <- c(1:(ncol(ScoresPre)-1)) ; Scores <- ScoresPre
+tcrcloneCountPre.Diag   <- tcrcloneCountPre %>%  dplyr::rename_(.dots = setNames(list(SampleNames,StatsFinalCol),c("Samples","Diagnosis"))) 
+ScoresPre               <- tcrcloneCountPre.Diag[,!(colnames(tcrcloneCountPre.Diag) %in% c("Samples")), drop=FALSE]
+orderOfFactor           <- as.character( unique(ScoresPre$Diagnosis) )
+orderOfSignature        <- colnames(ScoresPre)[-ncol(ScoresPre)]
+colList                 <- c(1:(ncol(ScoresPre)-1)) ; Scores <- ScoresPre
+## Generate custom colors
+customColorDF    <- rnaseqProject$customColorsDF
 
-  ### Plot and Save ###
-  plotLists <- OneVariablePlotSort(colList, Scores=Scores, orderOfFactor, orderOfSignature, standardize =FALSE, yLab = paste0("Log clones (", cloneType, ")"),
-                                   summaryHlines = T, sizeOfDots = 0.6)
-  tcrcloneCountPlots <- lapply(plotLists, function(l) l[[1]])
-  tcrcloneCountData  <- lapply(plotLists, function(l) l[[2]]) %>% data.frame(check.names = FALSE) %>% bind_rows()
+## Filter for diagnosis
+Scores <- Scores %>% filter(!Diagnosis %in% c("Teratoma", "YST", "ML"))
+
+### Plot and Save ###
+plotLists <- corUtilsFuncs$OneVariablePlotSort( colList, Scores=Scores, orderOfFactor, orderOfSignature, standardize =FALSE, logit =TRUE, 
+                                                yLab = "log(TCR counts)", legendDisplay = FALSE, customColorDF = customColorDF, 
+                                                plotType = "StringBean", sizeOfDots = 0.6  )
+plotLists
+tcrcloneCountPlots <- lapply(plotLists, function(l) l[[1]])
+tcrcloneCountData  <- lapply(plotLists, function(l) l[[2]]) %>% data.frame(check.names = FALSE) %>% bind_rows()
   
-  SBName = filename=paste(date,selectCol,cloneType, "2.new.pdf",sep=".")
-  ggsave(SBName, marrangeGrob(tcrcloneCountPlots, ncol=1, nrow=1), width = 15, height = 10)
-  dev.off()
+SBName = paste0(TCRResultsDir,"/",cloneType, ".BeanPlot.v2.pdf")
+ggsave(SBName, marrangeGrob(tcrcloneCountPlots, ncol=1, nrow=1), width = 10, height = 5)
+dev.off()
 
 
+### Coorelation with Immune Signature
+
+# Read the enrichment score data ####
+correlationPlots <- function(varName="", constName="", df=NA, customColorDF=NA){
+  
+  print(paste(varName))
+  customColorsVector <- setNames( as.character(customColorDF$Color), as.character(customColorDF$Diagnosis))
+  corrTest <- cor.test(df[,constName], df[,varName], method = "spearman")
+  if  ( corrTest$p.value < 2.2e-16 ) { corrTest$p.value = 2.2e-16 }
+  plot <- ggplot(df, aes_string(x=constName, y=varName)) + 
+    geom_smooth(method=lm,  fill="grey") +
+    geom_point(aes(colour = factor(Diagnosis)), show.legend = T, size=3, shape=16) + 
+    scale_colour_manual(values=customColorsVector) +
+    theme_bw() +
+    theme(axis.text=element_text(size=13)
+          ,axis.title=element_text(size=13,face="bold")) +
+    xlab("Log Total Clones") +
+    ylab(paste("Standardised Enrichment Score", sep=" "))+
+    ggtitle(paste("Corr.Coeff = ", signif(corrTest$estimate[[1]],5), "\np-value = ", signif(corrTest$p.value,5), "                                            ", varName,sep=""))
+  
+  return(list(plot))
+}   
+
+ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.2019-01-31.PROJ.gct")
+ssGSEA.zscore <- apply(ssGSEAScores, 1, corUtilsFuncs$zscore_All) ; 
+ssGSEA.t <- ssGSEA.zscore %>% data.frame() %>% tibble::rownames_to_column(var="Sample.Biowulf.ID.GeneExp"); 
+dim(ssGSEA.t)
+ssGSEA.t <- left_join(ssGSEA.t, 
+                      rnaseqProject$metaDataDF[,c("Sample.ID","Sample.Biowulf.ID.GeneExp","Sample.ID.Alias","LIBRARY_TYPE", rnaseqProject$factorName)], 
+                      by="Sample.Biowulf.ID.GeneExp") %>% dplyr::filter(complete.cases(.)); dim(ssGSEA.t)
+
+immuneScore.Clones <- left_join(countObj.gb.Samples.Annotate.NoNS[,c("TotalCloneSum",cloneType, "Sample.ID")], ssGSEA.t, by="Sample.ID") %>% 
+                      dplyr::select(-one_of(c("Sample.Biowulf.ID.GeneExp","Sample.ID"))) %>% 
+                      data.frame()
+#immuneScore.Clones %<>% tibble::column_to_rownames("Sample.ID")
+immuneScore.Clones <- immuneScore.Clones %>% dplyr::rename_(.dots = setNames(list(StatsFinalCol),c("Diagnosis")))  %>% dplyr::mutate(TotalCloneSum = log10(TotalCloneSum+1))
+
+varNames <- colnames(immuneScore.Clones[,3:44])  
+plotLists <- lapply(varNames, correlationPlots, constName="TotalCloneSum",  df= data.frame(immuneScore.Clones), customColorDF=customColorDF)
+ImmuneScorePlots <- lapply(plotLists, function(l) l[[1]] )
+
+SBName =paste0(TCRResultsDir,"/ImmuneScore.vs.TotalCloneSum.",cloneType,".pdf")
+ggsave(SBName, marrangeGrob(ImmuneScorePlots, ncol=1, nrow=1), width = 15, height = 10)
+dev.off()
 
 
