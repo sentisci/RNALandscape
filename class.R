@@ -263,6 +263,7 @@ CoreUtilities <- R6Class(
       print(notselectedFileListMeta)
       notselectedFileListFolder      <- x[which(!basename(x)  %in%  self$allFileList )]; print(length(notselectedFileListFolder))
       #if( length(notselectedFileListFolder) >= 1 | length(notselectedFileListMeta) >= 1) { 
+      print(notselectedFileListMeta)
       if( length(notselectedFileListMeta) >= 1) {                
         cat( paste(" Following files are not present in input folder.Please record them in metadata file or remove from the input file folder"
                    ,paste(basename(notselectedFileListMeta), collapse = "\n")))
@@ -457,7 +458,7 @@ CoreUtilities <- R6Class(
     ## make one variable plots
     OneVariablePlotSort = function(colList=NA, Scores=NA, orderOfFactor=NA, orderOfSignature=NA, standardize=FALSE, logit =FALSE,
                                    plotType="StringBean",customColorDF=NA, yLab="Score", summaryHlines =FALSE, 
-                                   sizeOfDots = 1, legendDisplay=TRUE){
+                                   sizeOfDots = 1, legendDisplay=TRUE, logBase=2){
       
       #if (unique(is.na(customColors))) { customColors = setNames( StatsFinal$Color, StatsFinal$Diagnosis) }
       #function
@@ -574,7 +575,7 @@ CoreUtilities <- R6Class(
       }
       
       if(logit == TRUE) {
-        Scores[,colList] <- apply(Scores[,colList,drop=FALSE] + 1 , 2, log2 )
+        Scores[,colList] <- apply(Scores[,colList,drop=FALSE] + 1 , 2, function(x) {return(logb(x,logBase))} )
       }
       
       if(standardize==TRUE){

@@ -121,11 +121,12 @@ stopifnot( length(colnames(expressionTMM.RPKM)) == length(AliasColnames) )
 colnames(expressionTMM.RPKM)  <- AliasColnames
 
 ## Save expression (TMM-RPKM/whatwever asked for in the above step) to a file ####
-write.table(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
-                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.RiboZero",rnaseqProject$date,".txt"),sep="/"),
-            sep="\t", row.names = FALSE, quote = FALSE)
-saveRDS(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
-                                  paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.RiboZero",rnaseqProject$date,".rds"),sep="/"))
+# write.table(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
+#                                       paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.RiboZero",rnaseqProject$date,".txt"),sep="/"),
+#             sep="\t", row.names = FALSE, quote = FALSE)
+# saveRDS(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
+#                                   paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.RiboZero",rnaseqProject$date,".rds"),sep="/"))
+# 
 
 ### Performing ssGSEA output analysis. ( Plotting the scores across histology ) ##########
 
@@ -520,8 +521,8 @@ readCloneFiles <- function(x, cloneType=NA){
 }
 
 ## Start analysis for clone type: Choose clone type ####
-## cloneType = "IGH" ;
- cloneType = "TRB";
+cloneType = "IGH" ;
+## cloneType = "TRB";
 
 ### List files and read data into a single data matrix ####
 TCRDir <- paste0(rnaseqProject$workDir,rnaseqProject$projectName,"/TCR.clones.files/")
@@ -625,7 +626,7 @@ customColorDF    <- rnaseqProject$customColorsDF
 Scores <- Scores %>% filter(!Diagnosis %in% c("Teratoma", "YST", "ML"))
 
 ### Plot and Save ###
-plotLists <- corUtilsFuncs$OneVariablePlotSort( colList, Scores=Scores, orderOfFactor, orderOfSignature, standardize =FALSE, logit =TRUE, 
+plotLists <- corUtilsFuncs$OneVariablePlotSort( colList, Scores=Scores, orderOfFactor, orderOfSignature, standardize =FALSE, logit =TRUE, logBase=10,
                                                 yLab = "log(TCR counts)", legendDisplay = FALSE, customColorDF = customColorDF, 
                                                 plotType = "StringBean", sizeOfDots = 0.6  )
 plotLists
@@ -655,10 +656,12 @@ correlationPlots <- function(varName="", constName="", df=NA, customColorDF=NA){
           ,axis.title=element_text(size=13,face="bold")) +
     xlab("Log Total Clones") +
     ylab(paste("Standardised Enrichment Score", sep=" "))+
-    ggtitle(paste("Corr.Coeff = ", signif(corrTest$estimate[[1]],5), "\np-value = ", signif(corrTest$p.value,5), "                                            ", varName,sep=""))
+    ggtitle(paste("Corr.Coeff = ", signif(corrTest$estimate[[1]],5), "\np-value = ", signif(corrTest$p.value,5), "", varName,sep=""))
   
   return(list(plot))
 }   
+
+customColorDF    <- rnaseqProject$customColorsDF
 
 ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.2019-01-31.PROJ.gct")
 ssGSEA.zscore <- apply(ssGSEAScores, 1, corUtilsFuncs$zscore_All) ; 
@@ -672,7 +675,7 @@ immuneScore.Clones <- left_join(countObj.gb.Samples.Annotate.NoNS[,c("TotalClone
                       dplyr::select(-one_of(c("Sample.Biowulf.ID.GeneExp","Sample.ID"))) %>% 
                       data.frame()
 #immuneScore.Clones %<>% tibble::column_to_rownames("Sample.ID")
-immuneScore.Clones <- immuneScore.Clones %>% dplyr::rename_(.dots = setNames(list(StatsFinalCol),c("Diagnosis")))  %>% dplyr::mutate(TotalCloneSum = log10(TotalCloneSum+1))
+immuneScore.Clones <- immuneScore.Clones %>% dplyr::rename_(.dots = setNames(list(rnaseqProject$factorName),c("Diagnosis")))  %>% dplyr::mutate(TotalCloneSum = log10(TotalCloneSum+1))
 
 varNames <- colnames(immuneScore.Clones[,3:44])  
 plotLists <- lapply(varNames, correlationPlots, constName="TotalCloneSum",  df= data.frame(immuneScore.Clones), customColorDF=customColorDF)
