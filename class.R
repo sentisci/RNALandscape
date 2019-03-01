@@ -117,6 +117,7 @@ ProjectSetUp <- R6Class(
       colnames(customColorsDF)[1] <- "Diagnosis";
       self$customColorsDF <- customColorsDF
     }
+    ## Make a Tree Map
   ),
   public = list(
     date                    = NULL,

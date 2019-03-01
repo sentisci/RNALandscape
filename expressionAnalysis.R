@@ -54,6 +54,36 @@ rnaseqProject <- ProjectSetUp$new(
 ## Add utility functions to the project ####
 corUtilsFuncs <- CoreUtilities$new(  ProjectSetUpObject = rnaseqProject )
 
+# Make a Tree Map ####
+StatsFinal <-  rnaseqProject$metaDataDF %>% group_by_(.dots= c("DIAGNOSIS.Alias","DIAGNOSIS.Alias.TreeMap",rnaseqProject$factorName, "Color", "LIBRARY_TYPE.TreeMap") ) %>% 
+  count_(var=as.name("Sample.ID")) %>% dplyr::summarise(Count=n()) %>% 
+  dplyr::group_by_(.dots= c(rnaseqProject$factorName)) %>%  
+  dplyr::mutate( SampleSum := sum(Count)) %>% 
+  spread_("LIBRARY_TYPE.TreeMap", "Count") %>% 
+  mutate_( .dots = setNames( list( interp(~paste(rnaseqProject$factorName ,"(", Sum , ")"), 
+                                          factorName=as.name(rnaseqProject$factorName), Sum=as.name("SampleSum") ) ), "LegendSampleSum") ) %>% 
+  data.frame() %>% distinct(DIAGNOSIS.Alias.TreeMap,SampleSum, .keep_all = TRUE)
+
+StatsFinal <- StatsFinal %>% dplyr::filter(DIAGNOSIS.Alias != "NS")
+StatsFinal[,"LegendSampleSum"] <- paste(StatsFinal[,"DIAGNOSIS.Alias.TreeMap"],"( ",StatsFinal[,"SampleSum"], " )",sep="")
+#pdf(file=paste(Plots, date, "Diagnosis Tree Map All",date,"pdf",sep="."), height=8, width= 10)
+treemap(dtf=data.frame(StatsFinal), index=c("DIAGNOSIS.Alias", "DIAGNOSIS.Alias.TreeMap"),
+        vSize="SampleSum",
+        type="categorical",
+        vColor="LegendSampleSum",
+        palette = as.character(StatsFinal$Color),
+        fontcolor.labels=c("black"),
+        bg.labels=c("#CCCCCCDC"),
+        algorithm = "squarified",
+        inflate.labels=F,
+        fontsize.labels = 10,
+        fontsize.legend = 10,
+        border.lwds=0.9,
+        title = "Samples Map",
+        title.legend = "Histology"
+)
+dev.off()
+
 ## Generate expression matrix ####
 rm(mergeObjectsNoDup)
 mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Genes.v1",
@@ -136,10 +166,10 @@ expressionTMM.RPKM.GSEA.print = corUtilsFuncs$createBroadGCTFile(expressionTMM.R
 
 ## Save input for ssGSEA 
 write.table(expressionTMM.RPKM.GSEA.print, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$gseaDir,
-                                                 paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.zscore.",rnaseqProject$date,".txt"),sep="/"),
-            sep="\t", row.names = FALSE, quote = FALSE)
+                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.zscore.",rnaseqProject$date,".txt"),sep="/"),
+                                      sep="\t", row.names = FALSE, quote = FALSE)
 saveRDS(expressionTMM.RPKM.GSEA.print, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$gseaDir,
-                                             paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.zscore.",rnaseqProject$date,".rds"),sep="/"))
+                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.zscore.",rnaseqProject$date,".rds"),sep="/"))
 
 ## Read the ssGSEA output
 ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.2019-01-31.PROJ.gct")
@@ -192,31 +222,30 @@ SBName                <- paste(rnaseqProject$workDir, rnaseqProject$projectName,
 dropSignatures    <- c("Macrophages_M0","Macrophages_M1", "Macrophages_M2","Dendritic_cells_activated")
 factorsToExclude  <- paste(c("NS", "YST", "Teratoma"), collapse = "|")
 ## Read and parse the ssGSEA Output from Broad GenePattern
-Scores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.2019-01-31.PROJ.gct")
+Scores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.2019-01-31.PROJ.gct.txt")
 ## Standardizing the raw score to amplify the difference.
 ScoresZscore      <- apply(Scores[1:24,],1, corUtilsFuncs$zscore_All)                  
-ScoresZscore      %<>%   data.frame()                                                     %<>% 
-  tibble::rownames_to_column(var=rnaseqProject$metadataFileRefCol) %<>% 
-  dplyr::select(-one_of(dropSignatures ))
+ScoresZscore      %<>% data.frame() %<>% tibble::rownames_to_column(var=rnaseqProject$metadataFileRefCol) %<>% dplyr::select(-one_of(dropSignatures ))
 
 ## Preparing the data and prepare for heatmap
+rnaseqProject$metaDataDF <- as.data.frame( apply(rnaseqProject$metaDataDF, 2, as.character), stringsAsFactors = FALSE )
 ScoresForGather   <- tidyr::gather(ScoresZscore, key="GeneSet", value="Score", -!!rnaseqProject$metadataFileRefCol )
 ScoresForGather   <- dplyr::left_join(ScoresForGather, 
                                       rnaseqProject$metaDataDF[,c(rnaseqProject$metadataFileRefCol, rnaseqProject$factorName)], 
-                                      by=rnaseqProject$metadataFileRefCol)                                                        %>% 
-  dplyr::filter_(  .dots = paste0("!grepl(", "'", factorsToExclude , "'" ,",", rnaseqProject$factorName, ")")) %>% 
-  dplyr::rename_(.dots = setNames(list(rnaseqProject$factorName),c("Diagnosis")) )
+                                      by=rnaseqProject$metadataFileRefCol) %>% 
+                                      dplyr::filter_(  .dots = paste0("!grepl(", "'", factorsToExclude , "'" ,",", rnaseqProject$factorName, ")")) %>% 
+                                      dplyr::rename_(.dots = setNames(list(rnaseqProject$factorName),c("Diagnosis")) )
 
 ## Final check before plotting                        
 dim(ScoresForGather);head(ScoresForGather)
 
 ScoresForGatherPercent         <- ScoresForGather                                             %>% 
-  dplyr::group_by(Diagnosis, GeneSet)                         %>% 
-  dplyr::mutate(TotalCount = n(), Enriched = sum(Score > 0 )) %>% 
-  dplyr::mutate(SamplePercent = (Enriched/TotalCount)*100 )   
+                                  dplyr::group_by(Diagnosis, GeneSet)                         %>% 
+                                  dplyr::mutate(TotalCount = n(), Enriched = sum(Score > 0 )) %>% 
+                                  dplyr::mutate(SamplePercent = (Enriched/TotalCount)*100 )   
 ScoresForGatherUnique          <- ScoresForGatherPercent[,c(2,4,7)]                           %>% 
-  ungroup()                                                   %>% 
-  distinct()
+                                  ungroup()                                                   %>% 
+                                  distinct()
 ScoresForSpread                <- tidyr::spread( ScoresForGatherUnique, Diagnosis, SamplePercent ) %>% t() 
 colnames(ScoresForSpread)      <- ScoresForSpread[1,]; 
 ScoresForSpreadHeat            <- ScoresForSpread[-1,]
@@ -245,8 +274,8 @@ breaks <- seq(min(ScoresForSpreadHeat),max(ScoresForSpreadHeat), by=0.1)
 # matrix_color_vector <- colorpanel(n=length(breaks)-1,low="#4FFC07",mid="#0B0B0B",high="#F92908")
 #black red
 matrix_color_vector <- colorpanel(n=length(breaks)-1,low="#4FFC07",mid="#273746",high="#F92908")
-fheatmap(ScoresForSpreadHeat, display_tree_col = F,cluster_rows = T, mat_color = matrix_color_vector,
-         row_fontsize = 5, col_fontsize = 5, cell_border = T, cell_border_col = "#A6ACAF",seed = 10,
+fheatmap(t(ScoresForSpreadHeat), display_tree_col = F,cluster_rows = T, mat_color = matrix_color_vector,
+         row_fontsize = 5, col_fontsize = 5, cell_border = F, cell_border_col = "#A6ACAF",seed = 10,
          clustering_method = "complete", title = "Percent samples enriched across cancer types")
 dev.off()
 
@@ -521,8 +550,8 @@ readCloneFiles <- function(x, cloneType=NA){
 }
 
 ## Start analysis for clone type: Choose clone type ####
-cloneType = "IGH" ;
-## cloneType = "TRB";
+## cloneType = "IGH";
+cloneType = "TRB";
 
 ### List files and read data into a single data matrix ####
 TCRDir <- paste0(rnaseqProject$workDir,rnaseqProject$projectName,"/TCR.clones.files/")
@@ -608,6 +637,7 @@ countObj.gb.Samples.Annotate.NoNS     <- countObj.gb.Samples.Annotate.NoNS %>%
 # write.table(countObj.gb.Samples.Annotate.NoNS, paste0(TCRResultsDir,"countObj.gb.Samples.Annotate.NoNS",".", cloneType,".txt" , sep=""), sep="\t", quote = F, row.names = F)
 
 ### plot for TCR COunt Bean plot
+
 ### Prepare data for one variable plot ####
 
 selectCol="TotalCloneSum" ; StatsFinalCol=rnaseqProject$factorName ; SampleNames <- "Sample.ID.Alias"
@@ -640,7 +670,7 @@ dev.off()
 
 ### Coorelation with Immune Signature
 
-# Read the enrichment score data ####
+### Prepare data for correlation between immunescore and clone count Read the enrichment score data ####
 correlationPlots <- function(varName="", constName="", df=NA, customColorDF=NA){
   
   print(paste(varName))
@@ -685,4 +715,139 @@ SBName =paste0(TCRResultsDir,"/ImmuneScore.vs.TotalCloneSum.",cloneType,".pdf")
 ggsave(SBName, marrangeGrob(ImmuneScorePlots, ncol=1, nrow=1), width = 15, height = 10)
 dev.off()
 
+### Prepare data to compare TCR with public databases
 
+### For Venn plots Public dataBases ####
+## Group by TCR
+countObj.Annot.gb <- countObj.Annot  %>% dplyr::group_by(cdr3aa, v, d, j) %>% 
+  dplyr::summarise(
+    TotalSamples=n(), 
+    Samples = paste(Sample.ID, collapse = ','), 
+    CloneCount = paste(count, collapse = ','),
+    MedianCloneCount = median(count),
+    Diagnosis= paste(unique(DIAGNOSIS.Substatus.Tumor.Normal.Tissue), collapse = ',' )
+  )
+
+## Using VDJdb
+vdjdb <- read.csv("../RNASeq.RSEM/TCR.Public.DB/vdjdb-2018-01-17/vdjdb_all_CDR3aa.txt", sep="\t")
+vdjdbHealthy <- vdjdb %>% filter(grepl("healthy",meta.subject.cohort))
+vdjdb.CDR3Beta <- unique(as.character(vdjdbHealthy$cdr3.beta))
+length(vdjdb.CDR3Beta)
+vdjdb.CDR3Beta.Complete <- unlist(stringr::str_extract_all(vdjdb.CDR3Beta, "^C.*F")); 
+length(vdjdb.CDR3Beta.Complete)
+
+## Using Waren
+warenetal <- read.csv("../RNASeq.RSEM/TCR.Public.DB/waren_et_al/waren_et_al_all_CDR3aa.txt", sep="\t", header = F)
+warenetal.CDR3Beta <- unique(as.character(warenetal$V1))
+length(warenetal.CDR3Beta)
+warenetal.CDR3Beta.Complete <- unlist(stringr::str_extract_all(warenetal.CDR3Beta, "^C.*F")); 
+length(warenetal.CDR3Beta.Complete)
+
+
+## All TCGA ## Using Bo et al/TCGA 
+TCGA.Tumor.Normal <- read.csv("../RNASeq.RSEM/TCR.Public.DB/TCGA/Bo.et.al.CDR3.fa", sep="\t", header = F); dim(TCGA.Tumor.Normal)
+TCGATumorNormalTab <- data.frame(Names=gsub(">","",TCGA.Tumor.Normal[seq(1, 1366836,2),]), Sequence=TCGA.Tumor.Normal[seq(2, 1366836,2),])
+head(TCGATumorNormalTab); dim(TCGATumorNormalTab)
+#Normal
+TCGANormal <- TCGATumorNormalTab %>% dplyr::filter(grepl('^N', Names)) ; dim(TCGANormal)
+#Tumor
+TCGATumor  <- TCGATumorNormalTab %>% dplyr::filter(grepl('^T', Names)) ; dim(TCGATumor)
+## Getting Only Shared TCGA Tumor CDR3aa
+TCGATumor.Shared <- TCGATumor %>% dplyr::filter( grepl(".*C[A|S]+.*F", Sequence)) %>%
+                                  dplyr::group_by(Sequence) %>% 
+                                  dplyr::mutate(Samples = paste(unique(Names), collapse = ','), Count = n(),
+                                                      DistinctSamples = length(unique(Names))) %>% dplyr::distinct()
+TCGATumor.Shared.Multi <- TCGATumor.Shared %>% dplyr::filter(DistinctSamples > 1)
+TCGATumor.Shared.Multi$Length <- sapply(as.character(TCGATumor.Shared.Multi$Sequence), nchar)
+TCGATumor.Shared <- TCGATumor %>% dplyr::filter( grepl(".*C[A|S]+.*F", Sequence))
+TCGATumorDistinct <- unique(TCGATumor.Shared$Sequence)
+
+## Getting Only Shared TCGA Normal CDR3aa
+TCGANormal.Shared <- TCGANormal %>% dplyr::filter( grepl(".*C[A|S]+.*F", Sequence)) %>%
+  dplyr::group_by(Sequence) %>% 
+  dplyr::mutate(Samples = paste(unique(Names), collapse = ','), Count = n(),
+                DistinctSamples = length(unlist(strsplit(Samples, ",")))) %>% dplyr::distinct()
+TCGANormal.Shared.Multi <- TCGANormal.Shared %>% dplyr::filter(DistinctSamples > 1)
+TCGANormal.Shared.Multi$Length <- sapply(as.character(TCGANormal.Shared.Multi$Sequence), nchar)
+TCGANormal.Shared <- TCGANormal %>% dplyr::filter( grepl(".*C[A|S]+.*F", Sequence))
+TCGANormalDistinct <- unique(TCGANormal.Shared$Sequence)
+
+## countObj.Annot.gb
+countObj.Annot.gb.Cancer <- countObj.Annot.gb %>% filter(!Diagnosis %in% c("NS"))
+countObj.Annot.gb.Cancer$length <- sapply(as.character(countObj.Annot.gb.Cancer$cdr3aa), nchar)
+cancerShared             <- countObj.Annot.gb.Cancer %>% filter(TotalSamples > 1); length(cancerShared$cdr3aa)
+cancerShared.Complete    <- unlist(stringr::str_extract_all(cancerShared$cdr3aa, "^C.*F")); length(cancerShared.Complete)
+cancerPrivate            <- countObj.Annot.gb.Cancer %>% filter(TotalSamples == 1); length(cancerPrivate$cdr3aa)
+cancerPrivate.Complete    <- unlist(stringr::str_extract_all(cancerPrivate$cdr3aa, "^C.*F")); length(cancerPrivate.Complete)
+
+countObj.Annot.gb.NS <- countObj.Annot.gb %>% filter(Diagnosis %in% c("NS")); length(countObj.Annot.gb.NS$cdr3aa)
+inHouseNormal.Complete    <- unlist(stringr::str_extract_all(countObj.Annot.gb.NS$cdr3aa, "^C.*F")); length(inHouseNormal.Complete)
+
+vennCDR3aaList <- list("Tumor, Private" = unique(cancerPrivate$cdr3aa),
+                       "Tumor, Shared" = unique(cancerShared$cdr3aa),
+                       "Tumor, Public" = TCGATumorDistinct,
+                       "TCGA,  Normal"    =   TCGANormalDistinct,
+                       "Warren et al (healthy)" = warenetal.CDR3Beta, 
+                       "Chudakov et al (healthy)"=vdjdb.CDR3Beta,
+                       "In House Normal" = unique(countObj.Annot.gb.NS$cdr3aa) )
+
+# vennCDR3aaList <- list("Tumor, Private" = unique(cancerPrivate.Complete),
+#                        "Tumor, Shared" = unique(cancerShared.Complete),
+#                        "Warreb et al (healthy)" = unique(warenetal.CDR3Beta.Complete), 
+#                        "Chudakov et al (healthy)"=unique(vdjdb.CDR3Beta.Complete),
+#                        "In House Normal" = unique(inHouseNormal.Complete) 
+# )
+
+library(venn)
+v.table <- venn.diagram(vennCDR3aaList, ilab=TRUE, zcolor = "style", size = 15, cexil = 1, cexsn = 1)
+
+### Plot Inforgraphics ####
+TumorPrivate <- attr(v.table,"intersections")[["Tumor, Private"]]; length(TumorPrivate)
+TumorShared  <- attr(v.table,"intersections")[["Tumor, Shared"]]; length(TumorShared)
+InHouseNormals  <- attr(v.table,"intersections")[["In House Normal"]]; length(InHouseNormals)
+warenetalNormals  <- attr(v.table,"intersections")[["Warren et al (healthy)"]]; length(warenetalNormals)
+
+
+TumorPrivateFinal <- data.frame("AA"=TumorPrivate, "length"=sapply(TumorPrivate,nchar))
+colnames(TumorPrivateFinal) <- c("AA","Len")
+TumorPrivateFinal_15 <- TumorPrivateFinal %>% filter(Len == 15)
+TumorPrivatePlot <- ggseqlogo(as.character(TumorPrivateFinal_15$AA), seq_type='aa',  method = "probability")
+
+warenetalNormalsFinal <- data.frame("AA"=warenetalNormals, "length"=sapply(warenetalNormals,nchar))
+colnames(warenetalNormalsFinal) <- c("AA","Len")
+warenetalNormalsFinal <- warenetalNormalsFinal %>% filter(Len == 15)
+warenetalNormalsPlot <- ggseqlogo(as.character(warenetalNormalsFinal$AA), seq_type='aa',  method = "probability")
+
+
+InHouseNormalsFinal <- data.frame("AA"=InHouseNormals, "length"=sapply(InHouseNormals,nchar))
+colnames(InHouseNormalsFinal) <- c("AA","Len")
+InHouseNormalsFinal <- InHouseNormalsFinal %>% filter(Len == 15)
+InHouseNormalsPlot <- ggseqlogo(as.character(InHouseNormalsFinal$AA), seq_type='aa',  method = "probability")
+
+pdf("ven.probability.pdf", height = 10, width = 10)
+ggarrange(plotlist = list(TumorPrivatePlot, InHouseNormalsPlot, warenetalNormalsPlot),common.legend=TRUE, nrow = 3)
+dev.off()
+
+### Clonality ###
+
+ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.2019-01-31.PROJ.gct")
+ssGSEA.zscore <- apply(ssGSEAScores, 1, corUtilsFuncs$zscore_All) ; 
+ssGSEA.t <- ssGSEA.zscore %>% data.frame() %>% tibble::rownames_to_column(var="Sample.Biowulf.ID.GeneExp"); 
+dim(ssGSEA.t)
+ssGSEA.t <- left_join(ssGSEA.t, 
+                      rnaseqProject$metaDataDF[,c("Sample.Data.ID", "Sample.Biowulf.ID.GeneExp", rnaseqProject$factorName)], 
+                      by="Sample.Biowulf.ID.GeneExp") %>% dplyr::filter(complete.cases(.)); dim(ssGSEA.t)
+
+entropy <- read.table("../RNASeq.RSEM/TCR.Clones.Entropy/AllEntropyData_H_CL_JS.landscape.v3.txt", sep="\t", header = T)
+entropyMeta <- dplyr::left_join(entropy, rnaseqProject$metaDataDF[, c("Sample.Data.ID", "LIBRARY_TYPE")], by="Sample.Data.ID")
+entropyMeta.Filt <- entropyMeta %>% dplyr::filter(!LIBRARY_TYPE %in% c("Normal", "CellLine") )
+
+entropyMetassGSEA <- dplyr::left_join(entropyMeta.Filt, ssGSEA.t, by="Sample.Data.ID") 
+entropyMetassGSEA <- entropyMetassGSEA[complete.cases(entropyMetassGSEA), ] %>% dplyr::rename_(.dots = setNames(list(rnaseqProject$factorName),c("Diagnosis")))
+
+varNames <- colnames(entropyMetassGSEA[,16:57]) 
+plotLists <- lapply(varNames, correlationPlots, constName="Htot..Entropy.",  df= data.frame(entropyMetassGSEA), customColorDF=customColorDF)
+ImmuneScorePlots <- lapply(plotLists, function(l) l[[1]] )
+SBName =paste0(TCRResultsDir,"/ImmuneScore.vs.Htot..Entropy",cloneType,".pdf")
+ggsave(SBName, marrangeGrob(ImmuneScorePlots, ncol=1, nrow=1), width = 15, height = 10)
+dev.off()
