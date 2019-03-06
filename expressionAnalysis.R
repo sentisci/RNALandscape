@@ -48,7 +48,7 @@ rnaseqProject <- ProjectSetUp$new(
   ## Keep only Ribozero
   # factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), "Normal.ribozero"=list("LibraryPrep" = "Ribozero"))
   ## Remove Celllines
-  ##factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"))
+  factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"))
 )
 
 ## Add utility functions to the project ####
@@ -164,19 +164,20 @@ colnames(expressionTMM.RPKM)  <- AliasColnames
 expressionTMM.RPKM.GSEA.Input <- expressionTMM.RPKM[, -c(1:7)]; rownames(expressionTMM.RPKM.GSEA.Input) <- expressionTMM.RPKM[,6]
 expressionTMM.RPKM.GSEA.print = corUtilsFuncs$createBroadGCTFile(expressionTMM.RPKM.GSEA.Input)
 
-## Save input for ssGSEA 
-write.table(expressionTMM.RPKM.GSEA.print, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$gseaDir,
-                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.zscore.",rnaseqProject$date,".txt"),sep="/"),
-                                      sep="\t", row.names = FALSE, quote = FALSE)
-saveRDS(expressionTMM.RPKM.GSEA.print, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$gseaDir,
-                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.zscore.",rnaseqProject$date,".rds"),sep="/"))
+# ## Save input for ssGSEA 
+# write.table(expressionTMM.RPKM.GSEA.print, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$gseaDir,
+#                                       paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.zscore.",rnaseqProject$date,".txt"),sep="/"),
+#                                       sep="\t", row.names = FALSE, quote = FALSE)
+# saveRDS(expressionTMM.RPKM.GSEA.print, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$gseaDir,
+#                                       paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.zscore.",rnaseqProject$date,".rds"),sep="/"))
 
 ## Read the ssGSEA output
-ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.2019-01-31.PROJ.gct")
+ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.2019-01-31.PROJ.KeggSig.gct")
 
 ## Add custom expression like cytolytic scre and HLA gene expression to the ssGSEA Outpuut file.
 cytolyticScore          <- corUtilsFuncs$cytolyticScore(expressionTMM.RPKM.GSEA.Input)
 HLA_cytolyticScore      <- rbind(expressionTMM.RPKM.GSEA.Input[c("HLA-A", "HLA-B", "HLA-C"),], cytolyticScore)
+data.frame(colnames(HLA_cytolyticScore), colnames(ssGSEAScores))
 ssGSEAScores.HLA.Cyto   <- rbind(ssGSEAScores,HLA_cytolyticScore)
 
 ## Plot the one variable plot
@@ -185,9 +186,10 @@ stopifnot( ncol(ssGSEAScores.HLA.Cyto) == length(as.character(rnaseqProject$meta
 
 ## Filter specified Diagnosis
 factorsToExclude              = paste(c("NS", "YST", "Teratoma"), collapse = "|")
-selected.metadata              <- rnaseqProject$metaDataDF  %>% filter_(  .dots = paste0("!grepl(", "'", factorsToExclude , "'" ,",", rnaseqProject$factorName, ")")) %>% 
-  dplyr::select_( .dots=c(rnaseqProject$metadataFileRefCol, rnaseqProject$factorName ) )
-ssGSEAScores.HLA.Cyto.Selected <- ssGSEAScores.HLA.Cyto %>% dplyr::select_(.dots = selected.metadata[, rnaseqProject$metadataFileRefCol])
+selected.metadata              <- rnaseqProject$metaDataDF  %>% 
+                                  filter_(  .dots = paste0("!grepl(", "'", factorsToExclude , "'" ,",", rnaseqProject$factorName, ")")) %>% 
+                                  dplyr::select_( .dots=c(rnaseqProject$metadataFileRefCol, rnaseqProject$factorName ) )
+ssGSEAScores.HLA.Cyto.Selected <- ssGSEAScores.HLA.Cyto %>% dplyr::select_(.dots = as.character(selected.metadata[, rnaseqProject$metadataFileRefCol]))
 dim(ssGSEAScores.HLA.Cyto.Selected)
 
 ## sanity check Checking metadata vs data ##
@@ -213,7 +215,7 @@ plotLists        <- corUtilsFuncs$OneVariablePlotSort(colList, Scores=Scores, or
 ## Save the plots
 EnrischmentScorePlots <- lapply(plotLists, function(l) l[[1]])
 SBName                <- paste(rnaseqProject$workDir, rnaseqProject$projectName, rnaseqProject$plotsDir,"TMM-RPKM.ssGSEA.enrichmentScores.all.pc.log.zscore.pdf",sep="/")
-## ggsave(SBName, marrangeGrob(EnrischmentScorePlots,ncol=2,nrow=1 ), width = 20, height = 10 )
+ggsave(SBName, marrangeGrob(EnrischmentScorePlots,ncol=2,nrow=1 ), width = 20, height = 10 )
 
 
 ## Plot to do percent samples enriched across cancer types
@@ -222,9 +224,9 @@ SBName                <- paste(rnaseqProject$workDir, rnaseqProject$projectName,
 dropSignatures    <- c("Macrophages_M0","Macrophages_M1", "Macrophages_M2","Dendritic_cells_activated")
 factorsToExclude  <- paste(c("NS", "YST", "Teratoma"), collapse = "|")
 ## Read and parse the ssGSEA Output from Broad GenePattern
-Scores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.2019-01-31.PROJ.gct.txt")
+Scores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.2019-01-31.PROJ.KeggSig.gct")
 ## Standardizing the raw score to amplify the difference.
-ScoresZscore      <- apply(Scores[1:24,],1, corUtilsFuncs$zscore_All)                  
+ScoresZscore      <- apply(Scores[c(1:24,43),],1, corUtilsFuncs$zscore_All)                  
 ScoresZscore      %<>% data.frame() %<>% tibble::rownames_to_column(var=rnaseqProject$metadataFileRefCol) %<>% dplyr::select(-one_of(dropSignatures ))
 
 ## Preparing the data and prepare for heatmap
@@ -653,17 +655,17 @@ colList                 <- c(1:(ncol(ScoresPre)-1)) ; Scores <- ScoresPre
 customColorDF    <- rnaseqProject$customColorsDF
 
 ## Filter for diagnosis
-Scores <- Scores %>% filter(!Diagnosis %in% c("Teratoma", "YST", "ML"))
+Scores <- Scores %>% filter(!Diagnosis %in% c("Teratoma", "YST"))
 
 ### Plot and Save ###
 plotLists <- corUtilsFuncs$OneVariablePlotSort( colList, Scores=Scores, orderOfFactor, orderOfSignature, standardize =FALSE, logit =TRUE, logBase=10,
-                                                yLab = "log(TCR counts)", legendDisplay = FALSE, customColorDF = customColorDF, 
+                                                yLab = "log(IGH counts)", legendDisplay = FALSE, customColorDF = customColorDF, 
                                                 plotType = "StringBean", sizeOfDots = 0.6  )
 plotLists
 tcrcloneCountPlots <- lapply(plotLists, function(l) l[[1]])
 tcrcloneCountData  <- lapply(plotLists, function(l) l[[2]]) %>% data.frame(check.names = FALSE) %>% bind_rows()
   
-SBName = paste0(TCRResultsDir,"/",cloneType, ".BeanPlot.v2.pdf")
+SBName = paste0(TCRResultsDir,"/",cloneType, ".BeanPlot.v3.pdf")
 ggsave(SBName, marrangeGrob(tcrcloneCountPlots, ncol=1, nrow=1), width = 10, height = 5)
 dev.off()
 
@@ -671,7 +673,7 @@ dev.off()
 ### Coorelation with Immune Signature
 
 ### Prepare data for correlation between immunescore and clone count Read the enrichment score data ####
-correlationPlots <- function(varName="", constName="", df=NA, customColorDF=NA){
+correlationPlots <- function(varName="", constName="", df=NA, customColorDF=NA, xlab="Log Total Clones"){
   
   print(paste(varName))
   customColorsVector <- setNames( as.character(customColorDF$Color), as.character(customColorDF$Diagnosis))
@@ -684,7 +686,7 @@ correlationPlots <- function(varName="", constName="", df=NA, customColorDF=NA){
     theme_bw() +
     theme(axis.text=element_text(size=13)
           ,axis.title=element_text(size=13,face="bold")) +
-    xlab("Log Total Clones") +
+    xlab(xlab) +
     ylab(paste("Standardised Enrichment Score", sep=" "))+
     ggtitle(paste("Corr.Coeff = ", signif(corrTest$estimate[[1]],5), "\np-value = ", signif(corrTest$p.value,5), "", varName,sep=""))
   
@@ -828,9 +830,9 @@ pdf("ven.probability.pdf", height = 10, width = 10)
 ggarrange(plotlist = list(TumorPrivatePlot, InHouseNormalsPlot, warenetalNormalsPlot),common.legend=TRUE, nrow = 3)
 dev.off()
 
-### Clonality ###
+### Clonality #####
 
-ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.2019-01-31.PROJ.gct")
+ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.2019-01-31.PROJ.KeggSig.gct")
 ssGSEA.zscore <- apply(ssGSEAScores, 1, corUtilsFuncs$zscore_All) ; 
 ssGSEA.t <- ssGSEA.zscore %>% data.frame() %>% tibble::rownames_to_column(var="Sample.Biowulf.ID.GeneExp"); 
 dim(ssGSEA.t)
@@ -839,15 +841,33 @@ ssGSEA.t <- left_join(ssGSEA.t,
                       by="Sample.Biowulf.ID.GeneExp") %>% dplyr::filter(complete.cases(.)); dim(ssGSEA.t)
 
 entropy <- read.table("../RNASeq.RSEM/TCR.Clones.Entropy/AllEntropyData_H_CL_JS.landscape.v3.txt", sep="\t", header = T)
-entropyMeta <- dplyr::left_join(entropy, rnaseqProject$metaDataDF[, c("Sample.Data.ID", "LIBRARY_TYPE")], by="Sample.Data.ID")
+entropyMeta <- dplyr::left_join(entropy, rnaseqProject$metaDataDF[, c("Sample.Data.ID", "LIBRARY_TYPE", rnaseqProject$factorName)], by="Sample.Data.ID")
 entropyMeta.Filt <- entropyMeta %>% dplyr::filter(!LIBRARY_TYPE %in% c("Normal", "CellLine") )
 
 entropyMetassGSEA <- dplyr::left_join(entropyMeta.Filt, ssGSEA.t, by="Sample.Data.ID") 
 entropyMetassGSEA <- entropyMetassGSEA[complete.cases(entropyMetassGSEA), ] %>% dplyr::rename_(.dots = setNames(list(rnaseqProject$factorName),c("Diagnosis")))
 
-varNames <- colnames(entropyMetassGSEA[,16:57]) 
-plotLists <- lapply(varNames, correlationPlots, constName="Htot..Entropy.",  df= data.frame(entropyMetassGSEA), customColorDF=customColorDF)
+varNames <- colnames(entropyMetassGSEA[,16:58]) 
+plotLists <- lapply(varNames, correlationPlots, constName="Htot..Entropy.", xlab="Entropy", df= data.frame(entropyMetassGSEA), customColorDF=customColorDF)
 ImmuneScorePlots <- lapply(plotLists, function(l) l[[1]] )
 SBName =paste0(TCRResultsDir,"/ImmuneScore.vs.Htot..Entropy",cloneType,".pdf")
 ggsave(SBName, marrangeGrob(ImmuneScorePlots, ncol=1, nrow=1), width = 15, height = 10)
 dev.off()
+
+## Bean plot
+entropyScores <- entropyMeta.Filt[,c("Htot..Entropy.", rnaseqProject$factorName)] %>% 
+                 dplyr::rename_(.dots = setNames( list(rnaseqProject$factorName), list("Diagnosis") ))
+orderOfFactor           <- as.character( unique(entropyScores$Diagnosis) )
+orderOfSignature        <- colnames(entropyScores)[-ncol(entropyScores)]
+colList                 <- c(1:(ncol(entropyScores)-1)) ; Scores <- entropyScores
+## Generate custom colors
+customColorDF    <- rnaseqProject$customColorsDF
+
+## Filter for diagnosis
+Scores <- entropyScores %>% filter(!Diagnosis %in% c("Teratoma", "YST")) %>% dplyr::filter(complete.cases(.))
+
+### Plot and Save ###
+plotLists <- corUtilsFuncs$OneVariablePlotSort( colList, Scores=Scores, orderOfFactor, orderOfSignature, standardize =FALSE, logit =TRUE, logBase=10,
+                                                yLab = "log( Entropy )", legendDisplay = FALSE, customColorDF = customColorDF, 
+                                                plotType = "StringBean", sizeOfDots = 0.6  )
+
