@@ -554,10 +554,30 @@ readCloneFiles <- function(x, cloneType=NA){
 ## Start analysis for clone type: Choose clone type ####
 ## cloneType = "IGH";
 cloneType = "TRB";
+correlationPlots <- function(varName="", constName="", df=NA, customColorDF=NA, xlab="Log Total Clones"){
+  
+  print(paste(varName))
+  customColorsVector <- setNames( as.character(customColorDF$Color), as.character(customColorDF$Diagnosis))
+  corrTest <- cor.test(df[,constName], df[,varName], method = "spearman")
+  if  ( corrTest$p.value < 2.2e-16 ) { corrTest$p.value = 2.2e-16 }
+  plot <- ggplot(df, aes_string(x=constName, y=varName)) + 
+    geom_smooth(method=lm,  fill="grey") +
+    geom_point(aes(colour = factor(Diagnosis)), show.legend = T, size=3, shape=16) + 
+    scale_colour_manual(values=customColorsVector) +
+    theme_bw() +
+    theme(axis.text=element_text(size=13)
+          ,axis.title=element_text(size=13,face="bold")) +
+    xlab(xlab) +
+    ylab(paste("Standardised Enrichment Score", sep=" "))+
+    ggtitle(paste("Corr.Coeff = ", signif(corrTest$estimate[[1]],5), "\np-value = ", signif(corrTest$p.value,5), "", varName,sep=""))
+  
+  return(list(plot))
+}   
+customColorDF    <- rnaseqProject$customColorsDF
+TCRResultsDir <- paste0(rnaseqProject$workDir,rnaseqProject$projectName,"/TCR.Results/")
 
 ### List files and read data into a single data matrix ####
 TCRDir <- paste0(rnaseqProject$workDir,rnaseqProject$projectName,"/TCR.clones.files/")
-TCRResultsDir <- paste0(rnaseqProject$workDir,rnaseqProject$projectName,"/TCR.Results/")
 fileList <- list.files(TCRDir) ; length(fileList)
 AllClonesData             <- rbindlist( lapply(fileList, readCloneFiles, cloneType=cloneType) ) ; dim(AllClonesData)
 
@@ -673,28 +693,6 @@ dev.off()
 ### Coorelation with Immune Signature
 
 ### Prepare data for correlation between immunescore and clone count Read the enrichment score data ####
-correlationPlots <- function(varName="", constName="", df=NA, customColorDF=NA, xlab="Log Total Clones"){
-  
-  print(paste(varName))
-  customColorsVector <- setNames( as.character(customColorDF$Color), as.character(customColorDF$Diagnosis))
-  corrTest <- cor.test(df[,constName], df[,varName], method = "spearman")
-  if  ( corrTest$p.value < 2.2e-16 ) { corrTest$p.value = 2.2e-16 }
-  plot <- ggplot(df, aes_string(x=constName, y=varName)) + 
-    geom_smooth(method=lm,  fill="grey") +
-    geom_point(aes(colour = factor(Diagnosis)), show.legend = T, size=3, shape=16) + 
-    scale_colour_manual(values=customColorsVector) +
-    theme_bw() +
-    theme(axis.text=element_text(size=13)
-          ,axis.title=element_text(size=13,face="bold")) +
-    xlab(xlab) +
-    ylab(paste("Standardised Enrichment Score", sep=" "))+
-    ggtitle(paste("Corr.Coeff = ", signif(corrTest$estimate[[1]],5), "\np-value = ", signif(corrTest$p.value,5), "", varName,sep=""))
-  
-  return(list(plot))
-}   
-
-customColorDF    <- rnaseqProject$customColorsDF
-
 ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.2019-01-31.PROJ.gct")
 ssGSEA.zscore <- apply(ssGSEAScores, 1, corUtilsFuncs$zscore_All) ; 
 ssGSEA.t <- ssGSEA.zscore %>% data.frame() %>% tibble::rownames_to_column(var="Sample.Biowulf.ID.GeneExp"); 
@@ -707,7 +705,7 @@ immuneScore.Clones <- left_join(countObj.gb.Samples.Annotate.NoNS[,c("TotalClone
                       dplyr::select(-one_of(c("Sample.Biowulf.ID.GeneExp","Sample.ID"))) %>% 
                       data.frame()
 #immuneScore.Clones %<>% tibble::column_to_rownames("Sample.ID")
-immuneScore.Clones <- immuneScore.Clones %>% dplyr::rename_(.dots = setNames(list(rnaseqProject$factorName),c("Diagnosis")))  %>% dplyr::mutate(TotalCloneSum = log10(TotalCloneSum+1))
+immuneScore.Clones <- immuneScore.Clones %>% dplyr::rename_(.dots = setNames(list(rnaseqProject$factorName),c("Diagnosis"))) %>% dplyr::mutate(TotalCloneSum = log10(TotalCloneSum+1))
 
 varNames <- colnames(immuneScore.Clones[,3:44])  
 plotLists <- lapply(varNames, correlationPlots, constName="TotalCloneSum",  df= data.frame(immuneScore.Clones), customColorDF=customColorDF)
@@ -775,14 +773,14 @@ TCGANormal.Shared <- TCGANormal %>% dplyr::filter( grepl(".*C[A|S]+.*F", Sequenc
 TCGANormalDistinct <- unique(TCGANormal.Shared$Sequence)
 
 ## countObj.Annot.gb
-countObj.Annot.gb.Cancer <- countObj.Annot.gb %>% filter(!Diagnosis %in% c("NS"))
+countObj.Annot.gb.Cancer <- countObj.Annot.gb %>% filter(!grepl("NS",Diagnosis))
 countObj.Annot.gb.Cancer$length <- sapply(as.character(countObj.Annot.gb.Cancer$cdr3aa), nchar)
 cancerShared             <- countObj.Annot.gb.Cancer %>% filter(TotalSamples > 1); length(cancerShared$cdr3aa)
 cancerShared.Complete    <- unlist(stringr::str_extract_all(cancerShared$cdr3aa, "^C.*F")); length(cancerShared.Complete)
 cancerPrivate            <- countObj.Annot.gb.Cancer %>% filter(TotalSamples == 1); length(cancerPrivate$cdr3aa)
 cancerPrivate.Complete    <- unlist(stringr::str_extract_all(cancerPrivate$cdr3aa, "^C.*F")); length(cancerPrivate.Complete)
 
-countObj.Annot.gb.NS <- countObj.Annot.gb %>% filter(Diagnosis %in% c("NS")); length(countObj.Annot.gb.NS$cdr3aa)
+countObj.Annot.gb.NS <- countObj.Annot.gb %>% filter(grepl("NS",Diagnosis)); length(countObj.Annot.gb.NS$cdr3aa)
 inHouseNormal.Complete    <- unlist(stringr::str_extract_all(countObj.Annot.gb.NS$cdr3aa, "^C.*F")); length(inHouseNormal.Complete)
 
 vennCDR3aaList <- list("Tumor, Private" = unique(cancerPrivate$cdr3aa),
@@ -801,7 +799,7 @@ vennCDR3aaList <- list("Tumor, Private" = unique(cancerPrivate$cdr3aa),
 # )
 
 library(venn)
-v.table <- venn.diagram(vennCDR3aaList, ilab=TRUE, zcolor = "style", size = 15, cexil = 1, cexsn = 1)
+v.table <- venn::venn(vennCDR3aaList, ilab=TRUE, zcolor = "style", size = 15, cexil = 1, cexsn = 1)
 
 ### Plot Inforgraphics ####
 TumorPrivate <- attr(v.table,"intersections")[["Tumor, Private"]]; length(TumorPrivate)
@@ -840,13 +838,14 @@ ssGSEA.t <- left_join(ssGSEA.t,
                       rnaseqProject$metaDataDF[,c("Sample.Data.ID", "Sample.Biowulf.ID.GeneExp", rnaseqProject$factorName)], 
                       by="Sample.Biowulf.ID.GeneExp") %>% dplyr::filter(complete.cases(.)); dim(ssGSEA.t)
 
-entropy <- read.table("../RNASeq.RSEM/TCR.Clones.Entropy/AllEntropyData_H_CL_JS.landscape.v3.txt", sep="\t", header = T)
-entropyMeta <- dplyr::left_join(entropy, rnaseqProject$metaDataDF[, c("Sample.Data.ID", "LIBRARY_TYPE", rnaseqProject$factorName)], by="Sample.Data.ID")
+entropy <- read.table(paste0("../RNASeq.RSEM/TCR.Clones.Entropy/AllEntropyData_H_CL_JS.landscape.",cloneType,".v3.txt"), sep="\t", header = T)
+entropyMeta <- dplyr::left_join(entropy, rnaseqProject$metaDataDF[, c("Sample.Data.ID", "LIBRARY_TYPE")], by="Sample.Data.ID")
 entropyMeta.Filt <- entropyMeta %>% dplyr::filter(!LIBRARY_TYPE %in% c("Normal", "CellLine") )
 
 entropyMetassGSEA <- dplyr::left_join(entropyMeta.Filt, ssGSEA.t, by="Sample.Data.ID") 
 entropyMetassGSEA <- entropyMetassGSEA[complete.cases(entropyMetassGSEA), ] %>% dplyr::rename_(.dots = setNames(list(rnaseqProject$factorName),c("Diagnosis")))
 
+## Correlation Plot
 varNames <- colnames(entropyMetassGSEA[,16:58]) 
 plotLists <- lapply(varNames, correlationPlots, constName="Htot..Entropy.", xlab="Entropy", df= data.frame(entropyMetassGSEA), customColorDF=customColorDF)
 ImmuneScorePlots <- lapply(plotLists, function(l) l[[1]] )
@@ -855,8 +854,7 @@ ggsave(SBName, marrangeGrob(ImmuneScorePlots, ncol=1, nrow=1), width = 15, heigh
 dev.off()
 
 ## Bean plot
-entropyScores <- entropyMeta.Filt[,c("Htot..Entropy.", rnaseqProject$factorName)] %>% 
-                 dplyr::rename_(.dots = setNames( list(rnaseqProject$factorName), list("Diagnosis") ))
+entropyScores <- entropyMetassGSEA[,c("Htot..Entropy.", "Diagnosis")] 
 orderOfFactor           <- as.character( unique(entropyScores$Diagnosis) )
 orderOfSignature        <- colnames(entropyScores)[-ncol(entropyScores)]
 colList                 <- c(1:(ncol(entropyScores)-1)) ; Scores <- entropyScores
