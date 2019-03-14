@@ -33,7 +33,7 @@ rnaseqProject <- ProjectSetUp$new(
   filterGeneMethod        = "bySum",
   factorName              = "DIAGNOSIS.Substatus.Tumor.Normal.Tissue",
   metadataFileRefCol      = "Sample.Biowulf.ID.GeneExp",
-  metaDataFileName        = "MetadataMapper.v3.txt",
+  metaDataFileName        = "MetadataMapper.v3.tcga.test.txt",
   outputdirRDSDir         = "GeneRDSOutput",
   outputdirTXTDir         = "GeneTXTOutput",
   gseaDir                 = "GSEA",
@@ -82,7 +82,7 @@ treemap(dtf=data.frame(StatsFinal), index=c("DIAGNOSIS.Alias", "DIAGNOSIS.Alias.
         title = "Samples Map",
         title.legend = "Histology"
 )
-dev.off()
+#dev.off()
 
 ## Generate expression matrix ####
 rm(mergeObjectsNoDup)
