@@ -249,9 +249,10 @@ CoreUtilities <- R6Class(
         sampleName <- basename(x) 
       }
       ## print(paste0("I am in readTXTFiles ", sampleName, "  ", colNameSelect))
+      print(x)
       rdsObj <- fread(x, sep="\t", header = TRUE) %>% rename_(.dots=setNames(colNameSelect, sampleName))
       ## Operation to include TCGA datasets.
-      rdsObj[,primaryID] <- gsub("\\.[0-9]*","",rdsObj[,primaryID,with=FALSE])
+      rdsObj[,c(primaryID) := sapply(.SD,gsub,pattern = "\\.[0-9]*",replacement = ""), .SDcols=c(primaryID)]
       return(rdsObj[, c(primaryID,sampleName), with=FALSE])
       
     },

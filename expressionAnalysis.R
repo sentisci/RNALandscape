@@ -94,8 +94,8 @@ mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Gene
                                                    fileSuffix        = ".genes.results",
                                                    primaryID         = "gene_id",
                                                    metadata          = rnaseqProject$metaDataDF,
-                                                   metadataFileRefCol=rnaseqProject$metadataFileRefCol
-)
+                                                   metadataFileRefCol=rnaseqProject$metadataFileRefCol )
+
 #saveRDS(mergeObjectsNoDup, "../RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.RiboZeros.RDS")
 
 #mergeObjectsNoDup <- readRDS("../RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.excluding celllines.RDS")
