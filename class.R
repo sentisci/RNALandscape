@@ -260,8 +260,9 @@ CoreUtilities <- R6Class(
     mergeTXTFiles = function( x, fileSuffix=NA, colNameSelect=NA, primaryID=NA ){
       
       print(paste(" Total files in the input folder ", length(x)))
-      Df_results <- data.frame( basename(x), result = grepl(paste(self$allFileList, collapse = "|"),basename(x)))
-      selectedFileList <- x[which(Df_results$result == TRUE)]
+
+      #Df_results <- data.frame( basename(x), result = results)
+      selectedFileList <- x[which(basename(x) %in% self$allFileList)]
       
       notselectedFileListMeta        <- self$allFileList[which(!self$allFileList  %in% basename(x))]; print(length(notselectedFileListMeta))
       print(notselectedFileListMeta)

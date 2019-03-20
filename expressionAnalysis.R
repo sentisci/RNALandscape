@@ -33,7 +33,7 @@ rnaseqProject <- ProjectSetUp$new(
   filterGeneMethod        = "bySum",
   factorName              = "DIAGNOSIS.Substatus.Tumor.Normal.Tissue",
   metadataFileRefCol      = "Sample.Biowulf.ID.GeneExp",
-  metaDataFileName        = "MetadataMapper.v3.tcga.test.txt",
+  metaDataFileName        = "MetadataMapper.v3.txt",
   outputdirRDSDir         = "GeneRDSOutput",
   outputdirTXTDir         = "GeneTXTOutput",
   gseaDir                 = "GSEA",
@@ -177,7 +177,7 @@ ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GS
 ## Add custom expression like cytolytic scre and HLA gene expression to the ssGSEA Outpuut file.
 cytolyticScore          <- corUtilsFuncs$cytolyticScore(expressionTMM.RPKM.GSEA.Input)
 HLA_cytolyticScore      <- rbind(expressionTMM.RPKM.GSEA.Input[c("HLA-A", "HLA-B", "HLA-C"),], cytolyticScore)
-data.frame(colnames(HLA_cytolyticScore), colnames(ssGSEAScores))
+View(data.frame(colnames(HLA_cytolyticScore), colnames(ssGSEAScores)))
 ssGSEAScores.HLA.Cyto   <- rbind(ssGSEAScores,HLA_cytolyticScore)
 
 ## Plot the one variable plot
@@ -238,6 +238,37 @@ ScoresForGather   <- dplyr::left_join(ScoresForGather,
                                       dplyr::filter_(  .dots = paste0("!grepl(", "'", factorsToExclude , "'" ,",", rnaseqProject$factorName, ")")) %>% 
                                       dplyr::rename_(.dots = setNames(list(rnaseqProject$factorName),c("Diagnosis")) )
 
+## Order of genesets
+genesets <- c("ImmuneSignature",
+              "StromalSignature",
+              "Antigen_processing_and_presentation",
+              "T.cells_CD8",
+              "T.cells_CD4_naive",
+              "T.cells_CD4_memory_resting",
+              "T.cells_CD4_memory_activated",
+              "T.cells_follicular_helper",
+              "T.cells_regulatory",
+              "T.cells_gamma_delta",
+              "NK.cells_activated",
+              "NK.cells_resting",
+              "B.cells_naive",
+              "B.cells_memory",
+              "Plasma_cells",
+              "Monocytes",
+              "Dendritic_cells_resting",
+              "M1 Macrophages",
+              "M2 Macrophages",
+              "Neutrophils",
+              "Eosinophils",
+              "Mast_cells_resting",
+              "Mast_cells_activated"
+)
+
+Diagnosis <- c("WT", "SS", "CCSK", "EWS",  "RMS.FN", "RMS.FP", "NB.MYCN.A","NB.Unknown", "DSRCT", "NB.MYCN.NA",  "OS", "UDS", 
+                "ML", "HBL", "ASPS")
+ScoresForGather$GeneSet <- factor(ScoresForGather$GeneSet, levels = genesets, ordered = TRUE)
+ScoresForGather$Diagnosis <- factor(ScoresForGather$Diagnosis, levels = Diagnosis, ordered = TRUE)
+
 ## Final check before plotting                        
 dim(ScoresForGather);head(ScoresForGather)
 
@@ -256,7 +287,7 @@ colnames(ScoresForSpreadHeat)  <- colnames(ScoresForSpread)
 #write.table(ScoresForSpread, "C:/Users/sindiris/R Scribble/RNASeq/PlotData/ScoresperDiagSigEnrichZscore.txt", sep="\t", quote = F, col.names = T, row.names = F)
 
 ## Open the PDF File
-pdf( paste(rnaseqProject$workDir, rnaseqProject$projectName, rnaseqProject$plotsDir,"PercentSamplesEnrichmentScoreHeatMap.Cibersort.pdf", sep="/"), height=10, width = 20)
+#pdf( paste(rnaseqProject$workDir, rnaseqProject$projectName, rnaseqProject$plotsDir,"PercentSamplesEnrichmentScoreHeatMap.Cibersort.pdf", sep="/"), height=10, width = 20)
 
 ### Using two different packages to plot
 ## Using SuperheatMap package
@@ -276,10 +307,46 @@ breaks <- seq(min(ScoresForSpreadHeat),max(ScoresForSpreadHeat), by=0.1)
 # matrix_color_vector <- colorpanel(n=length(breaks)-1,low="#4FFC07",mid="#0B0B0B",high="#F92908")
 #black red
 matrix_color_vector <- colorpanel(n=length(breaks)-1,low="#4FFC07",mid="#273746",high="#F92908")
-fheatmap(t(ScoresForSpreadHeat), display_tree_col = F,cluster_rows = T, mat_color = matrix_color_vector,
+
+fheatmap(t(ScoresForSpreadHeat), display_tree_col = F,cluster_rows = F, cluster_cols = F, mat_color = matrix_color_vector,
          row_fontsize = 5, col_fontsize = 5, cell_border = F, cell_border_col = "#A6ACAF",seed = 10,
-         clustering_method = "complete", title = "Percent samples enriched across cancer types")
+         title = "Percent samples enriched across cancer types")
+
 dev.off()
+
+## Perfomr correlation analysis  ####
+library("Hmisc")
+## Read the ssGSEA output
+ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.2019-01-31.PROJ.KeggSig.gct")
+## Read the DDR genes file
+DDRGenes <- read.table("C:/Users/sindiris/R Scribble/Annotation RDS/276_DDR_Genes.v2.txt", sep="\t", header = T, stringsAsFactors = FALSE)
+## sanity check if any DDR genes are missing form the expression matrix
+excludeGenesIndx <- which(! DDRGenes$DDRGenes %in% rownames(expressionTMM.RPKM.GSEA.Input))
+DDRGenesPresent <- DDRGenes$DDRGenes[-excludeGenesIndx]; length(DDRGenesPresent)
+## Get gene expression the present genes
+DDRGenesGeneExp     <- expressionTMM.RPKM.GSEA.Input[DDRGenesPresent,]; dim(DDRGenesGeneExp)
+## Sanity check for NA or Inf
+indx <- apply(DDRGenesGeneExp, 1, function(x) any(is.na(x) | is.infinite(x)))
+rownames(DDRGenesGeneExp)[indx];
+DDRGenesGeneExpFinal <-  DDRGenesGeneExp[complete.cases(DDRGenesGeneExp), ]; dim(DDRGenesGeneExpFinal)
+## bind geneexpression matrix to immunescore matrix and perform correlation
+ssGSEAScores.DDRGenes  <- rbind(ssGSEAScores,DDRGenesGeneExpFinal)
+ssGSEAScores.DDRGenes.corr <- rcorr(t(ssGSEAScores.DDRGenes),  type = "spearman");View(ssGSEAScores.DDRGenes.corr)
+## Plot the heatmap
+col<- colorRampPalette(c("blue", "white", "red"))(20)
+pdf("C:/Users/sindiris/R Scribble/RNASeq.RSEM/Figures/ImmuneScoreVSDDRgeneExp.pdf", height = 55, width = 55)
+heatmap(x = ssGSEAScores.DDRGenes.corr$r, col = col, symm = TRUE, keep.dendro = FALSE)
+dev.off()
+## slicing out the interesting part
+ssGSEAScores.DDRGenes  <- rbind(ssGSEAScores[c("T.regulatory_PMID_30127393_neg", "T.regulatory_PMID_30127393_pos"),],DDRGenesGeneExpFinal)
+ssGSEAScores.DDRGenes.corr <- rcorr(t(ssGSEAScores.DDRGenes),  type = "spearman"); View(ssGSEAScores.DDRGenes.corr)
+pdf("C:/Users/sindiris/R Scribble/RNASeq.RSEM/Figures/ImmuneScoreVSDDRgeneExpSelected.pdf", height = 55, width = 55)
+heatmap(x = ssGSEAScores.DDRGenes.corr$r, col = col, symm = TRUE, keep.dendro = FALSE)
+dev.off()
+## Writing data to files
+write.table(ssGSEAScores.DDRGenes, "C:/Users/sindiris/R Scribble/RNASeq.RSEM/FigureData/ssGSEAScores.DDRGenes.txt", quote = FALSE, sep = "\t")
+write.table(ssGSEAScores.DDRGenes.corr$p, "C:/Users/sindiris/R Scribble/RNASeq.RSEM/FigureData/ImmuneSoreVSDDRgexp.p.txt", quote = FALSE)
+
 
 ## Perform Differential gene expression analysis ####
 
