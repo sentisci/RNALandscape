@@ -33,7 +33,7 @@ rnaseqProject <- ProjectSetUp$new(
   filterGeneMethod        = "bySum",
   factorName              = "DIAGNOSIS.Substatus.Tumor.Normal.Tissue",
   metadataFileRefCol      = "Sample.Biowulf.ID.GeneExp",
-  metaDataFileName        = "MetadataMapper.v3.txt",
+  metaDataFileName        = "MetadataMapper.v3.tcga.txt",
   outputdirRDSDir         = "GeneRDSOutput",
   outputdirTXTDir         = "GeneTXTOutput",
   gseaDir                 = "GSEA",
@@ -172,7 +172,8 @@ expressionTMM.RPKM.GSEA.print = corUtilsFuncs$createBroadGCTFile(expressionTMM.R
 #                                       paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.zscore.",rnaseqProject$date,".rds"),sep="/"))
 
 ## Read the ssGSEA output
-ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.2019-01-31.PROJ.KeggSig.gct")
+#ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.2019-01-31.PROJ.KeggSig.gct")
+ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM.TMM.RPKM.GSEA.Input.All.TCGA.Khanlab.2019-03-19.PROJ.gct")
 
 ## Add custom expression like cytolytic scre and HLA gene expression to the ssGSEA Outpuut file.
 cytolyticScore          <- corUtilsFuncs$cytolyticScore(expressionTMM.RPKM.GSEA.Input)
@@ -346,7 +347,6 @@ dev.off()
 ## Writing data to files
 write.table(ssGSEAScores.DDRGenes, "C:/Users/sindiris/R Scribble/RNASeq.RSEM/FigureData/ssGSEAScores.DDRGenes.txt", quote = FALSE, sep = "\t")
 write.table(ssGSEAScores.DDRGenes.corr$p, "C:/Users/sindiris/R Scribble/RNASeq.RSEM/FigureData/ImmuneSoreVSDDRgexp.p.txt", quote = FALSE)
-
 
 ## Perform Differential gene expression analysis ####
 

@@ -259,16 +259,16 @@ CoreUtilities <- R6Class(
     ## Merge CSV or TXT files
     mergeTXTFiles = function( x, fileSuffix=NA, colNameSelect=NA, primaryID=NA ){
       
-      print(paste(" Total files in the input folder ", length(x)))
-
-      #Df_results <- data.frame( basename(x), result = results)
+      print(paste(" Total files in the input folder ", length(x), "Total libraries in the metadata ", length( self$allFileList)))
+      #Df_results <- data.frame( basename(x), result = grepl(paste(self$allFileList, collapse = "|"),basename(x)))
+      #selectedFileList <- x[which(Df_results$result == TRUE)]
       selectedFileList <- x[which(basename(x) %in% self$allFileList)]
+      print(paste0('Which files in input folder are IN the meta data ',length(selectedFileList), paste(basename(selectedFileList), collapse=";")))
+      notselectedFileListFolder      <- x[which(!basename(x)  %in%  self$allFileList )];
+      print(paste0('Which files in the input folder are NOT IN the metadata ',length(notselectedFileListFolder), paste(basename(notselectedFileListFolder), collapse=";")))
+      notselectedFileListMeta        <- self$allFileList[which(!self$allFileList  %in% basename(x))];
+      print(paste0('Which files in the metadata are NOT IN the folder ',length(notselectedFileListMeta), paste(notselectedFileListMeta, collapse=";")))
       
-      notselectedFileListMeta        <- self$allFileList[which(!self$allFileList  %in% basename(x))]; print(length(notselectedFileListMeta))
-      print(notselectedFileListMeta)
-      notselectedFileListFolder      <- x[which(!basename(x)  %in%  self$allFileList )]; print(length(notselectedFileListFolder))
-      #if( length(notselectedFileListFolder) >= 1 | length(notselectedFileListMeta) >= 1) { 
-      print(notselectedFileListMeta)
       if( length(notselectedFileListMeta) >= 1) {                
         cat( paste(" Following files are not present in input folder.Please record them in metadata file or remove from the input file folder"
                    ,paste(basename(notselectedFileListMeta), collapse = "\n")))
