@@ -452,18 +452,17 @@ mergeDiffTestResults <- function(x, type="", saveDirPath="", extension="", colIn
 # Step 1.  Set the filters and annotation ####
 
 ## Javed's Filter for all three categories
-group2FPKM.T = 2 ; group1FPKM.T = 2;  PValue.T = 0.001 ; logFoldDiff.T =3 ; FDR_value.T = 0.05 ; vitalFPKM.T = 30
+group2FPKM.T = 5 ; group1FPKM.T = 1;  PValue.T = 0.00001 ; logFoldDiff.T = 4 ; FDR_value.T = 0.05 ; vitalFPKM.T = 1
 
-# selectedGeneList <- "CancerGermlineAntigen"
-#Zscored.logFC = 0.25 ; Zscore.group2 = 0; group2FPKM = 1 ; group1FPKM = 1;  PValue = 0.01 ; logFC =1 ; FDR = 0.05
+selectedGeneList <- "CancerGermlineAntigen"
+Zscored.logFC = 0.25; Zscore.group2 = 0.5; group2FPKM = 5; group1FPKM = 1;  PValue = 0.001; logFC = 4; FDR = 0.05
 
 # selectedGeneList <- "CellSurface"
-#Zscored.logFC = 1 ; Zscore.group2 = 1; group2FPKM = 1 ; group1FPKM = 1;  PValue = 0.001 ; logFC = 1 ; FDR = 0.05
+# Zscored.logFC = 1 ; Zscore.group2 = 0.5; group2FPKM = 5 ; group1FPKM = 1;  PValue = 0.001 ; logFC = 4 ; FDR = 0.05
 
-## Zscore Filtering
-selectedGeneList <- "TranscriptionFactor"
-Zscored.logFC = 1 ; Zscore.group2 = 1; group2FPKM = 1 ; group1FPKM = 1;  PValue = 0.001 ; logFC =1 ; FDR = 0.05
-
+# selectedGeneList <- "TranscriptionFactor"
+# Zscored.logFC = 0.25 ; Zscore.group2 = 0.5; group2FPKM = 5 ; group1FPKM = 1;  PValue = 0.001 ; logFC = 4 ; FDR = 0.05
+# 
 MergedDiffExpResultDir <- paste0("C:/Users/sindiris/R Scribble//RNASeq.RSEM/MergedDiffExpResults/",selectedGeneList)
 
 # Step 2.  Perform Merging of differential expression file across groups ####
@@ -498,12 +497,8 @@ allTumorStats <- do.call(cbind, lapply(ConditionGroup, function(x){
     dplyr::filter_(.dots=paste0( 
       groupsCompare[2]," >= ", group2FPKM ,
       " &  Zscored.logFC   >= ", Zscored.logFC,
-      " & ", paste0("Zscored.",groupsCompare[2]), " >= ", Zscore.group2,
-      " &  Brain.MeanExp  < ", vitalFPKM.T ,
-      " &  Heart.MeanExp  < ", vitalFPKM.T ,
-      " &  Kidney.MeanExp < ", vitalFPKM.T ,
-      " &  Liver.MeanExp  < ", vitalFPKM.T  ,
-      " &  Lung.MeanExp   < ", vitalFPKM.T )) %>%
+      " &   logFC >", logFC,
+      " & ", paste0("Zscored.",groupsCompare[2]), " >= ", Zscore.group2 )) %>%
     dplyr::arrange_(.dots = paste0("desc(","Zscored.",groupsCompare[2], ")" ) )
   
   ## Complete filtered gene List with zscoring filter
@@ -521,15 +516,12 @@ allTumorStats <- do.call(cbind, lapply(ConditionGroup, function(x){
   
   
   ## Javed's Filtering
+  print(colnames(tumorAllData))
   tumorAllData.filt <- tumorAllData %>% dplyr::filter_(.dots=paste0( groupsCompare[2], " >= ", group2FPKM.T ,
-                                                                           " & ", groupsCompare[1], " <= ", group1FPKM.T ,
-                                                                           " &   logFC >", logFoldDiff.T,
-                                                                           " &   FDR   <", FDR_value.T ,
+                                                                           " &  logFC >=", logFoldDiff.T,
+                                                                           " &  PValue   <", FDR_value.T ,
                                                                            " &  Brain.MeanExp  < ", vitalFPKM.T ,
-                                                                           " &  Heart.MeanExp  < ", vitalFPKM.T ,
-                                                                           " &  Kidney.MeanExp < ", vitalFPKM.T ,
-                                                                           " &  Liver.MeanExp  < ", vitalFPKM.T  ,
-                                                                           " &  Lung.MeanExp   < ", vitalFPKM.T  )) %>%
+                                                                           " &  Heart.MeanExp  < ", vitalFPKM.T   )) %>%
     dplyr::arrange_(.dots = paste0("desc(","Zscored.",groupsCompare[2], ")" ) )
   
   ## Complete filtered gene List with traditional filter
@@ -578,18 +570,19 @@ write.table(allTumorMergedStats[[2]], paste(MergedDiffExpResultDir,"/",selectedG
             sep="\t", row.names = FALSE, quote = FALSE)
 
 # Step 6.  Select rows for heatmap ####
-allTumorStatsFinal <- read.table(paste(MergedDiffExpResultDir,"/",selectedGeneList,".Summarised.ZscoreRank.Dexp.txt",sep=""),sep="\t", header = TRUE)
+#allTumorStatsFinal <- read.table(paste(MergedDiffExpResultDir,"/",selectedGeneList,".Summarised.ZscoreRank.Dexp.txt",sep=""),sep="\t", header = TRUE)
+allTumorStatsFinal <- read.table(paste(MergedDiffExpResultDir,"/",selectedGeneList,".Summarised.traditionalRank.Dexp.txt",sep=""),sep="\t", header = TRUE)
 CTA.Filt <- allTumorStatsFinal %>% filter(RowSum >= 2) %>% 
   dplyr::arrange(RowSum) 
-filter(CTA.Filt, GeneName %in% c("CD99", "FGFR4", "ALK", "GPC2", "MYCN", "MYOG", "MYOD1", "IGF2"))
+filter(CTA.Filt, GeneName %in% c("CD99", "FGFR4", "ALK", "GPC2", "MYCN", "MYOG", "MYOD1", "IGF2", "CTAG1B"))
 dim(CTA.Filt)
 
-# Step 8.  Plot the heatmap ####
+# Step 7.  Plot the heatmap ####
 CTA.Filt %<>% dplyr::select(-one_of("RowSum"))
 CTA.Filt %<>%  column_to_rownames(var="GeneName") 
 colnames(CTA.Filt) <- gsub("NormalsStatus", "", colnames(CTA.Filt))
 
-pdf( paste(rnaseqProject$workDir, rnaseqProject$projectName, rnaseqProject$plotsDir, "zscore.Differentially Expressed TF.v18.pdf", sep="/"), height = 10, width = 25)
+#pdf( paste(rnaseqProject$workDir, rnaseqProject$projectName, rnaseqProject$plotsDir, "zscore.Differentially Expressed TF.v18.pdf", sep="/"), height = 10, width = 25)
 superheat(t(CTA.Filt), pretty.order.cols =F,pretty.order.rows=F,
           #title = "Differentially Expressed CGAs",
           #linkage.method = "ward.D2",
@@ -605,7 +598,7 @@ superheat(t(CTA.Filt), pretty.order.cols =F,pretty.order.rows=F,
           heat.pal = c("#e0e0d1", "#004080"),
           bottom.label.text.angle=90,
           title.size = 6)
-dev.off()
+#dev.off()
 
 pdf( paste(rnaseqProject$workDir, rnaseqProject$projectName, rnaseqProject$plotsDir, "zscore.Differentially Expressed cs.v19.pdf", sep="/"), height = 15, width = 25)
 pheatmap(t(CTA.Filt), color =c("#e0e0d1", "#004080"), 
