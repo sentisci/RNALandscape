@@ -32,8 +32,9 @@ rnaseqProject <- ProjectSetUp$new(
   filterGenes             = TRUE,
   filterGeneMethod        = "bySum",
   factorName              = "DIAGNOSIS.Substatus.Tumor.Normal.Tissue",
+  #factorName              = "DIAGNOSIS.Substatus.Tumor.Tissue",
   metadataFileRefCol      = "Sample.Biowulf.ID.GeneExp",
-  metaDataFileName        = "MetadataMapper.v3.tcga.txt",
+  metaDataFileName        = "MetadataMapper.v3.txt",
   outputdirRDSDir         = "GeneRDSOutput",
   outputdirTXTDir         = "GeneTXTOutput",
   gseaDir                 = "GSEA",
@@ -41,14 +42,15 @@ rnaseqProject <- ProjectSetUp$new(
   plotsDataDir            = "FigureData",
   DiffGeneExpAnaDir       = "DiffExpResults",
   DiffGeneExpRDS          = "DiffGeneExpRDSOutput",
-  ## Keep only PolyA
+  ## Keep only Ribozero
   #factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"),
   #                          "Normal.ribozero"=list("LIBRARY_TYPE"="Normal", "LibraryPrep" = "PolyA"),
   #                              "Tumors"=list("LIBRARY_TYPE"="Tumor", "LibraryPrep" = "PolyA"))
-  ## Keep only Ribozero
-  # factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), "Normal.ribozero"=list("LibraryPrep" = "Ribozero"))
+  ## Keep only PolyA
+  factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), "Normal.ribozero"=list("LibraryPrep" = "Ribozero"))
   ## Remove Celllines
-  factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"))
+  # factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"))
+  # factorsToExclude          = list('None'=list("LIBRARY_TYPE"=""))
 )
 
 ## Add utility functions to the project ####
@@ -164,6 +166,10 @@ colnames(expressionTMM.RPKM)  <- AliasColnames
 expressionTMM.RPKM.GSEA.Input <- expressionTMM.RPKM[, -c(1:7)]; rownames(expressionTMM.RPKM.GSEA.Input) <- expressionTMM.RPKM[,6]
 expressionTMM.RPKM.GSEA.print = corUtilsFuncs$createBroadGCTFile(expressionTMM.RPKM.GSEA.Input)
 
+## Only For TCGA+Khanlab dataSet 
+khanlab.TCGA.geneExp <- readRDS("../RNASeq.RSEM/GeneRDSOutput/RPKM/RPKM_Data_Filt_Consolidated.GeneNames.all.TCGA.Khanlab.pc.log22019-03-19.rds")
+expressionTMM.RPKM.GSEA.Input <- khanlab.TCGA.geneExp[, -c(1:7)]; rownames(expressionTMM.RPKM.GSEA.Input) <- khanlab.TCGA.geneExp[,6]
+
 # ## Save input for ssGSEA 
 # write.table(expressionTMM.RPKM.GSEA.print, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$gseaDir,
 #                                       paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.zscore.",rnaseqProject$date,".txt"),sep="/"),
@@ -183,11 +189,11 @@ ssGSEAScores.HLA.Cyto   <- rbind(ssGSEAScores,HLA_cytolyticScore)
 
 ## Plot the one variable plot
 ## Sanity Check: Checking metadata vs data ##
-stopifnot( ncol(ssGSEAScores.HLA.Cyto) == length(as.character(rnaseqProject$metaDataDF$Sample.Biowulf.ID.GeneExp)) )
+stopifnot( ncol(ssGSEAScores.HLA.Cyto) == length(as.character(rnaseqProject$validMetaDataDF$Sample.Biowulf.ID.GeneExp)) )
 
 ## Filter specified Diagnosis
-factorsToExclude              = paste(c("NS", "YST", "Teratoma"), collapse = "|")
-selected.metadata              <- rnaseqProject$metaDataDF  %>% 
+factorsToExclude              = paste(c("NS.Normal", "YST.Tumor", "Teratoma.Tumor"), collapse = "|")
+selected.metadata              <- rnaseqProject$validMetaDataDF  %>% 
                                   filter_(  .dots = paste0("!grepl(", "'", factorsToExclude , "'" ,",", rnaseqProject$factorName, ")")) %>% 
                                   dplyr::select_( .dots=c(rnaseqProject$metadataFileRefCol, rnaseqProject$factorName ) )
 ssGSEAScores.HLA.Cyto.Selected <- ssGSEAScores.HLA.Cyto %>% dplyr::select_(.dots = as.character(selected.metadata[, rnaseqProject$metadataFileRefCol]))
@@ -209,15 +215,36 @@ orderOfSignature <- colnames(Scores)[-ncol(Scores)]
 ## Total list of signatures
 colList          <- c(1:(ncol(Scores)-1))
 ## Generate custom colors
-customColorDF    <- rnaseqProject$customColorsDF
+customColorDF    <- rnaseqProject$customColorsDFAll
+
+### Filter the score matrix for diffent categories in the plot
+
+### For all nothing to be changed
+### For only khanlab filter the tidy score matrix & color matrix
+
+Scores <- Scores %>% filter(!grepl("TCGA.",Diagnosis)) %>% filter(!grepl(".CellLine",Diagnosis))
+customColorDF <- customColorDF %>% filter(!grepl("TCGA.",Diagnosis)) %>% filter(!grepl(".CellLine",Diagnosis))
+
 ## Plot the onevariable plot
 plotLists        <- corUtilsFuncs$OneVariablePlotSort(colList, Scores=Scores, orderOfFactor, orderOfSignature, standardize =TRUE, logit =FALSE, plotType = "density",
                                                       yLab = "Standardised enrichment score", legendDisplay = FALSE, customColorDF = customColorDF )
 ## Save the plots
 EnrischmentScorePlots <- lapply(plotLists, function(l) l[[1]])
-SBName                <- paste(rnaseqProject$workDir, rnaseqProject$projectName, rnaseqProject$plotsDir,"TMM-RPKM.ssGSEA.enrichmentScores.all.pc.log.zscore.pdf",sep="/")
-ggsave(SBName, marrangeGrob(EnrischmentScorePlots,ncol=2,nrow=1 ), width = 20, height = 10 )
+SBName                <- paste(rnaseqProject$workDir, rnaseqProject$projectName, rnaseqProject$plotsDir,"TMM-RPKM.ssGSEA.enrichmentScores.all.pc.Khanlab.log.pdf",sep="/")
+ggsave(SBName, marrangeGrob(EnrischmentScorePlots,ncol=2,nrow=1 ), width = 20, height = 15 )
 
+### For Everything except Cellline
+
+Scores <- Scores %>%  filter(!grepl(".CellLine",Diagnosis))
+customColorDF <- customColorDF  %>% filter(!grepl(".CellLine",Diagnosis))
+
+## Plot the onevariable plot
+plotLists        <- corUtilsFuncs$OneVariablePlotSort(colList, Scores=Scores, orderOfFactor, orderOfSignature, standardize =TRUE, logit =FALSE, plotType = "density",
+                                                      yLab = "Standardised enrichment score", legendDisplay = FALSE, customColorDF = customColorDF )
+## Save the plots
+EnrischmentScorePlots <- lapply(plotLists, function(l) l[[1]])
+SBName                <- paste(rnaseqProject$workDir, rnaseqProject$projectName, rnaseqProject$plotsDir,"TMM-RPKM.ssGSEA.enrichmentScores.all.pc.TCGA.Khanlab.no.Celline.log.pdf",sep="/")
+ggsave(SBName, marrangeGrob(EnrischmentScorePlots,ncol=2,nrow=1 ), width = 20, height = 15 )
 
 ## Plot to do percent samples enriched across cancer types
 
@@ -425,23 +452,21 @@ mergeDiffTestResults <- function(x, type="", saveDirPath="", extension="", colIn
 # Step 1.  Set the filters and annotation ####
 
 ## Javed's Filter for all three categories
-#group2FPKM.T = 2 ; group1FPKM.T = 2;  PValue.T = 0.001 ; logFoldDiff.T =3 ; FDR_value.T = 0.05 ; vitalFPKM.T = 1
+group2FPKM.T = 2 ; group1FPKM.T = 2;  PValue.T = 0.001 ; logFoldDiff.T =3 ; FDR_value.T = 0.05 ; vitalFPKM.T = 30
 
-selectedGeneList <- "CancerGermlineAntigen"
-# #group2FPKM = 1;
-# Zscored.logFC = 0.25 ; Zscore.group2 = 0; group2FPKM = 0 ; group1FPKM = 1;  PValue = 0.01 ; logFC =1 ; FDR = 0.05
+# selectedGeneList <- "CancerGermlineAntigen"
+#Zscored.logFC = 0.25 ; Zscore.group2 = 0; group2FPKM = 1 ; group1FPKM = 1;  PValue = 0.01 ; logFC =1 ; FDR = 0.05
 
 # selectedGeneList <- "CellSurface"
-# Zscored.logFC = 1 ; Zscore.group2 = 1; group2FPKM = 40 ; group1FPKM = 1;  PValue = 0.001 ; logFC =2 ; FDR = 0.05
+#Zscored.logFC = 1 ; Zscore.group2 = 1; group2FPKM = 1 ; group1FPKM = 1;  PValue = 0.001 ; logFC = 1 ; FDR = 0.05
 
 ## Zscore Filtering
-#selectedGeneList <- "TranscriptionFactor"
-#Zscored.logFC = 1 ; Zscore.group2 = 0.5; group2FPKM = 2 ; #group1FPKM = 5;  PValue = 0.01 ; logFC =1 ; FDR = 0.05
+selectedGeneList <- "TranscriptionFactor"
+Zscored.logFC = 1 ; Zscore.group2 = 1; group2FPKM = 1 ; group1FPKM = 1;  PValue = 0.001 ; logFC =1 ; FDR = 0.05
 
 MergedDiffExpResultDir <- paste0("C:/Users/sindiris/R Scribble//RNASeq.RSEM/MergedDiffExpResults/",selectedGeneList)
 
 # Step 2.  Perform Merging of differential expression file across groups ####
-
 dir.create(MergedDiffExpResultDir)
 ConditionGroup <- c(unique(sapply(dgeObj$pairedList, function(x){ return(paste(x[1],x[2],sep = "_"))  })), c("Normals_WT", "Normals_CCSK") )
 #ConditionGroup <- c(unique(sapply(dgeObj$pairedList, function(x){ return(paste(x[1],x[2],sep = "_"))  })))
@@ -473,7 +498,12 @@ allTumorStats <- do.call(cbind, lapply(ConditionGroup, function(x){
     dplyr::filter_(.dots=paste0( 
       groupsCompare[2]," >= ", group2FPKM ,
       " &  Zscored.logFC   >= ", Zscored.logFC,
-      " & ", paste0("Zscored.",groupsCompare[2]), " >= ", Zscore.group2)) %>%
+      " & ", paste0("Zscored.",groupsCompare[2]), " >= ", Zscore.group2,
+      " &  Brain.MeanExp  < ", vitalFPKM.T ,
+      " &  Heart.MeanExp  < ", vitalFPKM.T ,
+      " &  Kidney.MeanExp < ", vitalFPKM.T ,
+      " &  Liver.MeanExp  < ", vitalFPKM.T  ,
+      " &  Lung.MeanExp   < ", vitalFPKM.T )) %>%
     dplyr::arrange_(.dots = paste0("desc(","Zscored.",groupsCompare[2], ")" ) )
   
   ## Complete filtered gene List with zscoring filter
@@ -491,7 +521,7 @@ allTumorStats <- do.call(cbind, lapply(ConditionGroup, function(x){
   
   
   ## Javed's Filtering
-  tumorAllData.filt <- tumorAllData %>% dplyr::filter_(.dots=paste0(       groupsCompare[2], " >= ", group2FPKM.T ,
+  tumorAllData.filt <- tumorAllData %>% dplyr::filter_(.dots=paste0( groupsCompare[2], " >= ", group2FPKM.T ,
                                                                            " & ", groupsCompare[1], " <= ", group1FPKM.T ,
                                                                            " &   logFC >", logFoldDiff.T,
                                                                            " &   FDR   <", FDR_value.T ,
@@ -549,10 +579,10 @@ write.table(allTumorMergedStats[[2]], paste(MergedDiffExpResultDir,"/",selectedG
 
 # Step 6.  Select rows for heatmap ####
 allTumorStatsFinal <- read.table(paste(MergedDiffExpResultDir,"/",selectedGeneList,".Summarised.ZscoreRank.Dexp.txt",sep=""),sep="\t", header = TRUE)
-CTA.Filt <- allTumorStatsFinal %>% filter(RowSum>=3) %>% 
-  dplyr::arrange(RowSum)
+CTA.Filt <- allTumorStatsFinal %>% filter(RowSum >= 2) %>% 
+  dplyr::arrange(RowSum) 
+filter(CTA.Filt, GeneName %in% c("CD99", "FGFR4", "ALK", "GPC2", "MYCN", "MYOG", "MYOD1", "IGF2"))
 dim(CTA.Filt)
-# %>% filter(GeneName %in% c("CD99", "FGFR4", "ALK"))
 
 # Step 8.  Plot the heatmap ####
 CTA.Filt %<>% dplyr::select(-one_of("RowSum"))
@@ -560,7 +590,7 @@ CTA.Filt %<>%  column_to_rownames(var="GeneName")
 colnames(CTA.Filt) <- gsub("NormalsStatus", "", colnames(CTA.Filt))
 
 pdf( paste(rnaseqProject$workDir, rnaseqProject$projectName, rnaseqProject$plotsDir, "zscore.Differentially Expressed TF.v18.pdf", sep="/"), height = 10, width = 25)
-superheat(t(CTA.Filt), pretty.order.cols =T,
+superheat(t(CTA.Filt), pretty.order.cols =F,pretty.order.rows=F,
           #title = "Differentially Expressed CGAs",
           #linkage.method = "ward.D2",
           legend=FALSE,

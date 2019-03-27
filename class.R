@@ -116,6 +116,15 @@ ProjectSetUp <- R6Class(
       customColorsDF[,self$factorName]  <- gsub(".Tumor", "", customColorsDF[,self$factorName])
       colnames(customColorsDF)[1] <- "Diagnosis";
       self$customColorsDF <- customColorsDF
+    },
+    ## Get Color map
+    getFactorColorMapAll = function(){
+      customColorsDFAll <- self$metaDataDF %>% dplyr::filter(! LIBRARY_TYPE %in% c("Normal"))
+      print(dim(customColorsDFAll)); print(dim( self$metaDataDF))
+      customColorsDFAll <-  customColorsDFAll[,c(self$factorName, "Color.Substatus")] %>% data.frame() %>% dplyr::distinct()
+      # customColorsDFAll[,self$factorName]  <- gsub(".Tumor", "", customColorsDFAll[,self$factorName])
+      colnames(customColorsDFAll)[1] <- "Diagnosis";
+      self$customColorsDFAll <- customColorsDFAll
     }
     ## Make a Tree Map
   ),
@@ -168,6 +177,7 @@ ProjectSetUp <- R6Class(
     fileDirs                = NULL, 
     validMetaDataDF         = NULL,
     customColorsDF          = NULL,
+    customColorsDFAll       = NULL,
     initialize              = function(date = NA, time =NA, projectName = NA, annotationRDS = NA, outputPrefix = NA,
                                        filterGenes = NA, filterGeneMethod = NA, factorName = NA, metaDataFileName = NA, 
                                        workDir = NA, outputdirRDSDir = NA, outputdirTXTDir = NA,gseaDir = NA, plotsDir = NA, 
@@ -214,6 +224,7 @@ ProjectSetUp <- R6Class(
       private$readMetaData()
       private$readAnnotation()
       private$getFactorColorMap()
+      private$getFactorColorMapAll()
       if (!is.na(pcRDS)){ private$readProteinCoding() }
       if (!is.na(tfRDS)){ private$readTranscriptionFactor() }
       if (!is.na(csRDS)){ private$readCellSurface() }
@@ -263,9 +274,9 @@ CoreUtilities <- R6Class(
       #Df_results <- data.frame( basename(x), result = grepl(paste(self$allFileList, collapse = "|"),basename(x)))
       #selectedFileList <- x[which(Df_results$result == TRUE)]
       selectedFileList <- x[which(basename(x) %in% self$allFileList)]
-      print(paste0('Which files in input folder are IN the meta data ',length(selectedFileList), paste(basename(selectedFileList), collapse=";")))
+      ## print(paste0('Which files in input folder are IN the meta data ',length(selectedFileList), paste(basename(selectedFileList), collapse=";")))
       notselectedFileListFolder      <- x[which(!basename(x)  %in%  self$allFileList )];
-      print(paste0('Which files in the input folder are NOT IN the metadata ',length(notselectedFileListFolder), paste(basename(notselectedFileListFolder), collapse=";")))
+      ## print(paste0('Which files in the input folder are NOT IN the metadata ',length(notselectedFileListFolder), paste(basename(notselectedFileListFolder), collapse=";")))
       notselectedFileListMeta        <- self$allFileList[which(!self$allFileList  %in% basename(x))];
       print(paste0('Which files in the metadata are NOT IN the folder ',length(notselectedFileListMeta), paste(notselectedFileListMeta, collapse=";")))
       
@@ -634,7 +645,7 @@ CoreUtilities <- R6Class(
       #                   xlab = constName, ylab = varName)
       
       corrTest <- cor.test(df[,constName], df[,varName], method = "spearman")
-      if  ( corrTest$p.value < 2.2e-16 ) { corrTest$p.value = 2.2e-16 }
+      ## if  ( corrTest$p.value < 2.2e-16 ) { corrTest$p.value = 2.2e-16 }
       plot <- ggplot(df, aes_string(x=constName, y=varName)) + 
         geom_smooth(method=lm,  fill="grey") +
         geom_point(aes(colour = factor(Diagnosis)), show.legend = T, size=3, shape=16) + 
