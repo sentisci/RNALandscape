@@ -702,6 +702,50 @@ CoreUtilities <- R6Class(
       }
       write.table(exomeDataEntropy, outfileName, sep = "\t", row.names = FALSE, quote = FALSE)
       
+    },
+    ## Makepreranke files for GSEA/ssGSEA
+    getCountObjTXT = function(fileName, colNumb=1, rowNames=1){
+      print(paste(fileName))
+      featureCountTxt <- read.table(fileName, sep="\t", row.names = rowNames, header = 1);
+      return(featureCountTxt[,colNumb, drop=FALSE])
+    },
+    NESorPvalGSEAPrerank = function(x, colNumb = 1){
+      
+      files <- list.files(x, pattern = '^gsea_report_for_na_(pos|neg)_[1234567890]+\\.xls$', full.names = TRUE)
+      df <- do.call(rbind, lapply(files, self$getCountObjTXT, colNumb=colNumb, rowNames=1)); print(paste(dim(df)))
+      colnames(df) <- gsub("\\.\\/GSEA\\/prerankedGSEAOutput\\/\\/|.rnk.*.\\S+\\/gsea_report_for_na_(pos|neg)_\\S+.xls", "", files)[1]
+      return(df)
+    },
+    makeRNKFiles = function(DF, projectName=""){
+      colNames <- colnames(DF)
+      sapply(colNames[1], function(x){ 
+        
+        y <- DF[, x, drop=FALSE] %>% rownames_to_column("Name") %>% arrange_(.dots = paste0("desc(",x,")") )
+        write.table(y, paste("./GSEA/rnk/", projectName,"/",x,".rnk",sep=""), sep = "\t",row.names = FALSE, quote = FALSE )})
+    },
+    PreRankedGSEA = function(x, projectName=NULL, sample=NULL){
+      
+      label <- gsub(".gmt","",paste(sample,".",x,sep=""))
+      cmd <- paste("java -cp /data/sindiris/Processing/GSEA/gsea2-2.2.2.jar -Xmx1024m xtools.gsea.GseaPreranked",
+                   " -gmx /data/sindiris/Processing/GSEA/",x,
+                   " -rnk /data/sindiris/Processing/GSEA/",projectName,"/rnk/",sample,
+                   " -chip /data/sindiris/Processing/GSEA/GENE_SYMBOL.chip ",
+                   " -collapse false",
+                   " -mode Max_probe",
+                   " -norm None",
+                   " -nperm 1000",
+                   " -scoring_scheme weighted",
+                   " -rpt_label ",label,
+                   " -include_only_symbols  true",
+                   " -make_sets true",
+                   " -plot_top_x 20",
+                   " -rnd_seed 149",
+                   " -set_max 500",
+                   " -set_min 15",
+                   " -out /data/sindiris/Processing/GSEA/",projectName,
+                   " -gui false",
+                   sep="")
+      return(cmd)
     }
   )
 )
