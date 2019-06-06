@@ -136,7 +136,7 @@ expressionObj        <- GeneExpNormalization$new(
   annotationDF      = rnaseqProject$annotationDF, 
   design            = rnaseqProject$metaDataDF[,rnaseqProject$factorName], 
   #design           = newMetaDataDF[,rnaseqProject$factorName],
-  proteinCodingOnly = FALSE,
+  proteinCodingOnly = TRUE,
   corUtilsFuncs     = corUtilsFuncs
 )
 
@@ -1064,22 +1064,22 @@ FC.High.IntermediateLow <-  log2(FPKM.Data.NeoAntiBurd.High.mean + 1) - log2(Int
 FC.High.IntermediateLow <- cbind(expressionTMM.RPKM[,c("Chr","Start","End","GeneName","GeneID")], FC.High.IntermediateLow)
 FC.High.IntermediateLow.rnk <- FC.High.IntermediateLow %>% dplyr::arrange(-FPKM.Data.NeoAntiBurd.High.mean)
 head(FC.High.IntermediateLow.rnk); dim(FC.High.IntermediateLow.rnk)
-write.table(FC.High.IntermediateLow.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.High.IntermediateLow.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
+write.table(FC.High.IntermediateLow.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.High.IntermediateLow.pc.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
 
 FC.Intermediate.HighLow <-  log2(FPKM.Data.NeoAntiBurd.Intermediate.mean + 1) - log2(HighLow.Mean + 1)
 FC.Intermediate.HighLow <- cbind(expressionTMM.RPKM[,c("Chr","Start","End","GeneName","GeneID")], FC.Intermediate.HighLow)
 FC.Intermediate.HighLow.rnk <- FC.Intermediate.HighLow %>% dplyr::arrange(-FPKM.Data.NeoAntiBurd.Intermediate.mean)
 head(FC.Intermediate.HighLow.rnk); dim(FC.Intermediate.HighLow.rnk)
-write.table(FC.Intermediate.HighLow.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.Intermediate.HighLow.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
+write.table(FC.Intermediate.HighLow.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.Intermediate.HighLow.pc.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
 
 FC.Low.HighIntermediate <-  log2(FPKM.Data.NeoAntiBurd.Low.mean + 1) - log2(HighIntermediate.Mean + 1)
 FC.Low.HighIntermediate <- cbind(expressionTMM.RPKM[,c("Chr","Start","End","GeneName","GeneID")], FC.Low.HighIntermediate)
 FC.Low.HighIntermediate.rnk <- FC.Low.HighIntermediate %>% dplyr::arrange(-FPKM.Data.NeoAntiBurd.Low.mean)
 head(FC.Low.HighIntermediate.rnk); dim(FC.Low.HighIntermediate.rnk)
-write.table(FC.Low.HighIntermediate.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.Low.HighIntermediate.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
+write.table(FC.Low.HighIntermediate.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.Low.HighIntermediate.pc.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
 
 ### Extract data from GSEA files ####
-folder = "../RNASeq.RSEM/GSEA/results/NeoantigenVsImmuneScore.Cibersort/"
+folder = "../RNASeq.RSEM/GSEA/results/NeoantigenVsImmueScore.PC.Cibersort/"
 allDirs                <- list.dirs(folder, recursive=FALSE);allDirs
 preRankedGSEA.DF.NES  <- cbind(as.data.frame(lapply(allDirs, corUtilsFuncs$NESorPvalGSEAPrerank, colNumb=5))) 
 preRankedGSEA.DF.Pval <- cbind(as.data.frame(lapply(allDirs, corUtilsFuncs$NESorPvalGSEAPrerank, colNumb=7)))
@@ -1150,7 +1150,7 @@ LowPlot <- ggplot(Low, aes(x=NES, y=Pval, colour=NES>0)) +
         axis.title=element_text(size=13,face="bold"),
         legend.position="none") 
 
-pdf(paste0("../RNASeq.RSEM/Figures/Figure 4b",".pdf"), height=10, width = 20)
+pdf(paste0("../RNASeq.RSEM/Figures/Figure 4b.PC",".pdf"), height=10, width = 20)
 ggarrange(HighPlot, IntermediatePlot,LowPlot,  
           labels = c("A.", "B.", "C."),
           ncol = 3, nrow = 1,
