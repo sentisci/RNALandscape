@@ -136,7 +136,7 @@ expressionObj        <- GeneExpNormalization$new(
   annotationDF      = rnaseqProject$annotationDF, 
   design            = rnaseqProject$metaDataDF[,rnaseqProject$factorName], 
   #design           = newMetaDataDF[,rnaseqProject$factorName],
-  proteinCodingOnly = FALSE,
+  proteinCodingOnly = TRUE,
   corUtilsFuncs     = corUtilsFuncs
 )
 
@@ -165,7 +165,7 @@ colnames(expressionTMM.RPKM)  <- AliasColnames
 #             sep="\t", row.names = FALSE, quote = FALSE)
 # saveRDS(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
 #                                   paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.RiboZero",rnaseqProject$date,".rds"),sep="/"))
-# 
+
 
 
 ### Performing ssGSEA output analysis. ( Plotting the scores across histology ) ##########
@@ -180,13 +180,14 @@ expressionTMM.RPKM.GSEA.print = corUtilsFuncs$createBroadGCTFile(expressionTMM.R
 
 # ## Save input for ssGSEA 
 # write.table(expressionTMM.RPKM.GSEA.print, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$gseaDir,
-#                                       paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.zscore.",rnaseqProject$date,".txt"),sep="/"),
+#                                       paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.",rnaseqProject$date,".txt"),sep="/"),
 #                                       sep="\t", row.names = FALSE, quote = FALSE)
 # saveRDS(expressionTMM.RPKM.GSEA.print, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$gseaDir,
-#                                       paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.zscore.",rnaseqProject$date,".rds"),sep="/"))
+#                                       paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.",rnaseqProject$date,".rds"),sep="/"))
 
 ## Read the ssGSEA output
-ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.2019-01-31.PROJ.KeggSig.gct")
+ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/New analysis/RPKM_Data_Filt_Consolidated.GeneNames.all.Khanlab.pc.log2.2019-06-14.PROJ.gct")
+#ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.2019-01-31.PROJ.KeggSig.gct")
 #ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM.TMM.RPKM.GSEA.Input.All.TCGA.Khanlab.2019-03-19.PROJ.gct")
 
 ## Add custom expression like cytolytic scre and HLA gene expression to the ssGSEA Outpuut file.
@@ -200,11 +201,11 @@ ssGSEAScores.HLA.Cyto   <- rbind(ssGSEAScores,HLA_cytolyticScore)
 stopifnot( ncol(ssGSEAScores.HLA.Cyto) == length(as.character(rnaseqProject$validMetaDataDF$Sample.Biowulf.ID.GeneExp)) )
 
 ## Filter specified Diagnosis
-factorsToExclude              = paste(c("NS.Normal", "YST.Tumor", "Teratoma.Tumor"), collapse = "|")
+factorsToExclude              = paste(c("NS.", "YST", "Teratoma"), collapse = "|")
 selected.metadata              <- rnaseqProject$validMetaDataDF  %>% 
                                   filter_(  .dots = paste0("!grepl(", "'", factorsToExclude , "'" ,",", rnaseqProject$factorName, ")")) %>% 
                                   dplyr::select_( .dots=c(rnaseqProject$metadataFileRefCol, rnaseqProject$factorName ) )
-ssGSEAScores.HLA.Cyto.Selected <- ssGSEAScores.HLA.Cyto %>% dplyr::select_(.dots = as.character(selected.metadata[, rnaseqProject$metadataFileRefCol]))
+ssGSEAScores.HLA.Cyto.Selected <- ssGSEAScores.HLA.Cyto %>% dplyr::select(.dots = as.character(selected.metadata[, rnaseqProject$metadataFileRefCol]))
 dim(ssGSEAScores.HLA.Cyto.Selected)
 
 ## sanity check Checking metadata vs data ##
@@ -234,7 +235,7 @@ Scores <- Scores %>% filter(!grepl("TCGA.",Diagnosis)) %>% filter(!grepl(".CellL
 customColorDF <- customColorDF %>% filter(!grepl("TCGA.",Diagnosis)) %>% filter(!grepl(".CellLine",Diagnosis))
 
 ## Plot the onevariable plot
-plotLists        <- corUtilsFuncs$OneVariablePlotSort(colList, Scores=Scores, orderOfFactor, orderOfSignature, standardize =TRUE, logit =FALSE, plotType = "density",
+plotLists        <- corUtilsFuncs$OneVariablePlotSort(colList, Scores=Scores, orderOfFactor, orderOfSignature, standardize =FALSE, logit =FALSE, plotType = "density",
                                                       yLab = "Standardised enrichment score", legendDisplay = FALSE, customColorDF = customColorDF )
 ## Save the plots
 EnrischmentScorePlots <- lapply(plotLists, function(l) l[[1]])
@@ -251,7 +252,7 @@ plotLists        <- corUtilsFuncs$OneVariablePlotSort(colList, Scores=Scores, or
                                                       yLab = "Standardised enrichment score", legendDisplay = FALSE, customColorDF = customColorDF )
 ## Save the plots
 EnrischmentScorePlots <- lapply(plotLists, function(l) l[[1]])
-SBName                <- paste(rnaseqProject$workDir, rnaseqProject$projectName, rnaseqProject$plotsDir,"TMM-RPKM.ssGSEA.enrichmentScores.all.pc.TCGA.Khanlab.no.Celline.log.pdf",sep="/")
+SBName                <- paste(rnaseqProject$workDir, rnaseqProject$projectName, rnaseqProject$plotsDir,"TMM-RPKM.ssGSEA.enrichmentScores.all.pc.Khanlab.no.Celline.log.pdf",sep="/")
 ggsave(SBName, marrangeGrob(EnrischmentScorePlots,ncol=2,nrow=1 ), width = 20, height = 15 )
 
 ## Plot to do percent samples enriched across cancer types
@@ -567,7 +568,7 @@ group2FPKM.T = 5 ; group1FPKM.T = 1;  PValue.T = 0.00001 ; logFoldDiff.T = 4 ; F
 
 # selectedGeneList <- "CancerGermlineAntigen"
 # Zscored.logFC = 0.25; Zscore.group2 = 0.5; group2FPKM = 5; group1FPKM = 1;  PValue = 0.001; logFC = 4; FDR = 0.05
-
+# 
 # selectedGeneList <- "CellSurface"
 # Zscored.logFC = 1 ; Zscore.group2 = 0.5; group2FPKM = 5 ; group1FPKM = 1;  PValue = 0.001 ; logFC = 4 ; FDR = 0.05
 
@@ -684,17 +685,39 @@ write.table(allTumorMergedStats[[2]], paste(MergedDiffExpResultDir,"/",selectedG
 #allTumorStatsFinal <- read.table(paste(MergedDiffExpResultDir,"/",selectedGeneList,".Summarised.ZscoreRank.Dexp.txt",sep=""),sep="\t", header = TRUE)
 allTumorStatsFinal <- read.table(paste(MergedDiffExpResultDir,"/",selectedGeneList,".Summarised.traditionalRank.Dexp.txt",sep=""),sep="\t", header = TRUE)
 CTA.Filt <- allTumorStatsFinal %>% filter(RowSum >= 1) %>% 
-  dplyr::arrange(RowSum) 
-filter(CTA.Filt, GeneName %in% c("CD99", "FGFR4", "ALK", "GPC2", "MYCN", "MYOG", "MYOD1", "IGF2", "CTAG1B"))
-dim(CTA.Filt)
+  dplyr::arrange(-RowSum) %>% t() %>% data.frame()
+colnames(CTA.Filt) <- as.character(unlist(CTA.Filt[c("GeneName"),]))
+CTA.Filt.sorted <- CTA.Filt[-1,]
+CTA.Filt.sorted <- CTA.Filt.sorted %>% tibble::rownames_to_column("Diagnosis")
+CTA.Filt.sorted <- CTA.Filt.sorted %>% dplyr::arrange_(.dots = list(paste0("desc(",colnames(CTA.Filt.sorted)[2], ")")))
+rownames(CTA.Filt.sorted) <- CTA.Filt.sorted[,1]
+CTA.Filt.sorted <- CTA.Filt.sorted[-1,]
+CTA.Filt.sorted <- CTA.Filt.sorted[,-1]
+#filter(, GeneName %in% c("CD99", "FGFR4", "ALK", "GPC2", "MYCN", "MYOG", "MYOD1", "IGF2", "CTAG1B"))
+View(CTA.Filt.sorted);dim(CTA.Filt.sorted)
 
 # Step 7.  Plot the heatmap ####
-CTA.Filt %<>% dplyr::select(-one_of("RowSum"))
-CTA.Filt %<>%  tibble::column_to_rownames(var="GeneName") 
-colnames(CTA.Filt) <- gsub("NormalsStatus", "", colnames(CTA.Filt))
+rownames(CTA.Filt.sorted) <- gsub("NormalsStatus", "", rownames(CTA.Filt.sorted))
+indx <- sapply(CTA.Filt.sorted, is.factor)
+CTA.Filt.sorted[indx] <- lapply(CTA.Filt.sorted[indx], function(x) as.numeric(as.character(x)))
 
+pdf( paste(rnaseqProject$workDir, rnaseqProject$projectName, rnaseqProject$plotsDir, 
+           paste0("Differentially Expressed .", selectedGeneList, ".v19.pdf"),  sep="/"), height = 10, width = 25)
+pheatmap(CTA.Filt.sorted, 
+         #color =c("#e0e0d1", "#004080"), 
+         color =c("#f2f2f2", "#004080"), 
+         cluster_rows = FALSE,
+         cluster_cols = FALSE,
+         #border_color = "grey", 
+         border_color = NA,
+         treeheight_row = 0,
+         fontsize = 12,
+         legend = FALSE )
+dev.off()
+
+## Alternate heatmap
 #pdf( paste(rnaseqProject$workDir, rnaseqProject$projectName, rnaseqProject$plotsDir, "zscore.Differentially Expressed TF.v18.pdf", sep="/"), height = 10, width = 25)
-superheat(t(CTA.Filt), pretty.order.cols =F,pretty.order.rows=F,
+superheat(CTA.Filt.sorted, pretty.order.cols =F,pretty.order.rows=F,
           #title = "Differentially Expressed CGAs",
           #linkage.method = "ward.D2",
           legend=FALSE,
@@ -711,15 +734,6 @@ superheat(t(CTA.Filt), pretty.order.cols =F,pretty.order.rows=F,
           title.size = 6)
 #dev.off()
 
-pdf( paste(rnaseqProject$workDir, rnaseqProject$projectName, rnaseqProject$plotsDir, "zscore.Differentially Expressed cs.v19.pdf", sep="/"), height = 15, width = 25)
-pheatmap(t(CTA.Filt), color =c("#e0e0d1", "#004080"), 
-         cluster_rows = FALSE,
-         cluster_cols = FALSE,
-         border_color = NA, 
-         treeheight_row = 0,
-         fontsize = 12,
-         legend = FALSE )
-dev.off()
 
 ### Performing TCR analysis
 

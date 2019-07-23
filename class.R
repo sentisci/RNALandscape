@@ -335,15 +335,15 @@ CoreUtilities <- R6Class(
       
       switch(fileFormat,
              
-             #        "rds"     = {
-             #          mergedDataList        <- lapply( lapply(dirs, list.files, full.names=T),
-             #                                           private$mergeRDSFiles, fileFormat = fileFormat, colInterest = colIndexSelect, fileSuffix = fileSuffix,
-             #                                           colNameSelect = colNameSelect )
-             #          rowNames              <- rownames(mergedDataList[[1]])
-             #          mergedData            <- dplyr::bind_cols( mergedDataList)
-             #          rownames(mergedData)  <- rowNames
-             #          return(mergedData)
-             #        },
+            "rds"     = {
+               mergedDataList        <- lapply( lapply(dirs, list.files, full.names=T),
+                                              private$mergeRDSFiles, fileFormat = fileFormat, colInterest = colIndexSelect, fileSuffix = fileSuffix,
+                                                       colNameSelect = colNameSelect )
+               rowNames              <- rownames(mergedDataList[[1]])
+               mergedData            <- dplyr::bind_cols( mergedDataList)
+               rownames(mergedData)  <- rowNames
+               return(mergedData)
+                    },
              "txt"    = {
                mergedDataList        <- lapply( lapply(dirs, list.files, full.names=T),
                                                 private$mergeTXTFiles, fileSuffix = fileSuffix, colNameSelect = colNameSelect, primaryID=primaryID )
