@@ -119,24 +119,30 @@ Step.1.2.3.4.5.6.8.9.10.Meta[indx,1];View(Step.1.2.3.4.5.6.8.9.10.Meta[indx, c(1
 write.table(Step.1.2.3.4.5.6.8.9.10.11.Meta, 
             "../RNASeq.RSEM/ssScore.neoantigen.IGH_C.TRB_C.IGH_E.TRB_E.Neo.Fusion.Final_Mut.preFinal_Mut.Meta.v6.txt", sep="\t")
 
-
 ## Make plots
 mergeDataSet <- read.table("../RNASeq.RSEM/ssScore.neoantigen.IGH_C.TRB_C.IGH_E.TRB_E.Neo.Fusion.Final_Mut.preFinal_Mut.Meta.v6.txt", sep="\t",
                            header = TRUE)
-mergeDataSet.T <- mergeDataSet %>% dplyr::filter(LIBRARY_TYPE == "Tumor")
+
+fileList <- list.files("../RNASeq.Mutation.data/mutation_neoantigen_files/")
+countNeoantigesnAlt = function(x) {
+  fileData <- read.table(paste0("../RNASeq.Mutation.data/mutation_neoantigen_files/",x), sep = "\t", header = TRUE)
+  fs.Neoantigen = dim(fileData)[1] - count(grepl(">",fileData$HGVSc))
+  snv.Neoantigen = dim(fileData)[1] - fs
+  name = basename(gsub(".filtered.condensed.ranked.tsv","",x))
+  return(list("Sample.ID"=name, "fs.count"= fs, "SNV.count"=snv ))
+}
+
+countNeoantigesnList <- lapply(fileList, countNeoantigesnAlt)
+countNeoantigesnDF <- data.table::rbindlist( test ); View(testDF)
+
+mergeDataSet.CountNeo <- dplyr::full_join(mergeDataSet, countNeoantigesnDF, by= "Sample.ID")
+
+
+mergeDataSet.T <- mergeDataSet.CountNeo %>% dplyr::filter(LIBRARY_TYPE == "Tumor")
 mergeDataSet.Neoantigens <- mergeDataSet.T %>% dplyr::select(Sample.ID, DIAGNOSIS.Alias, VariantNeoAntigenCount, 
-                                                             FusionNeoAntigenCount )
-dataSetNeo <- tidyr::gather(mergeDataSet.Neoantigens, "Diagnosis", "Count", VariantNeoAntigenCount, 
-                            FusionNeoAntigenCount )
+                                                             FusionNeoAntigenCount)
+dataSetNeo <- tidyr::gather(mergeDataSet.Neoantigens, "Alteration", "Count", VariantNeoAntigenCount, FusionNeoAntigenCount )
 View(dataSetNeo)
-
-
-ggplot(data=dataSetNeo,aes(x=DIAGNOSIS.Alias,y=log2(Count+1), fill=Diagnosis ))+
-  geom_bar(stat="identity") +
-  coord_polar()+
-  scale_fill_brewer(palette="Set1")+
-  scale_fill_hue(l=40) + 
-  xlab("")+ylab("")
 
 dataSetNeo1 <- dataSetNeo
 dataSetNeo1$Count <- log2(dataSetNeo$Count+1)
@@ -154,5 +160,13 @@ ggplot(data=dataMean,aes(x=DIAGNOSIS.Alias,y=CountMean, fill=Diagnosis ))+
   theme_bw()
 
 
+
+FinalMutationEdit1 <- FinalMutation %>% dplyr::mutate(Alteration = gsub("frameshift deletion|frameshift insertion|nonframeshift insertion|nonframeshift deletion","indel",Exonic.function)) %>% 
+  dplyr::mutate(func = gsub("nonsynonymous SNV|stopgain|stoploss","SNV",Alteration)) %>% group_by(DIAGNOSIS.Alias) %>% 
+  dplyr::summarize(CountMean = mean(n()))
+View(FinalMutationEdit1)
+
+test <- FinalMutationEdit1 %>% filter(DIAGNOSIS.Alias == "OS")
+test %>% group_by(Patient.ID, func) %>% dplyr::summarise(AltSumPerPat = n()) %>% group_by(func) %>% group_by(func) %>% dplyr::summarise(AltSumPerPatMean= mean(AltSumPerPat))
 
 

@@ -1134,7 +1134,6 @@ plotLists <- corUtilsFuncs$OneVariablePlotSort( colList, Scores=Scores, orderOfF
                                                 yLab = "log10( NeoantigenBurden )", legendDisplay = FALSE, customColorDF = customColorDF, 
                                                 plotType = "StringBean", sizeOfDots = 0.8)
 
-
 ### Get quartiles
 ## summary of TotalNeoantigenCount
 summary_TotalNeoantigenCount <- summary(neoantigenFromSamplesFinal$TotalNeoantigenCount)
@@ -1245,8 +1244,8 @@ HighPlot <- ggplot(High, aes(x=NES, y=Pval, colour=NES>0 )) +
   scale_colour_manual(name = 'NES > 0', values = setNames(c('red','darkgreen'),c(T, F))) +
   geom_point(size=3) +
   geom_text_repel(aes(x=NES, y=Pval, colour=NES>0, label=gsub("-CELLS_", ".",rownames(High))),  
-                  size=3, force = 3) +
-  geom_hline(yintercept=1, size=1) +
+                  size=3.5, force = 3) +
+  geom_hline(yintercept=1.30103, size=1) +
   geom_vline(xintercept = 0, size=1) +
   xlim(-2,2.5)+
   ylim(0,3.5) +
@@ -1262,8 +1261,8 @@ IntermediatePlot <- ggplot(Intermediate, aes(x=NES, y=Pval, colour=NES>0)) +
   scale_colour_manual(name = 'NES > 0', values = setNames(c('red','darkgreen'),c(T, F))) +
   geom_point(size=3) +
   geom_text_repel(aes(x=NES, y=Pval, colour=NES>0, label=gsub("-CELLS_", ".",rownames(Intermediate))),  
-                  size=3, force = 3) +
-  geom_hline(yintercept=1, size=1) +
+                  size=3.5, force = 3) +
+  geom_hline(yintercept=1.30103, size=1) +
   geom_vline(xintercept = 0, size=1) +
   xlim(-2,2)+
   ylim(0,3.5) +
@@ -1279,8 +1278,8 @@ LowPlot <- ggplot(Low, aes(x=NES, y=Pval, colour=NES>0)) +
   scale_colour_manual(name = 'NES > 0', values = setNames(c('red','darkgreen'),c(T, F))) +
   geom_point(size=3) +
   geom_text_repel(aes(x=NES, y=Pval, colour=NES>0, label=gsub("-CELLS_", ".",rownames(Low))),  
-                  size=3, force = 2) +
-  geom_hline(yintercept=1, size=1) +
+                  size=3.5, force = 2) +
+  geom_hline(yintercept=1.30103, size=1) +
   geom_vline(xintercept = 0, size=1) +
   xlim(-2,2)+
   ylim(0,3.5) +
