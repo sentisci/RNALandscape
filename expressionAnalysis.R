@@ -16,6 +16,7 @@ rnaseqProject <- ProjectSetUp$new(
   projectName             = "RNASeq.RSEM",
   annotationRDS           = "C:/Users/sindiris/R Scribble/Annotation RDS/annotation_ENSEMBL_gene.RDS",
   pcRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/pc.other.HGNCTableFlat.rds",
+  emRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/EMGenes.RDS",
   tfRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/TFs_no_epimachines.RDS",
   csRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/CellSurface.RDS",
   cgaRDS                  = "C:/Users/sindiris/R Scribble/Annotation RDS/cancerGermlineAntigens.rds",
@@ -43,11 +44,11 @@ rnaseqProject <- ProjectSetUp$new(
   DiffGeneExpAnaDir       = "DiffExpResults",
   DiffGeneExpRDS          = "DiffGeneExpRDSOutput",
   ## Keep only Ribozero
-  #factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"),
+  # factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"),
   #                          "Normal.ribozero"=list("LIBRARY_TYPE"="Normal", "LibraryPrep" = "PolyA"),
   #                              "Tumors"=list("LIBRARY_TYPE"="Tumor", "LibraryPrep" = "PolyA"))
-  ## Keep only PolyA
-  ## factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), "Normal.ribozero"=list("LibraryPrep" = "Ribozero"))
+  #Keep only PolyA
+  # factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), "Normal.ribozero"=list("LibraryPrep" = "Ribozero"))
   ## Remove Celllines
   factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"))
   # factorsToExclude          = list('None'=list("LIBRARY_TYPE"=""))
@@ -120,12 +121,9 @@ mergeObjectsConso     <- mergeObjectsConso[,-c("GeneName")]         %>%
 ## matching above data frame with the annotationDF
 rnaseqProject$annotationDF <- rnaseqProject$annotationDF %>% dplyr::filter(GeneID %in% rownames(mergeObjectsConso)); dim(rnaseqProject$annotationDF)
 
-
 ## Subset metaDataDF by the number of samples in the folder ####
 colnamesDF           <- data.frame( "Sample.Biowulf.ID.GeneExp"= colnames(mergeObjectsConso))
 corUtilsFuncs$subsetMetaData(colnamesDF=colnamesDF)
-
-
 
 ## Instantiate a new Object of type GeneExpNormalization ####
 expressionObj        <- GeneExpNormalization$new(
@@ -136,7 +134,7 @@ expressionObj        <- GeneExpNormalization$new(
   annotationDF      = rnaseqProject$annotationDF, 
   design            = rnaseqProject$metaDataDF[,rnaseqProject$factorName], 
   #design           = newMetaDataDF[,rnaseqProject$factorName],
-  proteinCodingOnly = TRUE,
+  proteinCodingOnly = FALSE,
   corUtilsFuncs     = corUtilsFuncs
 )
 
@@ -532,7 +530,7 @@ dgeObj  <- DifferentialGeneExp$new(
   corUtilsFuncs     = corUtilsFuncs 
 )
 # 
-# DiffExpObj <- dgeObj$performDiffGeneExp()
+DiffExpObj <- dgeObj$performDiffGeneExp()
 # head(DiffExpObj[[1]] %>% dplyr::arrange(-logFC))
 # 
 
@@ -564,17 +562,20 @@ mergeDiffTestResults <- function(x, type="", saveDirPath="", extension="", colIn
 # Step 1.  Set the filters and annotation ####
 
 ## Javed's Filter for all three categories
-group2FPKM.T = 5 ; group1FPKM.T = 1;  PValue.T = 0.00001 ; logFoldDiff.T = 4 ; FDR_value.T = 0.05 ; vitalFPKM.T = 1
+group2FPKM.T = 1 ; group1FPKM.T = 1;  PValue.T = 0.05 ; logFoldDiff.T = 0 ; FDR_value.T = 0.05 ; vitalFPKM.T = 0
 
 # selectedGeneList <- "CancerGermlineAntigen"
 # Zscored.logFC = 0.25; Zscore.group2 = 0.5; group2FPKM = 5; group1FPKM = 1;  PValue = 0.001; logFC = 4; FDR = 0.05
 # 
 # selectedGeneList <- "CellSurface"
 # Zscored.logFC = 1 ; Zscore.group2 = 0.5; group2FPKM = 5 ; group1FPKM = 1;  PValue = 0.001 ; logFC = 4 ; FDR = 0.05
-
-selectedGeneList <- "TranscriptionFactor"
+#
+# selectedGeneList <- "TranscriptionFactor"
+# Zscored.logFC = 0.25 ; Zscore.group2 = 0.5; group2FPKM = 5 ; group1FPKM = 1;  PValue = 0.001 ; logFC = 4 ; FDR = 0.05
+#
+selectedGeneList <- "ExhaustionMarkers"
 Zscored.logFC = 0.25 ; Zscore.group2 = 0.5; group2FPKM = 5 ; group1FPKM = 1;  PValue = 0.001 ; logFC = 4 ; FDR = 0.05
-# 
+
 MergedDiffExpResultDir <- paste0("C:/Users/sindiris/R Scribble//RNASeq.RSEM/MergedDiffExpResults/",selectedGeneList)
 
 # Step 2.  Perform Merging of differential expression file across groups ####
@@ -583,7 +584,7 @@ ConditionGroup <- c(unique(sapply(dgeObj$pairedList, function(x){ return(paste(x
 #ConditionGroup <- c(unique(sapply(dgeObj$pairedList, function(x){ return(paste(x[1],x[2],sep = "_"))  })))
 groups <- list.dirs(paste("C:/Users/sindiris/R Scribble//RNASeq.RSEM//DiffExpResults/", sep=""))[-1]; groups[1]
 output <- sapply(groups, mergeDiffTestResults, type="Gene", colInterest=c(7,9,10,11,12, 15:28), rowNamesCol = 2,
-                 fileSuffix=paste0(selectedGeneList,".txt"),saveDirPath=MergedDiffExpResultDir)
+                 fileSuffix=paste0(selectedGeneList,".txt"), saveDirPath=MergedDiffExpResultDir)
 
 # Step 3.  Core Function and save files ####
 allTumorStats <- do.call(cbind, lapply(ConditionGroup, function(x){
