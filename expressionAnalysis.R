@@ -141,7 +141,7 @@ expressionObj        <- GeneExpNormalization$new(
 
 ## Get expression in desired units ####
 ### RawCounts
-expressionTMM.Counts          = expressionObj$edgeRMethod("RawCounts")
+#expressionTMM.Counts          = expressionObj$edgeRMethod("RawCounts")
 ### RPKM
 expressionTMM.RPKM            = expressionObj$edgeRMethod("TMM-RPKM", logtransform = TRUE, zscore = FALSE)
 
@@ -159,10 +159,10 @@ colnames(expressionTMM.RPKM)  <- AliasColnames
 
 ### Save expression (TMM-RPKM/whatwever asked for in the above step) to a file ####
 # write.table(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
-#                                       paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.RiboZero",rnaseqProject$date,".txt"),sep="/"),
+#                                       paste0("RPKM_Data_Filt_Consolidated.GeneNames.No.CL.log2.",rnaseqProject$date,".txt"),sep="/"),
 #             sep="\t", row.names = FALSE, quote = FALSE)
 # saveRDS(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
-#                                   paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.RiboZero",rnaseqProject$date,".rds"),sep="/"))
+#                                   paste0("RPKM_Data_Filt_Consolidated.GeneNames.No.CL.log2.",rnaseqProject$date,".rds"),sep="/"))
 
 
 
@@ -385,7 +385,8 @@ write.table(ssGSEAScores.DDRGenes.corr$p, "C:/Users/sindiris/R Scribble/RNASeq.R
 
 #### Perform correlation analysis between Exhaustion markers and immune signatures ####
 ## Read the ssGSEA output
-ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.2019-01-31.PROJ.KeggSig.gct")
+#ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.2019-01-31.PROJ.KeggSig.gct")
+ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.Khanlab.pc.log2.2019-06-14.PROJ.kegg.immune.rm.dups.gct")
 ## Read the DDR genes file
 EMGenes <- read.table("C:/Users/sindiris/R Scribble/Annotation RDS/Exhaustion_markers_genes.txt", sep="\t", header = T, stringsAsFactors = FALSE)
 ## sanity check if any EM genes are missing form the expression matrix
@@ -406,14 +407,31 @@ EMGenesGeneExpFinal <-  EMGenesGeneExp[complete.cases(EMGenesGeneExp), ]; dim(EM
 ## bind geneexpression matrix to immunescore matrix and perform correlation
 ssGSEAScores.EMGenes  <- rbind(ssGSEAScores, EMGenesGeneExpFinal); dim(ssGSEAScores.EMGenes)
 
+# ## For making heatmap
+# ssGSEAScores.EMGenes  <- rbind(ssGSEAScores[c("T.cells_CD4_memory_activated", "T.cells_CD8"),], EMGenesGeneExpFinal); dim(ssGSEAScores.EMGenes)
+
 ## Get correlation between Gene expression and Immune signature irrespective of diagnosis
 ssGSEAScores.EMGenes.T <- t(ssGSEAScores.EMGenes)
 ssGSEAScores.EMGenes.corr <- rcorr(ssGSEAScores.EMGenes.T,  type = "spearman");View(ssGSEAScores.EMGenes.corr)
 
+## Get correlation Immune gene signatures irrespective of diagnosis
+library(psych)
+library(Hmisc)
+ssGSEAScores.T <- t(ssGSEAScores)
+ssGSEAScores.corr <- rcorr(ssGSEAScores.T,  type = "spearman");View(ssGSEAScores.corr$r)
+
+## coorelation plot
+ssGSEAScores.T.df <- data.frame(ssGSEAScores.T)
+ssGSEAScores.T.df[,"diff"] <- abs(ssGSEAScores.T[,"Kegg_Antigen_processing_and_presentation"]-ssGSEAScores.T[,"ImmuneSignature"])
+ggplot(ssGSEAScores.T.df, aes(x = Kegg_Antigen_processing_and_presentation, y = ImmuneSignature), color="darkblue") +
+  geom_point() +
+  theme_bw() + geom_smooth(method = "lm")
+
 ## Plot heatmap for the above
-col<- colorRampPalette(c("blue", "white", "red"))(20)
+col<- colorRampPalette(c("blue", "white", "red"))(100)
 pdf("C:/Users/sindiris/R Scribble/RNASeq.RSEM/Figures/ImmuneScoreVSDDRgeneExp.pdf", height = 55, width = 55)
 heatmap(x = ssGSEAScores.EMGenes.corr$r, col = col, symm = TRUE, keep.dendro = FALSE)
+pheatmap(ssGSEAScores.corr$r, col = col)
 dev.off()
 
 ## Add annotation
@@ -458,8 +476,19 @@ CD8.CD4_MemoryAct.Spread <- tibble::add_column( CD8.CD4_MemoryAct.Spread, Legend
                                               ), .after=1) %>% data.frame() %>%  
                                               dplyr::select(-contains("GeneNames"))
 
+## Filter correlation based on the filter plot correlation values only.
+CorrDF.Out.R.P.CD8.heatmap <- CorrDF.Out.R.P.TC8.TC4 %>% 
+  mutate(TC8.TC4.MemoryAct=ifelse( abs( Cor.T.cells_CD8.y <= 0.05 ), Cor.T.cells_CD8.x, 0 ) ) %>%
+  dplyr::select(Diagnosis, GeneNames, TC8.TC4.MemoryAct) 
+CorrDF.Out.R.P.CD8.heatmap.Spread <- CorrDF.Out.R.P.CD8.heatmap %>% tidyr::spread(Diagnosis,TC8.TC4.MemoryAct)
+CorrDF.Out.R.P.CD8.heatmap.Spread <- CorrDF.Out.R.P.CD8.heatmap.Spread  %>% dplyr::mutate(Count=rowSums(.[2:ncol(CorrDF.Out.R.P.CD8.heatmap.Spread)]))
+CorrDF.Out.R.P.CD8.heatmap.Spread <- tibble::add_column( CorrDF.Out.R.P.CD8.heatmap.Spread, Legend=paste(CorrDF.Out.R.P.CD8.heatmap.Spread$GeneNames), .after=1) %>% 
+                                                data.frame() %>% dplyr::select(-contains("GeneNames"))
+
 ## Plot the heatmap
-CD8.CD4_MemoryAct.Spread %<>% 
+CorrDF <- CorrDF.Out.R.P.CD8.heatmap.Spread
+#CorrDF <- CorrDF.Out.R.P.CD8.CD4_MemoryAct
+CorrDF %<>% 
   dplyr::arrange(Count) %<>% 
   dplyr::filter( Count > 0 ) %<>% 
   dplyr::select(-one_of("Count")) %<>% 
@@ -468,9 +497,10 @@ CD8.CD4_MemoryAct.Spread %<>%
 # CD8.CD4_MemoryAct.Spread %<>%   dplyr::arrange(desc(Legend)) %<>% tibble::column_to_rownames(var="Legend")
 # CD8.CD4_MemoryAct.Spread %<>% column_to_rownames(var="Legend")
 
-pdf(paste("./Plots/", date, "CD4-Memory.Activated or CD8 significant correlation with EM.spearman.TMM.RPKM.GP.log2.Zscore.Output.pdf", sep=""), height = 10, width = 15)
-superheat(CD8.CD4_MemoryAct.Spread,
-          title = "CD4-Memory.Activated/CD8 significant correlation with EM",
+pdf(paste("./Plots/", date, "CD8 significant correlation with EM.spearman.TMM.RPKM.GP.log2.Output.pdf", sep=""), height = 10, width = 15)
+superheat(CorrDF,
+          #title = "CD4-Memory.Activated/CD8 significant correlation with EM",
+          title = "CD8 significant correlation with EM",
           legend=FALSE,
           grid.hline = FALSE,
           grid.vline = FALSE,
@@ -486,6 +516,19 @@ superheat(CD8.CD4_MemoryAct.Spread,
           title.size = 6)
 dev.off()
 
+colfunc <- colorRampPalette(c("#f2f2f2", "gold","firebrick3"))
+pheatmap(CorrDF, 
+         #color =c("#e0e0d1", "#004080"), 
+         #color =c("#f2f2f2", "#004080"), 
+         color = colfunc(10),
+         cluster_rows = FALSE,
+         cluster_cols = FALSE,
+         border_color = "grey", 
+         #border_color = NA,
+         treeheight_row = 0,
+         fontsize = 12,
+         legend = TRUE,
+         main="CD8 correlation with EM")
 
 ### Perform Differential gene expression analysis ####
 
@@ -1300,16 +1343,52 @@ ggarrange(HighPlot, IntermediatePlot,LowPlot,
 dev.off()
 
 
+### Violin plot for exhaustion markers ####
 
+RPKM.Data.Exhaustion   <- expressionTMM.RPKM %>% dplyr::filter(GeneName %in% as.character(rnaseqProject$emDF$GeneName)) %>% dplyr::arrange(GeneName)
+Exhaustion.Transpose           <- as.data.frame(t(RPKM.Data.Exhaustion[,-c(1:7)]))
+colnames(Exhaustion.Transpose) <- RPKM.Data.Exhaustion$GeneName
+Exhaustion.Transpose <- Exhaustion.Transpose %>% tibble::rownames_to_column(var="Sample.ID.Alias")
+Exhaustion.Transpose.diag <- dplyr::full_join(Exhaustion.Transpose, rnaseqProject$metaDataDF[,c("Sample.ID.Alias", "DIAGNOSIS.Substatus.Tumor.Normal.Tissue")], 
+                                              by="Sample.ID.Alias") %>% dplyr::rename(Diagnosis=DIAGNOSIS.Substatus.Tumor.Normal.Tissue)
+Rm.Normal.Exhaustion.Transpose <- Exhaustion.Transpose.diag %>% filter(!grepl("^NS.*", Exhaustion.Transpose.diag$Diagnosis))
+finalExhaustionMatrix <-  melt(Rm.Normal.Exhaustion.Transpose[,-1], id.var = "Diagnosis")
 
+finalExhaustionMatrix.tidy <- finalExhaustionMatrix %>% dplyr::group_by(Diagnosis, variable) %>% 
+  dplyr::mutate(Med=median(value)) %>% arrange(Diagnosis, variable, value) %>% 
+  arrange(desc(Med)) %>% 
+  ungroup() %>% 
+  mutate( Diagnosis.Marker = factor(paste(Diagnosis,variable,sep="."), levels= unique(paste(Diagnosis,variable,sep=".")),
+                                    order = TRUE) ) %>% 
+  arrange(Diagnosis.Marker)
 
-
-
-
-
-
-
-
-
+pdf("ExhautionMarkers.Variable.RPKM.v5.pdf",height=25,width=20)
+ggplot(finalExhaustionMatrix.tidy, aes(x=Diagnosis.Marker, y=value)) + 
+  ##ggplot(data, aes(x=Group, y=log2(ENSG00000182752))) + 
+  #geom_boxplot(varwidth = TRUE,notch = FALSE) + 
+  geom_violin(scale = "width",trim = FALSE, draw_quantiles = c(0.5)) + 
+  #geom_jitter(width=0.1) +
+  theme_bw() + 
+  ylab( paste("log2(TPM)") ) +
+  #ylim(0,10) +
+  xlab( "Diagnosis" ) +
+  #geom_hline(yintercept=0, size=0.1) + 
+  theme( title = element_text(size=13, face="bold")
+         ,axis.title.x = element_text(size=13, face="bold")
+         ,axis.title.y = element_text(size=13, face="bold")
+         ,axis.text.x = element_text(size=10, face="bold", angle=90, vjust=1)
+         ,axis.text.y = element_text(size=10, face="bold")
+         ,axis.ticks.x =element_blank()
+         ,strip.text.y= element_blank()
+         ,strip.text.x=element_text(size=13,face="bold")
+         ,strip.background=element_blank()
+         ,panel.grid.major.x=element_blank()
+         ,panel.grid.minor.x=element_blank()
+         ,panel.border = element_rect(colour = "black", fill=NA, size=0.0000000002, linetype = 2)
+         ,panel.spacing = unit(0, "cm")
+         ,strip.switch.pad.grid = unit(0, "cm")
+  ) + facet_wrap( ~ variable, scales="free", nrow = 7) +
+  scale_x_discrete(labels=setNames(as.character(finalExhaustionMatrix.tidy$Diagnosis), finalExhaustionMatrix.tidy$Diagnosis.Marker))
+dev.off()
 
 

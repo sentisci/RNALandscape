@@ -148,7 +148,7 @@ dataSetNeo <- tidyr::gather(mergeDataSet.Neoantigens, "Alteration", "Count", Ind
 View(dataSetNeo)
 
 dataSetNeo1 <- dataSetNeo
-dataSetNeo1$Count <- log2(dataSetNeo$Count+1)
+dataSetNeo1$Count <- log10(dataSetNeo$Count+1)
 dataMean <- dataSetNeo1 %>% group_by(DIAGNOSIS.Alias.substatus, Alteration) %>%
             mutate(CountMean= mean(Count)) %>% 
             dplyr::select(DIAGNOSIS.Alias.substatus,Alteration,CountMean) %>% distinct()
@@ -166,7 +166,7 @@ ggplot(data=dataMean,aes(x=DIAGNOSIS.Alias.substatus,y=CountMean, fill=Alteratio
   theme_bw() +
   scale_fill_brewer(palette="Set2")+
   #scale_fill_hue(l=40) +
-  xlab("")+ylab("Log2 Total Counts")+ggtitle("Average of tumor specific neoantigen counts")+
+  xlab("")+ylab("Log10 Total Counts")+ggtitle("Average of tumor specific neoantigen counts")+
   theme(legend.position="bottom",
         text = element_text(size=15 ),
         plot.title = element_text(hjust = 0.5))
