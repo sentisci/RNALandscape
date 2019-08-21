@@ -99,7 +99,7 @@ mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Gene
                                                    metadata          = rnaseqProject$metaDataDF,
                                                    metadataFileRefCol=rnaseqProject$metadataFileRefCol )
 
-#saveRDS(mergeObjectsNoDup, "../RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.RiboZeros.RDS")
+#saveRDS(mergeObjectsNoDup, "C:/Users/sindiris/R Scribble/RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.RDS")
 
 #mergeObjectsNoDup <- readRDS("../RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.excluding celllines.RDS")
 
@@ -142,6 +142,8 @@ expressionObj        <- GeneExpNormalization$new(
 ## Get expression in desired units ####
 ### RawCounts
 #expressionTMM.Counts          = expressionObj$edgeRMethod("RawCounts")
+## Normalised counts
+expressionTMM.NormDF         = expressionObj$edgeRMethod("NormFactorDF")
 ### RPKM
 expressionTMM.RPKM            = expressionObj$edgeRMethod("TMM-RPKM", logtransform = TRUE, zscore = FALSE)
 
