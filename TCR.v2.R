@@ -230,23 +230,25 @@ toPlotDF <- countObj.Annot.NoCL.totalReads %>% dplyr::filter(count > 0) %>%
   # mutate(good_ranks = order(order(order_values, decreasing=TRUE)))
 View(toPlotDF)
 
+pdf("TCR.color.step.v4.pdf", height = 15, width = 25)
 ggplot(toPlotDF[,c(1,3,5,6,7)]) +
   geom_step(aes(y = rank, x = ReadsPerMillion, group=Sample.Biowulf.ID.GeneExp,colour=Color.Substatus), 
-            size=0.5 ) +
+            size=0.7 ) +
   facet_wrap(~toPlotDF$DIAGNOSIS.Substatus.Tumor.Normal.Tissue) +
   theme_bw() +
   theme(legend.position="none") +
-  theme(strip.text=element_text(size=12),
-        axis.text = element_text(size=11),
-        axis.title = element_text(size = 18),
+  theme(strip.text=element_text(size=16, face = "bold"),
+        axis.text = element_text(size=12, face = "bold"),
+        axis.title = element_text(size = 18, face = "bold"),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
   scale_y_continuous(trans = "reverse", breaks = seq(1,max(toPlotDF$rank),by=4) ) +
   coord_trans(x = "log2" ) +
   scale_x_continuous(minor_breaks = c(),
                      breaks = c(0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 3, 4),
                      labels = c(0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 3, 4) ) 
+dev.off()
 
-  
+
 toPlotDF.NB.MYCN.NA <- countObj.Annot.NoCL.totalReads %>% filter(grepl('NB.MYCN.NA', DIAGNOSIS.Substatus.Tumor.Normal.Tissue))
 NB.A <- ggplot(toPlotDF.NB.MYCN.NA[,c(1,3,5,6)]) +
   geom_step(aes(y = count, x = ReadsPerMillion, group=Sample.Biowulf.ID.GeneExp,colour=Color.Substatus), size=0.6 ) +
