@@ -187,8 +187,8 @@ AllEntropyData.annot <- dplyr::full_join(AllEntropyData, metaData[,c("Sample.ID"
 ### Add switch case to select Clone df based on user input ###
 
 ### For now Select DF manually ####
-#cloneType = "IGHClones"  ; countObj <- cloneObjIG %>% as.data.frame()
-cloneType = "TRBClones"  ; countObj <- cloneObjTCR %>% as.data.frame()
+cloneType = "IGHClones"  ; countObj <- cloneObjIG %>% as.data.frame()
+#cloneType = "TRBClones"  ; countObj <- cloneObjTCR %>% as.data.frame()
 
 ### Attach metadata and generate countObj ####
 countObj <- countObj %>% dplyr::rename(Sample.Data.ID=SampleName); 
@@ -238,15 +238,41 @@ ggplot(toPlotDF[,c(1,3,5,6,7)]) +
   theme_bw() +
   theme(legend.position="none") +
   theme(strip.text=element_text(size=16, face = "bold"),
-        axis.text = element_text(size=12, face = "bold"),
+        axis.text = element_text(size=14, face = "bold"),
         axis.title = element_text(size = 18, face = "bold"),
-        axis.text.x = element_text(angle = 45, hjust = 1)) +
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        panel.border = element_rect(colour = "skyblue", fill=NA, size=1)) +
   scale_y_continuous(trans = "reverse", breaks = seq(1,max(toPlotDF$rank),by=4) ) +
   coord_trans(x = "log2" ) +
   scale_x_continuous(minor_breaks = c(),
                      breaks = c(0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 3, 4),
                      labels = c(0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 3, 4) ) 
 dev.off()
+
+pdf("IGH.color.step.v5.pdf", height = 15, width = 25)
+ggplot(toPlotDF[,c(1,3,5,6,7)]) +
+  geom_step(aes(y = log2(rank), x = ReadsPerMillion, group=Sample.Biowulf.ID.GeneExp,colour=Color.Substatus), 
+            size=0.7 ) +
+  facet_wrap(~toPlotDF$DIAGNOSIS.Substatus.Tumor.Normal.Tissue) +
+  theme_bw() +
+  theme(legend.position="none") +
+  theme(strip.text=element_text(size=16, face = "bold"),
+        axis.text = element_text(size=12, face = "bold"),
+        axis.title = element_text(size = 18, face = "bold"),
+        axis.text.x = element_text(angle = 60, hjust = 1),
+        panel.border = element_rect(colour = "skyblue", fill=NA, size=1)) +
+  scale_y_continuous(name = "log rank",
+                     trans = "reverse",
+                     breaks = c(0,  2,  4,  6, 8),
+                     labels = c(1,  4,  16, 64, 256)) +
+  coord_trans(x = "log2") +
+  scale_x_continuous(minor_breaks = c(),
+                     breaks = c(0.01, 0.04, 0.3, 2,10,50,200,600),
+                     labels = c(0.01, 0.04, 0.3, 2,10,50,200,600) ) 
+dev.off()
+
+
+
 
 
 toPlotDF.NB.MYCN.NA <- countObj.Annot.NoCL.totalReads %>% filter(grepl('NB.MYCN.NA', DIAGNOSIS.Substatus.Tumor.Normal.Tissue))
