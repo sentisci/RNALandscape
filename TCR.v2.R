@@ -187,8 +187,8 @@ AllEntropyData.annot <- dplyr::full_join(AllEntropyData, metaData[,c("Sample.ID"
 ### Add switch case to select Clone df based on user input ###
 
 ### For now Select DF manually ####
-cloneType = "IGHClones"  ; countObj <- cloneObjIG %>% as.data.frame()
-#cloneType = "TRBClones"  ; countObj <- cloneObjTCR %>% as.data.frame()
+#cloneType = "IGHClones"  ; countObj <- cloneObjIG %>% as.data.frame()
+cloneType = "TRBClones"  ; countObj <- cloneObjTCR %>% as.data.frame()
 
 ### Attach metadata and generate countObj ####
 countObj <- countObj %>% dplyr::rename(Sample.Data.ID=SampleName); 
@@ -464,6 +464,128 @@ pctPlot <- ggplot( data = combined.IGH.TCR, aes( log10(TotalCloneSum.x), log10(T
          panel.grid.minor = element_blank()) +
   xlab("TRB Total Clones ")+
   ylab("IGH Total Clones ")
-  
+
+
+#### For Venn plots Public dataBases ####
+## Group by TCR
+### By TCR
+countObj.Annot.gb <- countObj.Annot.complete  %>% dplyr::group_by(cdr3aa, v, d, j) %>% 
+  dplyr::summarise(
+    TotalSamples=n(), 
+    Samples = paste(Sample.Biowulf.ID.GeneExp, collapse = ','), 
+    CloneCount = paste(count, collapse = ','),
+    MedianCloneCount = median(count),
+    Diagnosis= paste(unique(DIAGNOSIS.Substatus.Tumor.Normal.Tissue), collapse = ',' )
+  )
+
+## Using VDJdb
+vdjdb <- read.csv("./public/vdjdb-2018-01-17/vdjdb_all_CDR3aa.txt", sep="\t")
+vdjdbHealthy <- vdjdb %>% filter(grepl("healthy",meta.subject.cohort))
+vdjdb.CDR3Beta <- unique(as.character(vdjdbHealthy$cdr3.beta))
+length(vdjdb.CDR3Beta)
+vdjdb.CDR3Beta.Complete <- unlist(stringr::str_extract_all(vdjdb.CDR3Beta, "^C.*F")); 
+length(vdjdb.CDR3Beta.Complete)
+
+## Using Waren
+warenetal <- read.csv("./warren_et_al.Sushma/warren_etal.blood.cdr3aa.txt", sep="\t", header = F)
+warenetal.CDR3Beta <- unique(as.character(warenetal$V1))
+length(warenetal.CDR3Beta)
+warenetal.CDR3Beta.Complete <- unlist(stringr::str_extract_all(warenetal.CDR3Beta, "^C.*F")); 
+length(warenetal.CDR3Beta.Complete)
+
+
+## All TCGA ## Using Bo et al/TCGA 
+TCGA.Tumor.Normal <- read.csv("./public/TCGA/Bo.et.al.CDR3.fa", sep="\t", header = F); dim(TCGA.Tumor.Normal)
+TCGATumorNormalTab <- data.frame(Names=gsub(">","",TCGA.Tumor.Normal[seq(1, 1366836,2),]), Sequence=TCGA.Tumor.Normal[seq(2, 1366836,2),])
+head(TCGATumorNormalTab); dim(TCGATumorNormalTab)
+
+#Normal
+TCGANormal <- TCGATumorNormalTab %>% dplyr::filter(grepl('^N', Names)) ; dim(TCGANormal)
+#Tumor
+TCGATumor  <- TCGATumorNormalTab %>% dplyr::filter(grepl('^T', Names)) ; dim(TCGATumor)
+
+## Getting All the TCGA Tumor CDR3aa
+TCGATumor.CDR3Beta.Complete <- unique(unlist(stringr::str_extract_all(TCGATumor$Sequence, "^C[A|S]+.*F")))
+length(TCGATumor.CDR3Beta.Complete)
+## Getting Only Shared TCGA Tumor CDR3aa
+TCGATumor.Shared <- TCGATumor %>% dplyr::filter( grepl(".*C[A|S]+.*F", Sequence)) %>%
+  dplyr::group_by(Sequence) %>% 
+  dplyr::mutate(Samples = paste(unique(Names), collapse = ','), Count = n(),
+                DistinctSamples = length(unique(Names))) %>% dplyr::distinct()
+TCGATumor.Shared.Multi <- TCGATumor.Shared %>% dplyr::filter(DistinctSamples > 1)
+TCGATumor.Shared.Multi$Length <- sapply(as.character(TCGATumor.Shared.Multi$Sequence), nchar)
+
+TCGATumor.Shared <- TCGATumor %>% dplyr::filter( grepl(".*C[A|S]+.*F", Sequence))
+TCGATumorDistinct <- unique(TCGATumor.Shared$Sequence)
+
+## Getting Only Shared TCGA Normal CDR3aa
+TCGANormal.Shared <- TCGANormal %>% dplyr::filter( grepl(".*C[A|S]+.*F", Sequence)) %>%
+  dplyr::group_by(Sequence) %>% 
+  dplyr::mutate(Samples = paste(unique(Names), collapse = ','), Count = n(),
+                DistinctSamples = length(unlist(strsplit(Samples, ",")))) %>% dplyr::distinct()
+TCGANormal.Shared.Multi <- TCGANormal.Shared %>% dplyr::filter(DistinctSamples > 1)
+TCGANormal.Shared.Multi$Length <- sapply(as.character(TCGANormal.Shared.Multi$Sequence), nchar)
+
+TCGANormal.Shared <- TCGANormal %>% dplyr::filter( grepl(".*C[A|S]+.*F", Sequence))
+TCGANormalDistinct <- unique(TCGANormal.Shared$Sequence)
+
+## countObj.Annot.gb
+#countObj.Annot.gb.Cancer <- countObj.Annot.gb %>% filter(!Diagnosis %in% c("NS"))
+countObj.Annot.gb.Cancer <- countObj.Annot.gb
+countObj.Annot.gb.Cancer$length <- sapply(as.character(countObj.Annot.gb$cdr3aa), nchar)
+cancerShared             <- countObj.Annot.gb.Cancer %>% filter(TotalSamples > 1); length(cancerShared$cdr3aa)
+cancerShared.Complete    <- unlist(stringr::str_extract_all(cancerShared$cdr3aa, "^C.*F")); length(cancerShared.Complete)
+cancerPrivate            <- countObj.Annot.gb.Cancer %>% filter(TotalSamples == 1); length(cancerPrivate$cdr3aa)
+cancerPrivate.Complete    <- unlist(stringr::str_extract_all(cancerPrivate$cdr3aa, "^C.*F")); length(cancerPrivate.Complete)
+
+countObj.Annot.gb.NS <- countObj.Annot %>%  filter(grepl('^NS', DIAGNOSIS.Substatus.Tumor.Normal.Tissue) )
+countObj.Annot.gb.NS <- countObj.Annot.gb %>% filter(Diagnosis %in% c("NS")); length(countObj.Annot.gb.NS$cdr3aa)
+inHouseNormal.Complete    <- unlist(stringr::str_extract_all(countObj.Annot.gb.NS$cdr3aa, "^C.*F")); length(inHouseNormal.Complete)
+
+vennCDR3aaList <- list("Tumor, Private" = unique(cancerPrivate$cdr3aa),
+                       "Tumor, Shared" = unique(cancerShared$cdr3aa),
+                       "Tumor, Public" = TCGATumorDistinct,
+                       "TCGA,  Normal"    =   TCGANormalDistinct,
+                       "Warren et al (healthy)" = warenetal.CDR3Beta, 
+                       "Chudakov et al (healthy)"=vdjdb.CDR3Beta,
+                       "In House Normal" = unique(countObj.Annot.gb.NS$cdr3aa) 
+)
+
+# vennCDR3aaList <- list("Tumor, Private" = unique(cancerPrivate.Complete),
+#                        "Tumor, Shared" = unique(cancerShared.Complete),
+#                        "Warreb et al (healthy)" = unique(warenetal.CDR3Beta.Complete), 
+#                        "Chudakov et al (healthy)"=unique(vdjdb.CDR3Beta.Complete),
+#                        "In House Normal" = unique(inHouseNormal.Complete) 
+# )
+
+library(venn)
+v.table <- venn(vennCDR3aaList, ilab=TRUE, zcolor = "style", size = 15, cexil = 1, cexsn = 1)
+TumorPrivate <- attr(v.table,"intersections")[["Tumor, Private"]]; length(TumorPrivate)
+TumorShared  <- attr(v.table,"intersections")[["Tumor, Shared"]]; length(TumorShared)
+InHouseNormals  <- attr(v.table,"intersections")[["In House Normal"]]; length(InHouseNormals)
+warenetalNormals  <- attr(v.table,"intersections")[["Warreb et al (healthy)"]]; length(warenetalNormals)
+
+
+TumorPrivateFinal <- data.frame("AA"=TumorPrivate, "length"=sapply(TumorPrivate,nchar))
+colnames(TumorPrivateFinal) <- c("AA","Len")
+TumorPrivateFinal_15 <- TumorPrivateFinal %>% filter(Len == 15)
+TumorPrivatePlot <- ggseqlogo(as.character(TumorPrivateFinal_15$AA), seq_type='aa',  method = "probability")
+
+warenetalNormalsFinal <- data.frame("AA"=warenetalNormals, "length"=sapply(warenetalNormals,nchar))
+colnames(warenetalNormalsFinal) <- c("AA","Len")
+warenetalNormalsFinal <- warenetalNormalsFinal %>% filter(Len == 15)
+warenetalNormalsPlot <- ggseqlogo(as.character(warenetalNormalsFinal$AA), seq_type='aa',  method = "probability")
+
+
+InHouseNormalsFinal <- data.frame("AA"=InHouseNormals, "length"=sapply(InHouseNormals,nchar))
+colnames(InHouseNormalsFinal) <- c("AA","Len")
+InHouseNormalsFinal <- InHouseNormalsFinal %>% filter(Len == 15)
+InHouseNormalsPlot <- ggseqlogo(as.character(InHouseNormalsFinal$AA), seq_type='aa',  method = "probability")
+
+pdf("ven.probability.pdf", height = 10, width = 10)
+ggarrange(plotlist = list(TumorPrivatePlot, InHouseNormalsPlot, warenetalNormalsPlot),common.legend=TRUE, nrow = 3)
+dev.off()
+
+
 
 
