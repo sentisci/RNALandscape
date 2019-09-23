@@ -1399,4 +1399,66 @@ ggplot(finalExhaustionMatrix.tidy, aes(x=Diagnosis.Marker, y=value)) +
   scale_x_discrete(labels=setNames(as.character(finalExhaustionMatrix.tidy$Diagnosis), finalExhaustionMatrix.tidy$Diagnosis.Marker))
 dev.off()
 
+############ TP53 Analysis ###################################
+
+TP53.mutant.samples <- read.table("C:/Users/sindiris/R Scribble/RNASeq.RSEM/TP53.Unique.txt",header = T)
+TP53.mutant.samples <- left_join(TP53.mutant.samples, rnaseqProject$validMetaDataDF[,c("Sample.Biowulf.ID.GeneExp","Sample.ID","DIAGNOSIS.Alias")], 
+                                 by="Sample.ID") %>% arrange(Sample.ID)
+HLA_geneexp      <- rbind(expressionTMM.RPKM.GSEA.Input[c("HLA-A", "HLA-B", "HLA-C"),])
+HLA_geneexp.t <- t(HLA_geneexp) %>% data.frame() %>% tibble::rownames_to_column(var = "Sample.Biowulf.ID.GeneExp") 
+HLA_geneexp.t <- HLA_geneexp.t %>% dplyr::mutate(Group = ifelse(Sample.Biowulf.ID.GeneExp %in% 
+                                                                  TP53.mutant.samples$Sample.Biowulf.ID.GeneExp, "TP53-mutant", "TP53-wildtype"))
+HLA_geneexp.t <- left_join(HLA_geneexp.t, rnaseqProject$validMetaDataDF[,c("Sample.Biowulf.ID.GeneExp", "DIAGNOSIS.Alias", "LIBRARY_TYPE")], 
+                           by="Sample.Biowulf.ID.GeneExp")
+HLA_geneexp.t <- HLA_geneexp.t %>% dplyr::mutate(Group = ifelse(DIAGNOSIS.Alias == "NS", "Normal", Group))
+
+HLA_geneexp.t <- HLA_geneexp.t %>% dplyr::filter(!grepl("CellLine", LIBRARY_TYPE))
+
+my_comparisons=list(c("TP53-mutant","TP53-wildtype"), c("TP53-mutant", "Normal"), c("TP53-wildtype","Normal"))
+
+pdf("C:/Users/sindiris/R Scribble/RNASeq.RSEM/HLA-Tumor-samples.pdf", height = 20, width = 15)
+HLA.A <- ggplot(HLA_geneexp.t, aes(x=Group, y=HLA.A , fill=Group)) + geom_boxplot() + scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9")) +
+                        geom_jitter(shape=16, position=position_jitter(0.2)) +  theme(legend.position = "none") +
+                        stat_compare_means( paired = FALSE,comparisons = my_comparisons) +
+                        stat_compare_means(method = "anova", label.y = 16) + 
+                        ylab("HLA.A RPKM")
+HLA.B <- ggplot(HLA_geneexp.t, aes(x=Group, y=HLA.B, fill=Group)) + geom_boxplot()  + scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9")) +
+                        geom_jitter(shape=16, position=position_jitter(0.2)) +  theme(legend.position = "none") +
+                        stat_compare_means( paired = FALSE,comparisons = my_comparisons) +
+                        stat_compare_means(method = "anova", label.y = 12.5) + 
+                        ylab("HLA.B RPKM")
+                       
+HLA.C <- ggplot(HLA_geneexp.t, aes(x=Group, y=HLA.C , fill=Group)) + geom_boxplot()  + scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9")) +
+                        geom_jitter(shape=16, position=position_jitter(0.2)) +  theme(legend.position = "none") +
+                        stat_compare_means( paired = FALSE,comparisons = my_comparisons) +
+                        stat_compare_means(method = "anova", label.y = 12.5) + 
+                        ylab("HLA.C RPKM")
+grid.arrange(HLA.A,HLA.B,HLA.C,nrow = 3)
+dev.off()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
