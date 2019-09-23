@@ -50,7 +50,7 @@ rnaseqProject <- ProjectSetUp$new(
   #Keep only PolyA
   # factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), "Normal.ribozero"=list("LibraryPrep" = "Ribozero"))
   ## Remove Celllines
-  factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"))
+  ## factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"))
   # factorsToExclude          = list('None'=list("LIBRARY_TYPE"=""))
 )
 
@@ -101,7 +101,7 @@ mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Gene
 
 #saveRDS(mergeObjectsNoDup, "C:/Users/sindiris/R Scribble/RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.RDS")
 
-#mergeObjectsNoDup <- readRDS("../RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.excluding celllines.RDS")
+#mergeObjectsNoDup <- readRDS("../RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.RDS")
 
 ## Evaluate presence of duplicate features (genes) and consolidate them ####
 setDT(mergeObjectsNoDup, keep.rownames = TRUE)
@@ -147,6 +147,12 @@ expressionTMM.NormDF         = expressionObj$edgeRMethod("NormFactorDF")
 ### RPKM
 expressionTMM.RPKM            = expressionObj$edgeRMethod("TMM-RPKM", logtransform = TRUE, zscore = FALSE)
 
+## Arrange data by histology and Library type
+arrange_metadata <- rnaseqProject$validMetaDataDF %>% arrange(DIAGNOSIS.Substatus.Tumor.Normal.Tissue, desc(LIBRARY_TYPE))
+expressionTMM.RPKM.arr <- expressionTMM.RPKM %>% dplyr::select(one_of("Chr","Start","End","Strand","GeneID","GeneName","Length",
+                                                                      as.character(factor(arrange_metadata$Sample.Biowulf.ID.GeneExp, 
+                                                                      ordered = TRUE, 
+                                                                      levels = arrange_metadata$Sample.Biowulf.ID.GeneExp))))
 
 ## Add additional annotations (sample Id alias) ####
 AliasNames_df                 <- dplyr::left_join( data.frame("Sample.Biowulf.ID.GeneExp"=colnames(expressionTMM.RPKM)), 
@@ -160,11 +166,11 @@ stopifnot( length(colnames(expressionTMM.RPKM)) == length(AliasColnames) )
 colnames(expressionTMM.RPKM)  <- AliasColnames
 
 ### Save expression (TMM-RPKM/whatwever asked for in the above step) to a file ####
-# write.table(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
-#                                       paste0("RPKM_Data_Filt_Consolidated.GeneNames.No.CL.log2.",rnaseqProject$date,".txt"),sep="/"),
-#             sep="\t", row.names = FALSE, quote = FALSE)
-# saveRDS(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
-#                                   paste0("RPKM_Data_Filt_Consolidated.GeneNames.No.CL.log2.",rnaseqProject$date,".rds"),sep="/"))
+write.table(expressionTMM.RPKM.arr, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
+                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.",rnaseqProject$date,".txt"),sep="/"),
+            sep="\t", row.names = FALSE, quote = FALSE)
+saveRDS(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
+                                  paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.",rnaseqProject$date,".rds"),sep="/"))
 
 
 

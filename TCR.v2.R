@@ -2,6 +2,7 @@ setwd("T:/Sivasish_Sindiri/R_workspace/MiXCR/")
 
 ## Khanlab meta data
 metaData <- read.csv("MetadataMapper.v3.txt", sep="\t")
+metaData <- read.csv("tcr_rnaseq_file.txt", sep="\t")
 
 ############################################ Section 0 Declare functions ##########################################################
 
@@ -97,11 +98,11 @@ emptyDFEntropyResults <- data.frame(FileName=c(), Hcdr3 =c(), Htot=c(), CLcdr3=c
                                     Num_totCDR3 =c())
 
 ### List files and read data into a single data matrix ####
-fileList <- list.files("./CloneFiles.v2/")
-#fileList <- c("convert.Sample_RMS248_C14C7ACXX.clones.txt")
+#fileList <- list.files("./CloneFiles.v2/")
+fileList <- list.files("./tcr_rnaseq/")
 AllClonesData             <- rbindlist( lapply(fileList, function(x){
   print(x)
-  exomeData <- read.csv( paste("./CloneFiles.v2/", x, sep=""), sep="\t", header = TRUE )
+  exomeData <- read.csv( paste("./tcr_rnaseq/", x, sep=""), sep="\t", header = TRUE )
   if(nrow(exomeData)>0){
     exomeData$SampleName <- x
   } else {
@@ -128,7 +129,7 @@ readCountsSum.df <- readCountsSum %>% tibble::rownames_to_column(var="Sample.Bio
 # AllClonesEntropyData             <- sapply(fileList, makeEntropyInput, inputDir="./CloneFilesNitin/", outputDir="./CloneFilesEntropyNitin/" )
 
 fileList <- list.files("./CloneFiles.v2/")
-cloneType = "IGH"
+cloneType = "TRB"
 AllClonesEntropyData             <- sapply(fileList, makeEntropyInput,  cloneType=cloneType, inputDir="./CloneFiles.v2/", 
                                            outputDir=paste0("./CloneFilesEntropy.", cloneType, ".v2/") )
 
@@ -186,6 +187,7 @@ AllEntropyData.annot <- dplyr::full_join(AllEntropyData, metaData[,c("Sample.ID"
 ### To Do  ####
 ### Add switch case to select Clone df based on user input ###
 
+#################################################################################### For RNASEq ################################################################
 ### For now Select DF manually ####
 #cloneType = "IGHClones"  ; countObj <- cloneObjIG %>% as.data.frame()
 cloneType = "TRBClones"  ; countObj <- cloneObjTCR %>% as.data.frame()
@@ -207,6 +209,28 @@ dim(countObj.Annot)
 dim(countObj.Annot.NoCL)
 dim(countObj.Annot.complete)
 
+#################################################################################### For TCRSeq ################################################################
+### For now Select DF manually ####
+cloneType = "IGHClones"  ; countObj <- cloneObjIG %>% as.data.frame()
+#cloneType = "TRBClones"  ; countObj <- cloneObjTCR %>% as.data.frame()
+
+### Attach metadata and generate countObj ####
+countObj <- countObj %>% dplyr::rename(Sample.Data.ID=SampleName); 
+countObj$Sample.Data.ID <- gsub("convert.|.clones.txt","", countObj$Sample.Data.ID)
+#countObj$SAMPLE_ID <- gsub("-","_", countObj$SAMPLE_ID)
+countObj.Annot <- dplyr::left_join(countObj, metaData, by="Sample.Data.ID") %>% 
+  dplyr::select_(.dots=c("count", "freq", "cdr3nt", "cdr3aa", "v", "d", "j", "VEnd", "DStart", "DEnd", "JStart", "Sample.Biowulf.ID.GeneExp",
+                         "Diagnosis", "Color.Substatus" )) ; head(countObj.Annot)
+### Plot the clone expansion
+countObj.Annot.NoCL <- countObj.Annot %>%  filter(!grepl('^NS|^NA', Diagnosis) )
+
+countObj.Annot.complete <- countObj.Annot.NoCL[complete.cases(countObj.Annot.NoCL),]
+## sanity check
+dim(countObj)
+dim(countObj.Annot)
+dim(countObj.Annot.NoCL)
+dim(countObj.Annot.complete)
+
 
 ######## Make Step Plots to show expansion ############
 countObj.Annot.NoCL.totalReads <- dplyr::left_join(countObj.Annot.complete, readCountsSum.df, by="Sample.Biowulf.ID.GeneExp")
@@ -216,7 +240,7 @@ dim(countObj.Annot.NoCL.totalReads.complete)
 countObj.Annot.NoCL.totalReads$ReadsPerMillion <- ( countObj.Annot.NoCL.totalReads$count/countObj.Annot.NoCL.totalReads$readCountsSum)*1000000
 
 countObj.Annot.NoCL.totalReads <- countObj.Annot.NoCL.totalReads %>% dplyr::select(Sample.Biowulf.ID.GeneExp, 
-                                                                                   DIAGNOSIS.Substatus.Tumor.Normal.Tissue, 
+                                                                                   Diagnosis, 
                                                                                    count, readCountsSum, ReadsPerMillion,
                                                                                    Color.Substatus)
 
@@ -230,30 +254,31 @@ toPlotDF <- countObj.Annot.NoCL.totalReads %>% dplyr::filter(count > 0) %>%
   # mutate(good_ranks = order(order(order_values, decreasing=TRUE)))
 View(toPlotDF)
 
-pdf("TCR.color.step.v4.pdf", height = 15, width = 25)
+pdf("TCRSeq.color.step.v4.pdf", height = 15, width = 25)
 ggplot(toPlotDF[,c(1,3,5,6,7)]) +
   geom_step(aes(y = rank, x = ReadsPerMillion, group=Sample.Biowulf.ID.GeneExp,colour=Color.Substatus), 
             size=0.7 ) +
-  facet_wrap(~toPlotDF$DIAGNOSIS.Substatus.Tumor.Normal.Tissue) +
+  facet_wrap(~toPlotDF$Diagnosis) +
   theme_bw() +
   theme(legend.position="none") +
   theme(strip.text=element_text(size=16, face = "bold"),
-        axis.text = element_text(size=14, face = "bold"),
+        axis.text = element_text(size=12, face = "bold"),
         axis.title = element_text(size = 18, face = "bold"),
-        axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.text.x = element_text(angle = 90, hjust = 1),
         panel.border = element_rect(colour = "skyblue", fill=NA, size=1)) +
-  scale_y_continuous(trans = "reverse", breaks = seq(1,max(toPlotDF$rank),by=4) ) +
-  coord_trans(x = "log2" ) +
-  scale_x_continuous(minor_breaks = c(),
-                     breaks = c(0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 3, 4),
-                     labels = c(0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 3, 4) ) 
+  scale_y_continuous(trans = "reverse", breaks = seq(1,max(toPlotDF$rank),by=25) ) +
+  coord_trans(x = "log10" ) +
+  scale_x_continuous(minor_breaks = c()                   
+                     #breaks = c(0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 3, 4),
+                     #labels = c(0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 3, 4) 
+  )
 dev.off()
 
 pdf("IGH.color.step.v5.pdf", height = 15, width = 25)
 ggplot(toPlotDF[,c(1,3,5,6,7)]) +
   geom_step(aes(y = log2(rank), x = ReadsPerMillion, group=Sample.Biowulf.ID.GeneExp,colour=Color.Substatus), 
             size=0.7 ) +
-  facet_wrap(~toPlotDF$DIAGNOSIS.Substatus.Tumor.Normal.Tissue) +
+  facet_wrap(~toPlotDF$Diagnosis) +
   theme_bw() +
   theme(legend.position="none") +
   theme(strip.text=element_text(size=16, face = "bold"),
@@ -262,9 +287,10 @@ ggplot(toPlotDF[,c(1,3,5,6,7)]) +
         axis.text.x = element_text(angle = 60, hjust = 1),
         panel.border = element_rect(colour = "skyblue", fill=NA, size=1)) +
   scale_y_continuous(name = "log rank",
-                     trans = "reverse",
-                     breaks = c(0,  2,  4,  6, 8),
-                     labels = c(1,  4,  16, 64, 256)) +
+                     trans = "reverse")
+                     #,
+                     #breaks = c(0,  2,  4,  6, 8),
+                     #labels = c(1,  4,  16, 64, 256)) +
   coord_trans(x = "log2") +
   scale_x_continuous(minor_breaks = c(),
                      breaks = c(0.01, 0.04, 0.3, 2,10,50,200,600),
@@ -469,7 +495,8 @@ pctPlot <- ggplot( data = combined.IGH.TCR, aes( log10(TotalCloneSum.x), log10(T
 #### For Venn plots Public dataBases ####
 ## Group by TCR
 ### By TCR
-countObj.Annot.gb <- countObj.Annot.complete  %>% dplyr::group_by(cdr3aa, v, d, j) %>% 
+#countObj.Annot.gb <- countObj.Annot.complete  %>% dplyr::group_by(cdr3aa, v, d, j) %>% 
+countObj.Annot.gb <- countObj.Annot.complete  %>% dplyr::group_by(cdr3aa) %>% 
   dplyr::summarise(
     TotalSamples=n(), 
     Samples = paste(Sample.Biowulf.ID.GeneExp, collapse = ','), 
@@ -534,21 +561,21 @@ TCGANormalDistinct <- unique(TCGANormal.Shared$Sequence)
 countObj.Annot.gb.Cancer <- countObj.Annot.gb
 countObj.Annot.gb.Cancer$length <- sapply(as.character(countObj.Annot.gb$cdr3aa), nchar)
 cancerShared             <- countObj.Annot.gb.Cancer %>% filter(TotalSamples > 1); length(cancerShared$cdr3aa)
-cancerShared.Complete    <- unlist(stringr::str_extract_all(cancerShared$cdr3aa, "^C.*F")); length(cancerShared.Complete)
+ccancerShared.Complete    <- unlist(stringr::str_extract_all(cancerShared$cdr3aa, "^C.*F")); length(cancerShared.Complete)
 cancerPrivate            <- countObj.Annot.gb.Cancer %>% filter(TotalSamples == 1); length(cancerPrivate$cdr3aa)
 cancerPrivate.Complete    <- unlist(stringr::str_extract_all(cancerPrivate$cdr3aa, "^C.*F")); length(cancerPrivate.Complete)
 
 countObj.Annot.gb.NS <- countObj.Annot %>%  filter(grepl('^NS', DIAGNOSIS.Substatus.Tumor.Normal.Tissue) )
-countObj.Annot.gb.NS <- countObj.Annot.gb %>% filter(Diagnosis %in% c("NS")); length(countObj.Annot.gb.NS$cdr3aa)
+# countObj.Annot.gb.NS <- countObj.Annot.gb %>% filter(Diagnosis %in% c("NS")); length(countObj.Annot.gb.NS$cdr3aa)
 inHouseNormal.Complete    <- unlist(stringr::str_extract_all(countObj.Annot.gb.NS$cdr3aa, "^C.*F")); length(inHouseNormal.Complete)
 
-vennCDR3aaList <- list("Tumor, Private" = unique(cancerPrivate$cdr3aa),
-                       "Tumor, Shared" = unique(cancerShared$cdr3aa),
-                       "Tumor, Public" = TCGATumorDistinct,
+vennCDR3aaList <- list("Cohort, Private" = unique(paste(cancerPrivate$cdr3aa)),
+                       "Cohort, Shared" = unique(paste(cancerShared$cdr3aa)),
+                       "TCGA,  Tumor" = TCGATumorDistinct,
                        "TCGA,  Normal"    =   TCGANormalDistinct,
                        "Warren et al (healthy)" = warenetal.CDR3Beta, 
                        "Chudakov et al (healthy)"=vdjdb.CDR3Beta,
-                       "In House Normal" = unique(countObj.Annot.gb.NS$cdr3aa) 
+                       "In House Normal" = unique(paste(countObj.Annot.gb.NS$cdr3aa)) 
 )
 
 # vennCDR3aaList <- list("Tumor, Private" = unique(cancerPrivate.Complete),
@@ -559,7 +586,7 @@ vennCDR3aaList <- list("Tumor, Private" = unique(cancerPrivate$cdr3aa),
 # )
 
 library(venn)
-v.table <- venn(vennCDR3aaList, ilab=TRUE, zcolor = "style", size = 15, cexil = 1, cexsn = 1)
+v.table <- venn::venn(vennCDR3aaList, ilab=TRUE, zcolor = "style", size = 15, cexil = 1, cexsn = 1)
 TumorPrivate <- attr(v.table,"intersections")[["Tumor, Private"]]; length(TumorPrivate)
 TumorShared  <- attr(v.table,"intersections")[["Tumor, Shared"]]; length(TumorShared)
 InHouseNormals  <- attr(v.table,"intersections")[["In House Normal"]]; length(InHouseNormals)
