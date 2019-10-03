@@ -72,6 +72,11 @@ ProjectSetUp <- R6Class(
     readTranscriptionFactor = function(){
       self$tfDF <- readRDS(self$tfRDS)
     },
+    ## Read ExhaustionMarker annotation file
+    readExhaustionMarker = function(){
+      self$emDF <- readRDS(self$emRDS)
+      print(self$emDF)
+    },
     ## Read CellSurface annotation file
     readCellSurface = function(){
       self$csDF <- readRDS(self$csRDS)  %>% dplyr::filter(NewCount >= 5)
@@ -155,13 +160,15 @@ ProjectSetUp <- R6Class(
     tfRDS                   = NULL,
     csDF                    = NULL, 
     csRDS                   = NULL,
+    emDF                    = NULL, 
+    emRDS                   = NULL,
     cgaDF                   = NULL,
     cgaRDS                  = NULL,
     pax3Foxo1DF             = NULL,
     pax3Foxo1RDS            = NULL,
     ewsr1Fli1DF             = NULL,
     ewsr1Fli1RDS            = NULL,
-    
+  
     BrainExpDF              = NULL,               
     BrainExpRDS             = NULL,
     HeartExpDF              = NULL,
@@ -181,7 +188,7 @@ ProjectSetUp <- R6Class(
     initialize              = function(date = NA, time =NA, projectName = NA, annotationRDS = NA, outputPrefix = NA,
                                        filterGenes = NA, filterGeneMethod = NA, factorName = NA, metaDataFileName = NA, 
                                        workDir = NA, outputdirRDSDir = NA, outputdirTXTDir = NA,gseaDir = NA, plotsDir = NA, 
-                                       plotsDataDir = NA, DiffGeneExpAnaDir = NA, DiffGeneExpRDS = NA, pcRDS = NA,tfRDS=NA,
+                                       plotsDataDir = NA, DiffGeneExpAnaDir = NA, DiffGeneExpRDS = NA, pcRDS = NA,tfRDS=NA, emRDS=NA,
                                        csRDS =NA, cgaRDS=NA, pax3Foxo1RDS=NA, ewsr1Fli1RDS=NA, factorsToExclude=NA,
                                        BrainExpRDS=NA, HeartExpRDS=NA, KidneyExpRDS=NA, LiverExpRDS=NA, LungExpRDS=NA, metadataFileRefCol=NA) {
       
@@ -206,6 +213,7 @@ ProjectSetUp <- R6Class(
       
       self$pcRDS <- pcRDS
       self$tfRDS <- tfRDS
+      self$emRDS <- emRDS
       self$csRDS <- csRDS
       self$cgaRDS <- cgaRDS
       
@@ -227,8 +235,9 @@ ProjectSetUp <- R6Class(
       private$getFactorColorMapAll()
       if (!is.na(pcRDS)){ private$readProteinCoding() }
       if (!is.na(tfRDS)){ private$readTranscriptionFactor() }
+      if (!is.na(emRDS)){ private$readExhaustionMarker() }
       if (!is.na(csRDS)){ private$readCellSurface() }
-      if (!is.na(csRDS)){ private$readCancerGermlineAntigens() }
+      if (!is.na(cgaRDS)){ private$readCancerGermlineAntigens() }
       
       if (!is.na(pax3Foxo1RDS)){ private$readpax3Foxo1Targets() }
       if (!is.na(ewsr1Fli1RDS)){ private$readewsr1Fli1Targets() }
@@ -335,15 +344,15 @@ CoreUtilities <- R6Class(
       
       switch(fileFormat,
              
-             #        "rds"     = {
-             #          mergedDataList        <- lapply( lapply(dirs, list.files, full.names=T),
-             #                                           private$mergeRDSFiles, fileFormat = fileFormat, colInterest = colIndexSelect, fileSuffix = fileSuffix,
-             #                                           colNameSelect = colNameSelect )
-             #          rowNames              <- rownames(mergedDataList[[1]])
-             #          mergedData            <- dplyr::bind_cols( mergedDataList)
-             #          rownames(mergedData)  <- rowNames
-             #          return(mergedData)
-             #        },
+            "rds"     = {
+               mergedDataList        <- lapply( lapply(dirs, list.files, full.names=T),
+                                              private$mergeRDSFiles, fileFormat = fileFormat, colInterest = colIndexSelect, fileSuffix = fileSuffix,
+                                                       colNameSelect = colNameSelect )
+               rowNames              <- rownames(mergedDataList[[1]])
+               mergedData            <- dplyr::bind_cols( mergedDataList)
+               rownames(mergedData)  <- rowNames
+               return(mergedData)
+                    },
              "txt"    = {
                mergedDataList        <- lapply( lapply(dirs, list.files, full.names=T),
                                                 private$mergeTXTFiles, fileSuffix = fileSuffix, colNameSelect = colNameSelect, primaryID=primaryID )
@@ -702,6 +711,59 @@ CoreUtilities <- R6Class(
       }
       write.table(exomeDataEntropy, outfileName, sep = "\t", row.names = FALSE, quote = FALSE)
       
+    },
+    ## Makepreranke files for GSEA/ssGSEA
+    getCountObjTXT = function(fileName, colNumb=1, rowNames=1){
+      print(paste(fileName))
+      featureCountTxt <- read.table(fileName, sep="\t", row.names = rowNames, header = 1);
+      return(featureCountTxt[,colNumb, drop=FALSE])
+    },
+    NESorPvalGSEAPrerank = function(x, colNumb = 1){
+      
+      files <- list.files(x, pattern = '^gsea_report_for_na_(pos|neg)_[1234567890]+\\.xls$', full.names = TRUE)
+      df <- do.call(rbind, lapply(files, self$getCountObjTXT, colNumb=colNumb, rowNames=1)); print(paste(dim(df)))
+      colnames(df) <- gsub("\\.\\/GSEA\\/prerankedGSEAOutput\\/\\/|.rnk.*.\\S+\\/gsea_report_for_na_(pos|neg)_\\S+.xls", "", files)[1]
+      return(df)
+    },
+    makeRNKFiles = function(DF, projectName=""){
+      colNames <- colnames(DF)
+      sapply(colNames[1], function(x){ 
+        
+        y <- DF[, x, drop=FALSE] %>% rownames_to_column("Name") %>% arrange_(.dots = paste0("desc(",x,")") )
+        write.table(y, paste("./GSEA/rnk/", projectName,"/",x,".rnk",sep=""), sep = "\t",row.names = FALSE, quote = FALSE )})
+    },
+    PreRankedGSEA = function(x, projectName=NULL, sample=NULL){
+      
+      label <- gsub(".gmt","",paste(sample,".",x,sep=""))
+      cmd <- paste("java -cp /data/sindiris/Processing/GSEA/gsea2-2.2.2.jar -Xmx1024m xtools.gsea.GseaPreranked",
+                   " -gmx /data/sindiris/Processing/GSEA/",x,
+                   " -rnk /data/sindiris/Processing/GSEA/",projectName,"/rnk/",sample,
+                   " -chip /data/sindiris/Processing/GSEA/GENE_SYMBOL.chip ",
+                   " -collapse false",
+                   " -mode Max_probe",
+                   " -norm None",
+                   " -nperm 1000",
+                   " -scoring_scheme weighted",
+                   " -rpt_label ",label,
+                   " -include_only_symbols  true",
+                   " -make_sets true",
+                   " -plot_top_x 20",
+                   " -rnd_seed 149",
+                   " -set_max 500",
+                   " -set_min 15",
+                   " -out /data/sindiris/Processing/GSEA/",projectName,
+                   " -gui false",
+                   sep="")
+      return(cmd)
+    },
+    flattenCorrMatrix = function(cormat, pmat) {
+      ut <- upper.tri(cormat)
+      data.frame(
+        row = rownames(cormat)[row(cormat)[ut]],
+        column = rownames(cormat)[col(cormat)[ut]],
+        cor  =(cormat)[ut],
+        p = pmat[ut]
+      )
     }
   )
 )
@@ -1044,19 +1106,15 @@ DifferentialGeneExp <- R6Class(
       private$filterGenes(filterName="CellSurface"           , folderName = folderName )
       private$filterGenes(filterName="TranscriptionFactor"   , folderName = folderName )
       private$filterGenes(filterName="CancerGermlineAntigen" , folderName = folderName )
+      private$filterGenes(filterName="ExhaustionMarkers" , folderName = folderName )
     }
     return(private$GeneDF_DiffExp)
   },
   appendAnnotation = function(df=NA, annottype=NA){
     GeneDF_DiffExp <- df %>% mutate(
-      # meanBrainExp  = ifelse(GeneName.x %in% rnaseqProject$BrainExpDF[,"GeneName"], rnaseqProject$BrainExpDF[,"MeanExp"], "N"),
-      # meanHeartExp  = ifelse(GeneName.x %in% rnaseqProject$HeartExpDF[,"GeneName"], rnaseqProject$HeartExpDF[,"MeanExp"], "N"),
-      # meanKidneyExp = ifelse(GeneName.x %in% rnaseqProject$KidneyExpDF[,"GeneName"], rnaseqProject$KidneyExpDF[,"MeanExp"], "N"),
-      # meanLiverExp  = ifelse(GeneName.x %in% rnaseqProject$LiverExpDF[,"GeneName"], rnaseqProject$LiverExpDF[,"MeanExp"], "N"),
-      # meanLungExp   = ifelse(GeneName.x %in% rnaseqProject$LungExpDF[,"GeneName"], rnaseqProject$LungExpDF[,"MeanExp"], "N"),
-      
       ProteinCoding = ifelse(GeneName %in% rnaseqProject$pcDF[,"GeneName"], "Y", "N"),
       CellSurface   = ifelse(GeneName %in% rnaseqProject$csDF[,"GeneName"], "Y", "N"),
+      ExhaustionMarkers   = ifelse(GeneName %in% rnaseqProject$emDF[,"GeneName"], "Y", "N"),
       TranscriptionFactor     = ifelse(GeneName %in% rnaseqProject$tfDF[,"GeneName"], "Y", "N"),
       CancerGermlineAntigen   = ifelse(GeneName %in% rnaseqProject$cgaDF[,"GeneName"], "Y", "N"),
       PAX3FOXO1     = ifelse(GeneName %in% rnaseqProject$pax3Foxo1DF[,"GeneName"], "Y", "N"),
@@ -1111,6 +1169,10 @@ DifferentialGeneExp <- R6Class(
            "CancerGermlineAntigen"= {
              GeneDF_DiffExp <- dplyr::left_join(private$GeneDF_DiffExp, rnaseqProject$pcDF, by=c("GeneID","GeneName"))
              GeneDF_DiffExp <- private$appendAnnotation(df=GeneDF_DiffExp, annottype ="CancerGermlineAntigen" )
+           },
+           "ExhaustionMarkers"= {
+             GeneDF_DiffExp <- dplyr::left_join(private$GeneDF_DiffExp, rnaseqProject$pcDF, by=c("GeneID","GeneName"))
+             GeneDF_DiffExp <- private$appendAnnotation(df=GeneDF_DiffExp, annottype ="ExhaustionMarkers" )
            },
            "all" = {
              GeneDF_DiffExp <- private$GeneDF_DiffExp

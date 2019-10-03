@@ -16,6 +16,7 @@ rnaseqProject <- ProjectSetUp$new(
   projectName             = "RNASeq.RSEM",
   annotationRDS           = "C:/Users/sindiris/R Scribble/Annotation RDS/annotation_ENSEMBL_gene.RDS",
   pcRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/pc.other.HGNCTableFlat.rds",
+  emRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/EMGenes.RDS",
   tfRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/TFs_no_epimachines.RDS",
   csRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/CellSurface.RDS",
   cgaRDS                  = "C:/Users/sindiris/R Scribble/Annotation RDS/cancerGermlineAntigens.rds",
@@ -43,13 +44,13 @@ rnaseqProject <- ProjectSetUp$new(
   DiffGeneExpAnaDir       = "DiffExpResults",
   DiffGeneExpRDS          = "DiffGeneExpRDSOutput",
   ## Keep only Ribozero
-  #factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"),
+  # factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"),
   #                          "Normal.ribozero"=list("LIBRARY_TYPE"="Normal", "LibraryPrep" = "PolyA"),
   #                              "Tumors"=list("LIBRARY_TYPE"="Tumor", "LibraryPrep" = "PolyA"))
-  ## Keep only PolyA
-  factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), "Normal.ribozero"=list("LibraryPrep" = "Ribozero"))
+  #Keep only PolyA
+  # factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), "Normal.ribozero"=list("LibraryPrep" = "Ribozero"))
   ## Remove Celllines
-  # factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"))
+  factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"))
   # factorsToExclude          = list('None'=list("LIBRARY_TYPE"=""))
 )
 
@@ -98,9 +99,9 @@ mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Gene
                                                    metadata          = rnaseqProject$metaDataDF,
                                                    metadataFileRefCol=rnaseqProject$metadataFileRefCol )
 
-#saveRDS(mergeObjectsNoDup, "../RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.RiboZeros.RDS")
+#saveRDS(mergeObjectsNoDup, "C:/Users/sindiris/R Scribble/RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.RDS")
 
-#mergeObjectsNoDup <- readRDS("../RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.excluding celllines.RDS")
+#mergeObjectsNoDup <- readRDS("../RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.RDS")
 
 ## Evaluate presence of duplicate features (genes) and consolidate them ####
 setDT(mergeObjectsNoDup, keep.rownames = TRUE)
@@ -137,28 +138,41 @@ expressionObj        <- GeneExpNormalization$new(
   corUtilsFuncs     = corUtilsFuncs
 )
 
+
 ## Get expression in desired units ####
 ### RawCounts
-expressionTMM.Counts          = expressionObj$edgeRMethod("RawCounts")
+#expressionTMM.Counts          = expressionObj$edgeRMethod("RawCounts")
+## Normalised counts
+expressionTMM.NormDF         = expressionObj$edgeRMethod("NormFactorDF")
 ### RPKM
 expressionTMM.RPKM            = expressionObj$edgeRMethod("TMM-RPKM", logtransform = TRUE, zscore = FALSE)
 
+## Arrange data by histology and Library type
+arrange_metadata <- rnaseqProject$validMetaDataDF %>% arrange(DIAGNOSIS.Substatus.Tumor.Normal.Tissue, desc(LIBRARY_TYPE))
+expressionTMM.RPKM.arr <- expressionTMM.RPKM %>% dplyr::select(one_of("Chr","Start","End","Strand","GeneID","GeneName","Length",
+                                                                      as.character(factor(arrange_metadata$Sample.Biowulf.ID.GeneExp, 
+                                                                      ordered = TRUE, 
+                                                                      levels = arrange_metadata$Sample.Biowulf.ID.GeneExp))))
+
 ## Add additional annotations (sample Id alias) ####
 AliasNames_df                 <- dplyr::left_join( data.frame("Sample.Biowulf.ID.GeneExp"=colnames(expressionTMM.RPKM)), 
-                                                   rnaseqProject$validMetaDataDF[,c("Sample.Biowulf.ID.GeneExp", "Sample.ID.Alias")] )
+                                                   rnaseqProject$validMetaDataDF[,c("Sample.Biowulf.ID.GeneExp", "Sample.ID.Alias", 
+                                                                                    rnaseqProject$factorName)] )
 AliasColnames                 <- c(as.character(AliasNames_df[c(1:7),1]), as.character(AliasNames_df[-c(1:7),2]))
+
 
 ## Perform Sanity Check for the above operations #####
 stopifnot( length(colnames(expressionTMM.RPKM)) == length(AliasColnames) )
 colnames(expressionTMM.RPKM)  <- AliasColnames
 
-## Save expression (TMM-RPKM/whatwever asked for in the above step) to a file ####
-# write.table(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
-#                                       paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.RiboZero",rnaseqProject$date,".txt"),sep="/"),
-#             sep="\t", row.names = FALSE, quote = FALSE)
-# saveRDS(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
-#                                   paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.RiboZero",rnaseqProject$date,".rds"),sep="/"))
-# 
+### Save expression (TMM-RPKM/whatwever asked for in the above step) to a file ####
+write.table(expressionTMM.RPKM.arr, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
+                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.",rnaseqProject$date,".txt"),sep="/"),
+            sep="\t", row.names = FALSE, quote = FALSE)
+saveRDS(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
+                                  paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.",rnaseqProject$date,".rds"),sep="/"))
+
+
 
 ### Performing ssGSEA output analysis. ( Plotting the scores across histology ) ##########
 
@@ -167,19 +181,20 @@ expressionTMM.RPKM.GSEA.Input <- expressionTMM.RPKM[, -c(1:7)]; rownames(express
 expressionTMM.RPKM.GSEA.print = corUtilsFuncs$createBroadGCTFile(expressionTMM.RPKM.GSEA.Input)
 
 ## Only For TCGA+Khanlab dataSet 
-khanlab.TCGA.geneExp <- readRDS("../RNASeq.RSEM/GeneRDSOutput/RPKM/RPKM_Data_Filt_Consolidated.GeneNames.all.TCGA.Khanlab.pc.log22019-03-19.rds")
-expressionTMM.RPKM.GSEA.Input <- khanlab.TCGA.geneExp[, -c(1:7)]; rownames(expressionTMM.RPKM.GSEA.Input) <- khanlab.TCGA.geneExp[,6]
+# khanlab.TCGA.geneExp <- readRDS("../RNASeq.RSEM/GeneRDSOutput/RPKM/RPKM_Data_Filt_Consolidated.GeneNames.all.TCGA.Khanlab.pc.log22019-03-19.rds")
+# expressionTMM.RPKM.GSEA.Input <- khanlab.TCGA.geneExp[, -c(1:7)]; rownames(expressionTMM.RPKM.GSEA.Input) <- khanlab.TCGA.geneExp[,6]
 
 # ## Save input for ssGSEA 
 # write.table(expressionTMM.RPKM.GSEA.print, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$gseaDir,
-#                                       paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.zscore.",rnaseqProject$date,".txt"),sep="/"),
+#                                       paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.",rnaseqProject$date,".txt"),sep="/"),
 #                                       sep="\t", row.names = FALSE, quote = FALSE)
 # saveRDS(expressionTMM.RPKM.GSEA.print, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$gseaDir,
-#                                       paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.zscore.",rnaseqProject$date,".rds"),sep="/"))
+#                                       paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.",rnaseqProject$date,".rds"),sep="/"))
 
 ## Read the ssGSEA output
+ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/New analysis/RPKM_Data_Filt_Consolidated.GeneNames.all.Khanlab.pc.log2.2019-06-14.PROJ.gct")
 #ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.2019-01-31.PROJ.KeggSig.gct")
-ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM.TMM.RPKM.GSEA.Input.All.TCGA.Khanlab.2019-03-19.PROJ.gct")
+#ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM.TMM.RPKM.GSEA.Input.All.TCGA.Khanlab.2019-03-19.PROJ.gct")
 
 ## Add custom expression like cytolytic scre and HLA gene expression to the ssGSEA Outpuut file.
 cytolyticScore          <- corUtilsFuncs$cytolyticScore(expressionTMM.RPKM.GSEA.Input)
@@ -192,11 +207,11 @@ ssGSEAScores.HLA.Cyto   <- rbind(ssGSEAScores,HLA_cytolyticScore)
 stopifnot( ncol(ssGSEAScores.HLA.Cyto) == length(as.character(rnaseqProject$validMetaDataDF$Sample.Biowulf.ID.GeneExp)) )
 
 ## Filter specified Diagnosis
-factorsToExclude              = paste(c("NS.Normal", "YST.Tumor", "Teratoma.Tumor"), collapse = "|")
+factorsToExclude              = paste(c("NS.", "YST", "Teratoma"), collapse = "|")
 selected.metadata              <- rnaseqProject$validMetaDataDF  %>% 
                                   filter_(  .dots = paste0("!grepl(", "'", factorsToExclude , "'" ,",", rnaseqProject$factorName, ")")) %>% 
                                   dplyr::select_( .dots=c(rnaseqProject$metadataFileRefCol, rnaseqProject$factorName ) )
-ssGSEAScores.HLA.Cyto.Selected <- ssGSEAScores.HLA.Cyto %>% dplyr::select_(.dots = as.character(selected.metadata[, rnaseqProject$metadataFileRefCol]))
+ssGSEAScores.HLA.Cyto.Selected <- ssGSEAScores.HLA.Cyto %>% dplyr::select(.dots = as.character(selected.metadata[, rnaseqProject$metadataFileRefCol]))
 dim(ssGSEAScores.HLA.Cyto.Selected)
 
 ## sanity check Checking metadata vs data ##
@@ -226,7 +241,7 @@ Scores <- Scores %>% filter(!grepl("TCGA.",Diagnosis)) %>% filter(!grepl(".CellL
 customColorDF <- customColorDF %>% filter(!grepl("TCGA.",Diagnosis)) %>% filter(!grepl(".CellLine",Diagnosis))
 
 ## Plot the onevariable plot
-plotLists        <- corUtilsFuncs$OneVariablePlotSort(colList, Scores=Scores, orderOfFactor, orderOfSignature, standardize =TRUE, logit =FALSE, plotType = "density",
+plotLists        <- corUtilsFuncs$OneVariablePlotSort(colList, Scores=Scores, orderOfFactor, orderOfSignature, standardize =FALSE, logit =FALSE, plotType = "density",
                                                       yLab = "Standardised enrichment score", legendDisplay = FALSE, customColorDF = customColorDF )
 ## Save the plots
 EnrischmentScorePlots <- lapply(plotLists, function(l) l[[1]])
@@ -243,7 +258,7 @@ plotLists        <- corUtilsFuncs$OneVariablePlotSort(colList, Scores=Scores, or
                                                       yLab = "Standardised enrichment score", legendDisplay = FALSE, customColorDF = customColorDF )
 ## Save the plots
 EnrischmentScorePlots <- lapply(plotLists, function(l) l[[1]])
-SBName                <- paste(rnaseqProject$workDir, rnaseqProject$projectName, rnaseqProject$plotsDir,"TMM-RPKM.ssGSEA.enrichmentScores.all.pc.TCGA.Khanlab.no.Celline.log.pdf",sep="/")
+SBName                <- paste(rnaseqProject$workDir, rnaseqProject$projectName, rnaseqProject$plotsDir,"TMM-RPKM.ssGSEA.enrichmentScores.all.pc.Khanlab.no.Celline.log.pdf",sep="/")
 ggsave(SBName, marrangeGrob(EnrischmentScorePlots,ncol=2,nrow=1 ), width = 20, height = 15 )
 
 ## Plot to do percent samples enriched across cancer types
@@ -342,8 +357,9 @@ fheatmap(t(ScoresForSpreadHeat), display_tree_col = F,cluster_rows = F, cluster_
 
 dev.off()
 
-## Perfomr correlation analysis  ####
+### Perform correlation analysis  for DDR genes ####
 library("Hmisc")
+library("psych")
 ## Read the ssGSEA output
 ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.2019-01-31.PROJ.KeggSig.gct")
 ## Read the DDR genes file
@@ -375,7 +391,187 @@ dev.off()
 write.table(ssGSEAScores.DDRGenes, "C:/Users/sindiris/R Scribble/RNASeq.RSEM/FigureData/ssGSEAScores.DDRGenes.txt", quote = FALSE, sep = "\t")
 write.table(ssGSEAScores.DDRGenes.corr$p, "C:/Users/sindiris/R Scribble/RNASeq.RSEM/FigureData/ImmuneSoreVSDDRgexp.p.txt", quote = FALSE)
 
-## Perform Differential gene expression analysis ####
+### Perform correlation analysis  for CTA genes ####
+## Read the ssGSEA output
+ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.Khanlab.pc.log2.2019-06-14.PROJ.kegg.immune.rm.dups.gct")
+## Read the DDR genes file
+rm(CGAGenes)
+CGAGenes <- as.character(rnaseqProject$cgaDF$GeneName)
+## sanity check if any DDR genes are missing form the expression matrix
+excludeGenesIndx <- which(! CGAGenes %in% rownames(expressionTMM.RPKM.GSEA.Input)); length(excludeGenesIndx)
+DDRGenesabsent <- CGAGenes[excludeGenesIndx]; as.character(DDRGenesabsent)
+DDRGenesPresent <- CGAGenes[-excludeGenesIndx]; length(DDRGenesPresent)
+## Get gene expression the present genes
+DDRGenesGeneExp     <- expressionTMM.RPKM.GSEA.Input[DDRGenesPresent,]; dim(DDRGenesGeneExp)
+## Sanity check for NA or Inf
+indx <- apply(DDRGenesGeneExp, 1, function(x) any(is.na(x) | is.infinite(x)))
+rownames(DDRGenesGeneExp)[indx];
+DDRGenesGeneExpFinal <-  DDRGenesGeneExp[complete.cases(DDRGenesGeneExp), ]; dim(DDRGenesGeneExpFinal)
+## bind geneexpression matrix to immunescore matrix and perform correlation
+cytolyticScore          <- corUtilsFuncs$cytolyticScore(expressionTMM.RPKM.GSEA.Input)
+ssGSEAScores.CGAGenes  <- t(rbind(ssGSEAScores[4,],cytolyticScore,DDRGenesGeneExpFinal))
+ssGSEAScores.CGAGenes.corr <- rcorr(ssGSEAScores.CGAGenes, type = "spearman");
+write.table(flattenCorrMatrix(ssGSEAScores.CGAGenes.corr$r, ssGSEAScores.CGAGenes.corr$P), "C:/Users/sindiris/R Scribble/RNASeq.RSEM/ImmuneSore.VS.cga.exp.txt", quote = FALSE, sep="\t")
+# corr_coef <- ssGSEAScores.CGAGenes.corr$r
+# corr_coef[is.nan(corr_coef)] <- 0
+## Plot the heatmap
+# col<- colorRampPalette(c("blue", "white", "red"))(20)
+# pdf("C:/Users/sindiris/R Scribble/RNASeq.RSEM/Figures/ImmuneScore.VS.cga.geneExp.pdf", height = 55, width = 55)
+# heatmap(x = corr_coef, col = col, symm = TRUE, keep.dendro = FALSE)
+# dev.off()
+# ## Writing data to files
+# write.table(ssGSEAScores.CGAGenes, "C:/Users/sindiris/R Scribble/RNASeq.RSEM/FigureData/ssGSEAScores.cga.Genes.txt", quote = FALSE, sep = "\t")
+
+
+
+#### Perform correlation analysis between Exhaustion markers and immune signatures ####
+## Read the ssGSEA output
+#ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.2019-01-31.PROJ.KeggSig.gct")
+ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.Khanlab.pc.log2.2019-06-14.PROJ.kegg.immune.rm.dups.gct")
+## Read the DDR genes file
+EMGenes <- read.table("C:/Users/sindiris/R Scribble/Annotation RDS/Exhaustion_markers_genes.txt", sep="\t", header = T, stringsAsFactors = FALSE)
+## sanity check if any EM genes are missing form the expression matrix
+excludeGenesIndx <- which(!EMGenes$Exhaustion_Marker_Genes %in% rownames(expressionTMM.RPKM.GSEA.Input))
+if( length(EMGenesPresent) != 0) {
+  print("Some Genes are not found !!")
+  EMGenesPresent <- EMGenes$Exhaustion_Marker_Genes[-excludeGenesIndx]; length(EMGenesPresent)
+} else {
+  print("All Genes are found !!")
+  EMGenesPresent <- EMGenes$Exhaustion_Marker_Genes; length(EMGenesPresent)
+}
+## Get gene expression the present genes
+EMGenesGeneExp     <- expressionTMM.RPKM.GSEA.Input[EMGenesPresent,]; dim(EMGenesGeneExp)
+## Sanity check for NA or Inf
+index <- apply(EMGenesGeneExp, 1, function(x) any(is.na(x) | is.infinite(x)))
+rownames(EMGenesGeneExp)[index];
+EMGenesGeneExpFinal <-  EMGenesGeneExp[complete.cases(EMGenesGeneExp), ]; dim(EMGenesGeneExpFinal)
+## bind geneexpression matrix to immunescore matrix and perform correlation
+ssGSEAScores.EMGenes  <- rbind(ssGSEAScores, EMGenesGeneExpFinal); dim(ssGSEAScores.EMGenes)
+
+# ## For making heatmap
+# ssGSEAScores.EMGenes  <- rbind(ssGSEAScores[c("T.cells_CD4_memory_activated", "T.cells_CD8"),], EMGenesGeneExpFinal); dim(ssGSEAScores.EMGenes)
+
+## Get correlation between Gene expression and Immune signature irrespective of diagnosis
+ssGSEAScores.EMGenes.T <- t(ssGSEAScores.EMGenes)
+ssGSEAScores.EMGenes.corr <- rcorr(ssGSEAScores.EMGenes.T,  type = "spearman");View(ssGSEAScores.EMGenes.corr)
+
+## Get correlation Immune gene signatures irrespective of diagnosis
+library(psych)
+library(Hmisc)
+ssGSEAScores.T <- t(ssGSEAScores)
+ssGSEAScores.corr <- rcorr(ssGSEAScores.T,  type = "spearman");View(ssGSEAScores.corr$r)
+
+## coorelation plot
+ssGSEAScores.T.df <- data.frame(ssGSEAScores.T)
+ssGSEAScores.T.df[,"diff"] <- abs(ssGSEAScores.T[,"Kegg_Antigen_processing_and_presentation"]-ssGSEAScores.T[,"ImmuneSignature"])
+ggplot(ssGSEAScores.T.df, aes(x = Kegg_Antigen_processing_and_presentation, y = ImmuneSignature), color="darkblue") +
+  geom_point() +
+  theme_bw() + geom_smooth(method = "lm")
+
+## Plot heatmap for the above
+col<- colorRampPalette(c("blue", "white", "red"))(100)
+pdf("C:/Users/sindiris/R Scribble/RNASeq.RSEM/Figures/ImmuneScoreVSDDRgeneExp.pdf", height = 55, width = 55)
+heatmap(x = ssGSEAScores.EMGenes.corr$r, col = col, symm = TRUE, keep.dendro = FALSE)
+pheatmap(ssGSEAScores.corr$r, col = col)
+dev.off()
+
+## Add annotation
+ssGSEAScores.EMGenes.T <- t(ssGSEAScores.EMGenes)
+ssGSEAScores.EMGenes.T <- data.frame(ssGSEAScores.EMGenes.T) %>%  tibble::rownames_to_column(var="Sample.Biowulf.ID.GeneExp")
+ssGSEAScores.EMGenes.T.annot.all <- dplyr::left_join(ssGSEAScores.EMGenes.T, AliasNames_df[,c(1,3)], by="Sample.Biowulf.ID.GeneExp") %>%
+                                dplyr::rename(Diagnosis=DIAGNOSIS.Substatus.Tumor.Normal.Tissue)
+ssGSEAScores.EMGenes.T.annot <- ssGSEAScores.EMGenes.T.annot.all %>% filter( !grepl("NS", Diagnosis) )  %>%
+                                tibble::column_to_rownames(var="Sample.Biowulf.ID.GeneExp")
+## Make Correlation matrix
+rownames <- rep( EMGenes$Exhaustion_Marker_Genes , length( unique(ssGSEAScores.EMGenes.T.annot$Diagnosis)) ); length(rownames)
+gp = dplyr::group_by(ssGSEAScores.EMGenes.T.annot, Diagnosis)
+gpTowrite <- gp ; rownames(gpTowrite) <- rownames(ssGSEAScores.EMGenes.T.annot)
+
+CorrDF.Out.R <- dplyr::do(gp, data.frame(Cor=t(corr.test(.[,1:43], .[,44:65], method = "spearman")$r))) %>% data.frame() %>%  
+                mutate_all( funs_( interp( ~replace(., is.na(.),0) ) ) ); dim(CorrDF.Out.R); head(CorrDF.Out.R)
+CorrDF.Out.R <- tibble::add_column(CorrDF.Out.R, GeneNames= rownames, .after=1) 
+CorrDF.Out.R$GeneNames <- factor(CorrDF.Out.R$GeneNames, levels = sort(unique(CorrDF.Out.R$GeneNames)))
+#write.table(CorrDF.Out.R, paste("./PlotData/", date, "CorrDF.Out.R.EM.spearman.txt", sep=""), sep="\t", row.names = F, quote = FALSE )
+CorrDF.Out.P <- dplyr::do(gp, data.frame(Cor=t(corr.test(.[,1:24], .[,44:65], method = "spearman")$p))) %>% data.frame()
+CorrDF.Out.P <- tibble::add_column(CorrDF.Out.P, GeneNames= rownames, .after=1)
+#write.table(CorrDF.Out.P, paste("./PlotData/", date, "CorrDF.Out.P.EM.spearnman.txt", sep=""), sep="\t", row.names = F, quote = FALSE )      
+
+## Post Analysis; Merge coefficient and p values
+CorrDF.Out.R.TC8.TC4 <- CorrDF.Out.R %>% dplyr::select(matches("Diagnosis|GeneNames|CD8|CD4"))
+CorrDF.Out.P.TC8.TC4 <- CorrDF.Out.P %>% dplyr::select(matches("Diagnosis|GeneNames|CD8|CD4"))      
+CorrDF.Out.R.P.TC8.TC4 <- merge(CorrDF.Out.R.TC8.TC4, CorrDF.Out.P.TC8.TC4, by=c("Diagnosis", "GeneNames"))
+CorrDF.Out.R.P.TC8.TC4$Diagnosis <- factor(as.character(CorrDF.Out.R.P.TC8.TC4$Diagnosis),ordered = TRUE,
+                                           #levels = sort(unique( CorrDF.Out.R.P.TC8.TC4$Diagnosis )) )
+                                           levels = c("NB.MYCN.NA","NB.MYCN.A","EWS","DSRCT","OS","RMS.FP","RMS.FN",
+                                                      "Teratoma","SS","CCSK","NB.Unknown","ASPS","HBL","WT","ML","UDS","YST") )
+## Filter correlation based on the filter
+CorrDF.Out.R.P.CD8.CD4_MemoryAct <- CorrDF.Out.R.P.TC8.TC4 %>% 
+                                    mutate(TC8.TC4.MemoryAct=ifelse( abs( Cor.T.cells_CD8.x >= 0.3 & Cor.T.cells_CD8.y <= 0.05 ) |
+                                                                    abs( Cor.T.cells_CD4_memory_activated.x >= 0.3 & Cor.T.cells_CD4_memory_activated.y <= 0.05 ), 1, 0 ) ) %>%
+                                    dplyr::select(Diagnosis, GeneNames, TC8.TC4.MemoryAct) 
+CorrDF.Out.R.P.CD8.CD4_MemoryAct.Spread <- CorrDF.Out.R.P.CD8.CD4_MemoryAct %>% tidyr::spread(Diagnosis,TC8.TC4.MemoryAct)
+CD8.CD4_MemoryAct.Spread <- CorrDF.Out.R.P.CD8.CD4_MemoryAct.Spread  %>% dplyr::mutate(Count=rowSums(.[2:ncol(CorrDF.Out.R.P.CD8.CD4_MemoryAct.Spread)]))
+CD8.CD4_MemoryAct.Spread <- tibble::add_column( CD8.CD4_MemoryAct.Spread, Legend=paste(CD8.CD4_MemoryAct.Spread$GeneNames, 
+                                                "(", 
+                                                CD8.CD4_MemoryAct.Spread$Count, ")"
+                                              ), .after=1) %>% data.frame() %>%  
+                                              dplyr::select(-contains("GeneNames"))
+
+## Filter correlation based on the filter plot correlation values only.
+CorrDF.Out.R.P.CD8.heatmap <- CorrDF.Out.R.P.TC8.TC4 %>% 
+  mutate(TC8.TC4.MemoryAct=ifelse( abs( Cor.T.cells_CD8.y <= 0.05 ), Cor.T.cells_CD8.x, 0 ) ) %>%
+  dplyr::select(Diagnosis, GeneNames, TC8.TC4.MemoryAct) 
+CorrDF.Out.R.P.CD8.heatmap.Spread <- CorrDF.Out.R.P.CD8.heatmap %>% tidyr::spread(Diagnosis,TC8.TC4.MemoryAct)
+CorrDF.Out.R.P.CD8.heatmap.Spread <- CorrDF.Out.R.P.CD8.heatmap.Spread  %>% dplyr::mutate(Count=rowSums(.[2:ncol(CorrDF.Out.R.P.CD8.heatmap.Spread)]))
+CorrDF.Out.R.P.CD8.heatmap.Spread <- tibble::add_column( CorrDF.Out.R.P.CD8.heatmap.Spread, Legend=paste(CorrDF.Out.R.P.CD8.heatmap.Spread$GeneNames), .after=1) %>% 
+                                                data.frame() %>% dplyr::select(-contains("GeneNames"))
+
+## Plot the heatmap
+CorrDF <- CorrDF.Out.R.P.CD8.heatmap.Spread
+#CorrDF <- CorrDF.Out.R.P.CD8.CD4_MemoryAct
+CorrDF %<>% 
+  dplyr::arrange(Count) %<>% 
+  dplyr::filter( Count > 0 ) %<>% 
+  dplyr::select(-one_of("Count")) %<>% 
+  dplyr::select(-matches("ML|UDS|YST")) %<>%
+  tibble::column_to_rownames(var="Legend")
+# CD8.CD4_MemoryAct.Spread %<>%   dplyr::arrange(desc(Legend)) %<>% tibble::column_to_rownames(var="Legend")
+# CD8.CD4_MemoryAct.Spread %<>% column_to_rownames(var="Legend")
+
+pdf(paste("./Plots/", date, "CD8 significant correlation with EM.spearman.TMM.RPKM.GP.log2.Output.pdf", sep=""), height = 10, width = 15)
+superheat(CorrDF,
+          #title = "CD4-Memory.Activated/CD8 significant correlation with EM",
+          title = "CD8 significant correlation with EM",
+          legend=FALSE,
+          grid.hline = FALSE,
+          grid.vline = FALSE,
+          pretty.order.rows = FALSE,
+          pretty.order.cols = FALSE,
+          # grid.hline.size = 0.01,
+          # grid.vline.size = 0.01,
+          # heat.col.scheme = "grey",
+          heat.lim = c(0, 1),
+          #heat.pal = c("#004080",  "#88cc00"),
+          heat.pal = c("#e0e0d1", "#004080"),
+          bottom.label.text.angle=90,
+          title.size = 6)
+dev.off()
+
+colfunc <- colorRampPalette(c("#f2f2f2", "gold","firebrick3"))
+pheatmap(CorrDF, 
+         #color =c("#e0e0d1", "#004080"), 
+         #color =c("#f2f2f2", "#004080"), 
+         color = colfunc(10),
+         cluster_rows = FALSE,
+         cluster_cols = FALSE,
+         border_color = "grey", 
+         #border_color = NA,
+         treeheight_row = 0,
+         fontsize = 12,
+         legend = TRUE,
+         main="CD8 correlation with EM")
+
+### Perform Differential gene expression analysis ####
 
 ## Control groups ##
 Brain          <- c("NS.cerebellum","NS.cerebrum")
@@ -401,7 +597,7 @@ tumorSubStatus.ribozero <-  c("WT" ,"CCSK")
 Tumors                  <-  c("ASPS","DSRCT", "EWS" ,"HBL", "ML", "NB" ,"OS", "RMS", "SS", "Teratoma" ,"UDS" ,"YST","WT", "CCSK")
 
 
-## Testing 
+### Intantiate a new Differential Gene Expression Object ####
 dgeObj  <- DifferentialGeneExp$new(
   countObj          = expressionObj$edgeRMethod("NormFactorDF")$counts,
   group1            = list(list("Normals"=NormalsNoGermLine,each=FALSE)),
@@ -417,14 +613,13 @@ dgeObj  <- DifferentialGeneExp$new(
   subsetGenes       = TRUE,
   corUtilsFuncs     = corUtilsFuncs 
 )
-
+# 
 DiffExpObj <- dgeObj$performDiffGeneExp()
-
-head(DiffExpObj[[1]] %>% dplyr::arrange(-logFC))
+# head(DiffExpObj[[1]] %>% dplyr::arrange(-logFC))
+# 
 
 ### Filtering ####
-
-# Step 0  Define fucnctions ####
+# Step 0   Define fucnctions ####
 
 getCountObjTXT <- function(fileName, colNumb=1, rowNames=1){
   print(paste(fileName))
@@ -448,21 +643,23 @@ mergeDiffTestResults <- function(x, type="", saveDirPath="", extension="", colIn
   write.table(countObj_print, paste(saveDirPath, paste(fileName, "/", type, ".DiffExp.txt",sep=""), sep= "/"), sep="\t",
               row.names = FALSE, quote = FALSE)
 }
-
 # Step 1.  Set the filters and annotation ####
 
 ## Javed's Filter for all three categories
-group2FPKM.T = 5 ; group1FPKM.T = 1;  PValue.T = 0.00001 ; logFoldDiff.T = 4 ; FDR_value.T = 0.05 ; vitalFPKM.T = 1
+group2FPKM.T = 1 ; group1FPKM.T = 1;  PValue.T = 0.05 ; logFoldDiff.T = 0 ; FDR_value.T = 0.05 ; vitalFPKM.T = 0
 
-selectedGeneList <- "CancerGermlineAntigen"
-Zscored.logFC = 0.25; Zscore.group2 = 0.5; group2FPKM = 5; group1FPKM = 1;  PValue = 0.001; logFC = 4; FDR = 0.05
-
+# selectedGeneList <- "CancerGermlineAntigen"
+# Zscored.logFC = 0.25; Zscore.group2 = 0.5; group2FPKM = 5; group1FPKM = 1;  PValue = 0.001; logFC = 4; FDR = 0.05
+# 
 # selectedGeneList <- "CellSurface"
 # Zscored.logFC = 1 ; Zscore.group2 = 0.5; group2FPKM = 5 ; group1FPKM = 1;  PValue = 0.001 ; logFC = 4 ; FDR = 0.05
-
+#
 # selectedGeneList <- "TranscriptionFactor"
 # Zscored.logFC = 0.25 ; Zscore.group2 = 0.5; group2FPKM = 5 ; group1FPKM = 1;  PValue = 0.001 ; logFC = 4 ; FDR = 0.05
-# 
+#
+selectedGeneList <- "ExhaustionMarkers"
+Zscored.logFC = 0.25 ; Zscore.group2 = 0.5; group2FPKM = 5 ; group1FPKM = 1;  PValue = 0.001 ; logFC = 4 ; FDR = 0.05
+
 MergedDiffExpResultDir <- paste0("C:/Users/sindiris/R Scribble//RNASeq.RSEM/MergedDiffExpResults/",selectedGeneList)
 
 # Step 2.  Perform Merging of differential expression file across groups ####
@@ -471,7 +668,7 @@ ConditionGroup <- c(unique(sapply(dgeObj$pairedList, function(x){ return(paste(x
 #ConditionGroup <- c(unique(sapply(dgeObj$pairedList, function(x){ return(paste(x[1],x[2],sep = "_"))  })))
 groups <- list.dirs(paste("C:/Users/sindiris/R Scribble//RNASeq.RSEM//DiffExpResults/", sep=""))[-1]; groups[1]
 output <- sapply(groups, mergeDiffTestResults, type="Gene", colInterest=c(7,9,10,11,12, 15:28), rowNamesCol = 2,
-                 fileSuffix=paste0(selectedGeneList,".txt"),saveDirPath=MergedDiffExpResultDir)
+                 fileSuffix=paste0(selectedGeneList,".txt"), saveDirPath=MergedDiffExpResultDir)
 
 # Step 3.  Core Function and save files ####
 allTumorStats <- do.call(cbind, lapply(ConditionGroup, function(x){
@@ -490,7 +687,7 @@ allTumorStats <- do.call(cbind, lapply(ConditionGroup, function(x){
   tumorDataPvalue_Zscore <- cbind(tumorDataPvalue[,c("GeneName"),drop = FALSE], tumorDataPvalue_Zscore ) %>% data.frame()
   tumorAllData <- left_join(tumorDataPvalue_Zscore, tumorDataPvalue, by="GeneName") ; dim(tumorAllData)
   
-  write.table(tumorAllData, paste(MergedDiffExpResultDir,"/",x,"/",x,".allgenes.DiffExp.txt",sep=""), sep="\t", row.names = FALSE, quote = FALSE)
+  ## write.table(tumorAllData, paste(MergedDiffExpResultDir,"/",x,"/",x,".allgenes.DiffExp.txt",sep=""), sep="\t", row.names = FALSE, quote = FALSE)
   
   ## Zscore Ranking filter
   tumorAllData.zscore <- tumorAllData %>% 
@@ -502,7 +699,7 @@ allTumorStats <- do.call(cbind, lapply(ConditionGroup, function(x){
     dplyr::arrange_(.dots = paste0("desc(","Zscored.",groupsCompare[2], ")" ) )
   
   ## Complete filtered gene List with zscoring filter
-  write.table(tumorAllData.zscore, paste(MergedDiffExpResultDir,"/",x,"/",x,".filteredgenes.ZscoringRank.txt",sep=""), sep="\t", row.names = FALSE, quote = FALSE)
+  ## write.table(tumorAllData.zscore, paste(MergedDiffExpResultDir,"/",x,"/",x,".filteredgenes.ZscoringRank.txt",sep=""), sep="\t", row.names = FALSE, quote = FALSE)
   
   ## Complete filtered gene List (Binary) with zscoring filter
   selectGenes <- tumorAllData.zscore %>%  dplyr::select(GeneName)
@@ -519,7 +716,7 @@ allTumorStats <- do.call(cbind, lapply(ConditionGroup, function(x){
   print(colnames(tumorAllData))
   tumorAllData.filt <- tumorAllData %>% dplyr::filter_(.dots=paste0( groupsCompare[2], " >= ", group2FPKM.T ,
                                                                            " &  logFC >=", logFoldDiff.T,
-                                                                           " &  PValue   <", FDR_value.T ,
+                                                                           " &  PValue   <=", PValue.T ,
                                                                            " &  Brain.MeanExp  < ", vitalFPKM.T ,
                                                                            " &  Heart.MeanExp  < ", vitalFPKM.T   )) %>%
     dplyr::arrange_(.dots = paste0("desc(","Zscored.",groupsCompare[2], ")" ) )
@@ -535,7 +732,7 @@ allTumorStats <- do.call(cbind, lapply(ConditionGroup, function(x){
     rename(c('status'=paste(groupsCompare[2],groupsCompare[1],"Status", sep="")))
   statusDF.traditionalRanking <- statusDF.traditionalRanking[, !duplicated(colnames(statusDF.traditionalRanking))] 
   
-  # write.table(statusDF.traditionalRanking, paste(MergedDiffExpResultDir,"/",selectedGeneList,".Summarised.traditionalRank.txt",sep=""), sep="\t", row.names = FALSE, quote = FALSE)
+  write.table(statusDF.traditionalRanking, paste(MergedDiffExpResultDir,"/",selectedGeneList,".Summarised.traditionalRank.txt",sep=""), sep="\t", row.names = FALSE, quote = FALSE)
   
   
   return(list(statusDF.zscoreRanking,statusDF.traditionalRanking))
@@ -564,26 +761,48 @@ allTumorMergedStats <- lapply(1:nrow(allTumorStats), function(x){
 })
 
 # Step 5.  Save the files ####
-write.table(allTumorMergedStats[[1]], paste(MergedDiffExpResultDir,"/",selectedGeneList,".Summarised.ZscoreRank.Dexp.txt",  sep=""),
-            sep="\t", row.names = FALSE, quote = FALSE)
+# write.table(allTumorMergedStats[[1]], paste(MergedDiffExpResultDir,"/",selectedGeneList,".Summarised.ZscoreRank.Dexp.txt",  sep=""),
+#             sep="\t", row.names = FALSE, quote = FALSE)
 write.table(allTumorMergedStats[[2]], paste(MergedDiffExpResultDir,"/",selectedGeneList,".Summarised.traditionalRank.Dexp.txt",sep=""),
             sep="\t", row.names = FALSE, quote = FALSE)
 
 # Step 6.  Select rows for heatmap ####
 #allTumorStatsFinal <- read.table(paste(MergedDiffExpResultDir,"/",selectedGeneList,".Summarised.ZscoreRank.Dexp.txt",sep=""),sep="\t", header = TRUE)
 allTumorStatsFinal <- read.table(paste(MergedDiffExpResultDir,"/",selectedGeneList,".Summarised.traditionalRank.Dexp.txt",sep=""),sep="\t", header = TRUE)
-CTA.Filt <- allTumorStatsFinal %>% filter(RowSum >= 2) %>% 
-  dplyr::arrange(RowSum) 
-filter(CTA.Filt, GeneName %in% c("CD99", "FGFR4", "ALK", "GPC2", "MYCN", "MYOG", "MYOD1", "IGF2", "CTAG1B"))
-dim(CTA.Filt)
+CTA.Filt <- allTumorStatsFinal %>% filter(RowSum >= 1) %>% 
+  dplyr::arrange(-RowSum) %>% t() %>% data.frame()
+colnames(CTA.Filt) <- as.character(unlist(CTA.Filt[c("GeneName"),]))
+CTA.Filt.sorted <- CTA.Filt[-1,]
+CTA.Filt.sorted <- CTA.Filt.sorted %>% tibble::rownames_to_column("Diagnosis")
+CTA.Filt.sorted <- CTA.Filt.sorted %>% dplyr::arrange_(.dots = list(paste0("desc(",colnames(CTA.Filt.sorted)[2], ")")))
+rownames(CTA.Filt.sorted) <- CTA.Filt.sorted[,1]
+CTA.Filt.sorted <- CTA.Filt.sorted[-1,]
+CTA.Filt.sorted <- CTA.Filt.sorted[,-1]
+#filter(, GeneName %in% c("CD99", "FGFR4", "ALK", "GPC2", "MYCN", "MYOG", "MYOD1", "IGF2", "CTAG1B"))
+View(CTA.Filt.sorted);dim(CTA.Filt.sorted)
 
 # Step 7.  Plot the heatmap ####
-CTA.Filt %<>% dplyr::select(-one_of("RowSum"))
-CTA.Filt %<>%  column_to_rownames(var="GeneName") 
-colnames(CTA.Filt) <- gsub("NormalsStatus", "", colnames(CTA.Filt))
+rownames(CTA.Filt.sorted) <- gsub("NormalsStatus", "", rownames(CTA.Filt.sorted))
+indx <- sapply(CTA.Filt.sorted, is.factor)
+CTA.Filt.sorted[indx] <- lapply(CTA.Filt.sorted[indx], function(x) as.numeric(as.character(x)))
 
+pdf( paste(rnaseqProject$workDir, rnaseqProject$projectName, rnaseqProject$plotsDir, 
+           paste0("Differentially Expressed .", selectedGeneList, ".v19.pdf"),  sep="/"), height = 10, width = 25)
+pheatmap(CTA.Filt.sorted, 
+         #color =c("#e0e0d1", "#004080"), 
+         color =c("#f2f2f2", "#004080"), 
+         cluster_rows = FALSE,
+         cluster_cols = FALSE,
+         #border_color = "grey", 
+         border_color = NA,
+         treeheight_row = 0,
+         fontsize = 12,
+         legend = FALSE )
+dev.off()
+
+## Alternate heatmap
 #pdf( paste(rnaseqProject$workDir, rnaseqProject$projectName, rnaseqProject$plotsDir, "zscore.Differentially Expressed TF.v18.pdf", sep="/"), height = 10, width = 25)
-superheat(t(CTA.Filt), pretty.order.cols =F,pretty.order.rows=F,
+superheat(CTA.Filt.sorted, pretty.order.cols =F,pretty.order.rows=F,
           #title = "Differentially Expressed CGAs",
           #linkage.method = "ward.D2",
           legend=FALSE,
@@ -600,19 +819,10 @@ superheat(t(CTA.Filt), pretty.order.cols =F,pretty.order.rows=F,
           title.size = 6)
 #dev.off()
 
-pdf( paste(rnaseqProject$workDir, rnaseqProject$projectName, rnaseqProject$plotsDir, "zscore.Differentially Expressed cs.v19.pdf", sep="/"), height = 15, width = 25)
-pheatmap(t(CTA.Filt), color =c("#e0e0d1", "#004080"), 
-         cluster_rows = FALSE,
-         cluster_cols = FALSE,
-         border_color = NA, 
-         treeheight_row = 0,
-         fontsize = 12,
-         legend = FALSE )
-dev.off()
 
 ### Performing TCR analysis
 
-## Perfroming TCR analysis ####
+#### Perfroming TCR analysis ####
 
 ### Placeholder DF ####
 emptyDF <- data.frame(count=c(0), freq=c(0), cdr3nt=c("None"),cdr3aa=c("NF"),v=c("NF"),d=c("NF"),j=c("NF"),VEnd=c(0),DStart=c(0),
@@ -641,7 +851,7 @@ readCloneFiles <- function(x, cloneType=NA){
   return(exomeData)
 }
 
-## Start analysis for clone type: Choose clone type ####
+### Start analysis for clone type: Choose clone type ####
 ## cloneType = "IGH";
 cloneType = "TRB";
 correlationPlots <- function(varName="", constName="", df=NA, customColorDF=NA, xlab="Log Total Clones"){
@@ -781,6 +991,7 @@ dev.off()
 
 
 ### Coorelation with Immune Signature
+
 
 ### Prepare data for correlation between immunescore and clone count Read the enrichment score data ####
 ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.2019-01-31.PROJ.gct")
@@ -958,4 +1169,329 @@ Scores <- entropyScores %>% filter(!Diagnosis %in% c("Teratoma", "YST")) %>% dpl
 plotLists <- corUtilsFuncs$OneVariablePlotSort( colList, Scores=Scores, orderOfFactor, orderOfSignature, standardize =FALSE, logit =TRUE, logBase=10,
                                                 yLab = "log( Entropy )", legendDisplay = FALSE, customColorDF = customColorDF, 
                                                 plotType = "StringBean", sizeOfDots = 0.6  )
+
+
+
+### Neoantigen analysis
+
+#### Neoantigen Post-Processing #####
+
+## neoantigen from variants
+neoantigenFromVariants <- read.csv("C:/Users/sindiris/R Scribble/RNASeq.Mutation.data/NeoantigenCountFromVariants.txt", sep = "\t", header = T) %>% data.table()
+neoantigenFromVariantsAnnot <- dplyr::full_join( rnaseqProject$metaDataDF, neoantigenFromVariants, by="Sample.Biowulf.ID") %>% 
+                                dplyr::filter(!is.na(Patient.ID)) %>%
+                                dplyr::filter( ! LIBRARY_TYPE %in% c("CellLine","Normal")) %>%
+                                dplyr::mutate(VariantNeoAntigenCount = ifelse(is.na(VariantNeoAntigenCount),0,VariantNeoAntigenCount)) %>%
+                                dplyr::select_(.dots=c("Sample.Biowulf.ID","DIAGNOSIS.Substatus.Tumor.Normal.Tissue", "Sample.ID.Alias", "VariantNeoAntigenCount"))
+dim(neoantigenFromVariantsAnnot); 
+#View(neoantigenFromVariantsAnnot)
+## neoantigen from fusions
+neoantigenFromFusions <- read.csv("C:/Users/sindiris/R Scribble/RNASeq.Mutation.data/NeoantigenCountFromFusions.txt", sep = "\t", header = T) %>% data.table() %>% 
+                               dplyr::select_(.dots=c("Sample.Biowulf.ID","DIAGNOSIS.Substatus.Tumor.Normal.Tissue", "Sample.ID.Alias", "FusionNeoAntigenCount"))
+dim(neoantigenFromFusions); 
+#View(neoantigenFromFusions)                                
+
+##Merge the above two tables
+neoantigenFromSamples <- dplyr::full_join( neoantigenFromVariantsAnnot, neoantigenFromFusions,  
+                                                          by=c("Sample.Biowulf.ID","DIAGNOSIS.Substatus.Tumor.Normal.Tissue", "Sample.ID.Alias") ); 
+neoantigenFromSamplesFinal <- neoantigenFromSamples %>% 
+                              dplyr::mutate(FusionNeoAntigenCount = ifelse(is.na(FusionNeoAntigenCount),0,FusionNeoAntigenCount)) %>% 
+                              dplyr::mutate(VariantNeoAntigenCount = ifelse(is.na(VariantNeoAntigenCount),0,VariantNeoAntigenCount)) %>% 
+                              dplyr::mutate(TotalNeoantigenCount = FusionNeoAntigenCount +  VariantNeoAntigenCount ) %>% 
+                              data.table()
+dim(neoantigenFromSamplesFinal);
+#View(neoantigenFromSamplesFinal)    
+
+## Bean Plot
+neoantigenBurden <- neoantigenFromSamplesFinal[,c("TotalNeoantigenCount", "DIAGNOSIS.Substatus.Tumor.Normal.Tissue")] %>% 
+                                                                  dplyr::rename(Diagnosis=DIAGNOSIS.Substatus.Tumor.Normal.Tissue)
+orderOfFactor           <- as.character( unique(neoantigenBurden$Diagnosis) )
+orderOfSignature        <- colnames(neoantigenBurden)[-ncol(neoantigenBurden)]
+colList                 <- c(1:(ncol(neoantigenBurden)-1)) ; Scores <- neoantigenBurden
+## Generate custom colors
+customColorDF    <- rnaseqProject$customColorsDF
+
+## Filter for diagnosis
+Scores <- neoantigenBurden %>% filter(!Diagnosis %in% c("Teratoma", "YST")) %>% dplyr::filter(complete.cases(.))
+
+### Plot and Save ###
+plotLists <- corUtilsFuncs$OneVariablePlotSort( colList, Scores=Scores, orderOfFactor, orderOfSignature, standardize =FALSE, logit =TRUE, logBase=10,
+                                                yLab = "log10( NeoantigenBurden )", legendDisplay = FALSE, customColorDF = customColorDF, 
+                                                plotType = "StringBean", sizeOfDots = 0.8)
+
+### Get quartiles
+## summary of TotalNeoantigenCount
+summary_TotalNeoantigenCount <- summary(neoantigenFromSamplesFinal$TotalNeoantigenCount)
+FirststQu <- as.numeric(summary_TotalNeoantigenCount["1st Qu."]); paste("FirststQu:", FirststQu)
+Median    <- as.numeric(summary_TotalNeoantigenCount["Median"]); paste("Median ", Median)
+thirdQu   <- as.numeric(summary_TotalNeoantigenCount["3rd Qu."]); paste("thirdQu ", thirdQu)
+
+neoantigenFromSamplesFinal[TotalNeoantigenCount <= FirststQu, Sample.ID.Alias ] %>% length()
+neoantigenFromSamplesFinal[TotalNeoantigenCount > FirststQu & TotalNeoantigenCount < Median, Sample.ID.Alias ] %>% length()
+neoantigenFromSamplesFinal[TotalNeoantigenCount >= thirdQu, Sample.ID.Alias ] %>% length()
+
+#### Split data matrix into High, Intermediate and Low expression matrices
+### Expression Matrix
+expressionTMM.RPKM.Neoantigen <- expressionTMM.RPKM %>% dplyr::select(-one_of(c("Chr","Start","End","GeneID", "Length", "Strand")))
+
+### Get Mean expression of each category ####
+
+### Get mean expression of low neoantgen burden samples.
+FPKM.Data.NeoAntiBurd.Low    <- expressionTMM.RPKM.Neoantigen %>% dplyr::select( one_of( 
+  c("GeneName",as.character(neoantigenFromSamplesFinal[TotalNeoantigenCount <= FirststQu, Sample.ID.Alias ]) ) ))
+FPKM.Data.NeoAntiBurd.Low %<>% tibble::column_to_rownames(var="GeneName")
+dim(FPKM.Data.NeoAntiBurd.Low); FPKM.Data.NeoAntiBurd.Low[1:5,1:5]
+
+#FPKM.Data.NeoAntiBurd.Low.mean     <- as.data.frame(apply(log2(FPKM.Data.NeoAntiBurd.Low + 1), 1, mean)); 
+FPKM.Data.NeoAntiBurd.Low.mean     <- as.data.frame(apply(FPKM.Data.NeoAntiBurd.Low, 1, mean)); 
+colnames(FPKM.Data.NeoAntiBurd.Low.mean) <- "FPKM.Data.NeoAntiBurd.Low.mean"
+head(FPKM.Data.NeoAntiBurd.Low.mean); dim(FPKM.Data.NeoAntiBurd.Low);
+
+### Get mean expression of intermediate neoantgen burden samples.
+FPKM.Data.NeoAntiBurd.Intermediate    <- expressionTMM.RPKM.Neoantigen %>% dplyr::select( one_of( 
+  c("GeneName",as.character(neoantigenFromSamplesFinal[TotalNeoantigenCount > FirststQu & TotalNeoantigenCount < Median, Sample.ID.Alias ]) ) ))
+FPKM.Data.NeoAntiBurd.Intermediate %<>% tibble::column_to_rownames(var="GeneName")
+dim(FPKM.Data.NeoAntiBurd.Intermediate); FPKM.Data.NeoAntiBurd.Intermediate[1:5,1:5]
+
+#FPKM.Data.NeoAntiBurd.Intermediate.mean     <- as.data.frame(apply(log2(FPKM.Data.NeoAntiBurd.Intermediate + 1), 1, mean)); 
+FPKM.Data.NeoAntiBurd.Intermediate.mean     <- as.data.frame(apply(FPKM.Data.NeoAntiBurd.Intermediate, 1, mean))
+colnames(FPKM.Data.NeoAntiBurd.Intermediate.mean) <- "FPKM.Data.NeoAntiBurd.Intermediate.mean"
+head(FPKM.Data.NeoAntiBurd.Intermediate.mean); dim(FPKM.Data.NeoAntiBurd.Intermediate);
+
+### Get mean expression of high neoantgen burden samples.
+FPKM.Data.NeoAntiBurd.High    <- expressionTMM.RPKM.Neoantigen %>% dplyr::select( one_of( 
+  c("GeneName",as.character(neoantigenFromSamplesFinal[TotalNeoantigenCount >= thirdQu, Sample.ID.Alias ]) ) ))
+FPKM.Data.NeoAntiBurd.High %<>% tibble::column_to_rownames(var="GeneName")
+dim(FPKM.Data.NeoAntiBurd.High); FPKM.Data.NeoAntiBurd.High[1:5,1:5]
+
+#FPKM.Data.NeoAntiBurd.High.mean     <- as.data.frame(apply(log2(FPKM.Data.NeoAntiBurd.High + 1), 1, mean)); 
+FPKM.Data.NeoAntiBurd.High.mean     <- as.data.frame(apply(FPKM.Data.NeoAntiBurd.High, 1, mean)); 
+colnames(FPKM.Data.NeoAntiBurd.High.mean) <- "FPKM.Data.NeoAntiBurd.High.mean"
+head(FPKM.Data.NeoAntiBurd.High.mean); dim(FPKM.Data.NeoAntiBurd.High);
+
+### Get expression of 2 categories for comparision ####
+IntermediateLow <- cbind(FPKM.Data.NeoAntiBurd.Intermediate, FPKM.Data.NeoAntiBurd.Low)
+#IntermediateLow.Mean <- as.data.frame(apply(log2(IntermediateLow+1), 1, mean)); colnames(IntermediateLow.Mean) <- "IntermediateLow"
+IntermediateLow.Mean <- as.data.frame(apply(IntermediateLow, 1, mean)); colnames(IntermediateLow.Mean) <- "IntermediateLow"
+dim(IntermediateLow.Mean); head(IntermediateLow.Mean)
+
+HighLow <- cbind(FPKM.Data.NeoAntiBurd.High, FPKM.Data.NeoAntiBurd.Low)
+#HighLow.Mean <- as.data.frame(apply(log2(HighLow+1), 1, mean)); colnames(HighLow.Mean) <- "HighLow"
+HighLow.Mean <- as.data.frame(apply(HighLow, 1, mean)); colnames(HighLow.Mean) <- "HighLow"
+dim(HighLow.Mean); head(HighLow.Mean)
+
+HighIntermediate <- cbind(FPKM.Data.NeoAntiBurd.High, FPKM.Data.NeoAntiBurd.Intermediate)
+#HighIntermediate.Mean <- as.data.frame(apply(log2(HighIntermediate+1), 1, mean)); colnames(HighIntermediate.Mean) <- "HighIntermediate"
+HighIntermediate.Mean <- as.data.frame(apply(HighIntermediate, 1, mean)); colnames(HighIntermediate.Mean) <- "HighIntermediate"
+dim(HighIntermediate.Mean); head(HighIntermediate.Mean)
+
+### Find ratio between one vs rest of the groups ####
+FC.High.IntermediateLow <-  log2(FPKM.Data.NeoAntiBurd.High.mean + 1) - log2(IntermediateLow.Mean + 1)
+FC.High.IntermediateLow <- cbind(expressionTMM.RPKM[,c("Chr","Start","End","GeneName","GeneID")], FC.High.IntermediateLow)
+FC.High.IntermediateLow.rnk <- FC.High.IntermediateLow %>% dplyr::arrange(-FPKM.Data.NeoAntiBurd.High.mean)
+head(FC.High.IntermediateLow.rnk); dim(FC.High.IntermediateLow.rnk)
+write.table(FC.High.IntermediateLow.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.High.IntermediateLow.pc.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
+
+FC.Intermediate.HighLow <-  log2(FPKM.Data.NeoAntiBurd.Intermediate.mean + 1) - log2(HighLow.Mean + 1)
+FC.Intermediate.HighLow <- cbind(expressionTMM.RPKM[,c("Chr","Start","End","GeneName","GeneID")], FC.Intermediate.HighLow)
+FC.Intermediate.HighLow.rnk <- FC.Intermediate.HighLow %>% dplyr::arrange(-FPKM.Data.NeoAntiBurd.Intermediate.mean)
+head(FC.Intermediate.HighLow.rnk); dim(FC.Intermediate.HighLow.rnk)
+write.table(FC.Intermediate.HighLow.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.Intermediate.HighLow.pc.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
+
+FC.Low.HighIntermediate <-  log2(FPKM.Data.NeoAntiBurd.Low.mean + 1) - log2(HighIntermediate.Mean + 1)
+FC.Low.HighIntermediate <- cbind(expressionTMM.RPKM[,c("Chr","Start","End","GeneName","GeneID")], FC.Low.HighIntermediate)
+FC.Low.HighIntermediate.rnk <- FC.Low.HighIntermediate %>% dplyr::arrange(-FPKM.Data.NeoAntiBurd.Low.mean)
+head(FC.Low.HighIntermediate.rnk); dim(FC.Low.HighIntermediate.rnk)
+write.table(FC.Low.HighIntermediate.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.Low.HighIntermediate.pc.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
+
+### Extract data from GSEA files ####
+folder = "../RNASeq.RSEM/GSEA/results/NeoantigenVsImmueScore.PC.Cibersort/"
+allDirs                <- list.dirs(folder, recursive=FALSE);allDirs
+preRankedGSEA.DF.NES  <- cbind(as.data.frame(lapply(allDirs, corUtilsFuncs$NESorPvalGSEAPrerank, colNumb=5))) 
+preRankedGSEA.DF.Pval <- cbind(as.data.frame(lapply(allDirs, corUtilsFuncs$NESorPvalGSEAPrerank, colNumb=7)))
+#preRankedGSEA.DF.Pval.Zeros <- as.data.frame(apply(preRankedGSEA.DF.Pval, 2, function(x){ x[x==0]<-0.001; return(x)}))
+preRankedGSEA.DF.Pval.Zeros <- as.data.frame(apply(preRankedGSEA.DF.Pval, 2, function(x){ x = x+0.001; return(x)}))
+
+High <- as.data.frame(cbind(NES=preRankedGSEA.DF.NES[,1], 
+                            Pval=-log10(preRankedGSEA.DF.Pval.Zeros[,1]) ))
+Intermediate <- as.data.frame(cbind(NES=preRankedGSEA.DF.NES[,2], 
+                              Pval=-log10(preRankedGSEA.DF.Pval.Zeros[,2]) ))
+Low    <- as.data.frame(cbind(NES=preRankedGSEA.DF.NES[,3], 
+                              Pval=-log10(preRankedGSEA.DF.Pval.Zeros[,3]) ))
+
+rownames(High) <- rownames(preRankedGSEA.DF.NES)
+rownames(Intermediate) <- rownames(preRankedGSEA.DF.NES)
+rownames(Low) <- rownames(preRankedGSEA.DF.NES)
+
+
+### Plot the volcano plot ####
+HighPlot <- ggplot(High, aes(x=NES, y=Pval, colour=NES>0 )) + 
+  scale_colour_manual(name = 'NES > 0', values = setNames(c('red','darkgreen'),c(T, F))) +
+  geom_point(size=3) +
+  geom_text_repel(aes(x=NES, y=Pval, colour=NES>0, label=gsub("-CELLS_", ".",rownames(High))),  
+                  size=3.5, force = 3) +
+  geom_hline(yintercept=1.30103, size=1) +
+  geom_vline(xintercept = 0, size=1) +
+  xlim(-2,2.5)+
+  ylim(0,3.5) +
+  xlab("Normalised enrichment Score (NES)") +
+  ylab("-log10(Pval)")+
+  ggtitle("High Neoantigen Burden ")+
+  theme_bw() +
+  theme(axis.text=element_text(size=12),
+        axis.title=element_text(size=13,face="bold"),
+        legend.position="none")
+
+IntermediatePlot <- ggplot(Intermediate, aes(x=NES, y=Pval, colour=NES>0)) + 
+  scale_colour_manual(name = 'NES > 0', values = setNames(c('red','darkgreen'),c(T, F))) +
+  geom_point(size=3) +
+  geom_text_repel(aes(x=NES, y=Pval, colour=NES>0, label=gsub("-CELLS_", ".",rownames(Intermediate))),  
+                  size=3.5, force = 3) +
+  geom_hline(yintercept=1.30103, size=1) +
+  geom_vline(xintercept = 0, size=1) +
+  xlim(-2,2)+
+  ylim(0,3.5) +
+  xlab("Normalised enrichment Score (NES)") +
+  ylab("-log10(Pval)")+
+  ggtitle("Intermediate Neoantigen Burden")+
+  theme_bw() +
+  theme(axis.text=element_text(size=12),
+        axis.title=element_text(size=13,face="bold"),
+        legend.position="none")
+
+LowPlot <- ggplot(Low, aes(x=NES, y=Pval, colour=NES>0)) + 
+  scale_colour_manual(name = 'NES > 0', values = setNames(c('red','darkgreen'),c(T, F))) +
+  geom_point(size=3) +
+  geom_text_repel(aes(x=NES, y=Pval, colour=NES>0, label=gsub("-CELLS_", ".",rownames(Low))),  
+                  size=3.5, force = 2) +
+  geom_hline(yintercept=1.30103, size=1) +
+  geom_vline(xintercept = 0, size=1) +
+  xlim(-2,2)+
+  ylim(0,3.5) +
+  xlab("Normalised enrichment Score (NES)") +
+  ylab("-log10(Pval)")+
+  ggtitle("Low Neoantigen Burden") +
+  theme_bw() +
+  theme(axis.text=element_text(size=12),
+        axis.title=element_text(size=13,face="bold"),
+        legend.position="none") 
+
+pdf(paste0("../RNASeq.RSEM/Figures/Figure 4b.PC",".pdf"), height=10, width = 20)
+ggarrange(HighPlot, IntermediatePlot,LowPlot,  
+          labels = c("A.", "B.", "C."),
+          ncol = 3, nrow = 1,
+          legend = NULL)
+dev.off()
+
+
+### Violin plot for exhaustion markers ####
+
+RPKM.Data.Exhaustion   <- expressionTMM.RPKM %>% dplyr::filter(GeneName %in% as.character(rnaseqProject$emDF$GeneName)) %>% dplyr::arrange(GeneName)
+Exhaustion.Transpose           <- as.data.frame(t(RPKM.Data.Exhaustion[,-c(1:7)]))
+colnames(Exhaustion.Transpose) <- RPKM.Data.Exhaustion$GeneName
+Exhaustion.Transpose <- Exhaustion.Transpose %>% tibble::rownames_to_column(var="Sample.ID.Alias")
+Exhaustion.Transpose.diag <- dplyr::full_join(Exhaustion.Transpose, rnaseqProject$metaDataDF[,c("Sample.ID.Alias", "DIAGNOSIS.Substatus.Tumor.Normal.Tissue")], 
+                                              by="Sample.ID.Alias") %>% dplyr::rename(Diagnosis=DIAGNOSIS.Substatus.Tumor.Normal.Tissue)
+Rm.Normal.Exhaustion.Transpose <- Exhaustion.Transpose.diag %>% filter(!grepl("^NS.*", Exhaustion.Transpose.diag$Diagnosis))
+finalExhaustionMatrix <-  melt(Rm.Normal.Exhaustion.Transpose[,-1], id.var = "Diagnosis")
+
+finalExhaustionMatrix.tidy <- finalExhaustionMatrix %>% dplyr::group_by(Diagnosis, variable) %>% 
+  dplyr::mutate(Med=median(value)) %>% arrange(Diagnosis, variable, value) %>% 
+  arrange(desc(Med)) %>% 
+  ungroup() %>% 
+  mutate( Diagnosis.Marker = factor(paste(Diagnosis,variable,sep="."), levels= unique(paste(Diagnosis,variable,sep=".")),
+                                    order = TRUE) ) %>% 
+  arrange(Diagnosis.Marker)
+
+pdf("ExhautionMarkers.Variable.RPKM.v5.pdf",height=25,width=20)
+ggplot(finalExhaustionMatrix.tidy, aes(x=Diagnosis.Marker, y=value)) + 
+  ##ggplot(data, aes(x=Group, y=log2(ENSG00000182752))) + 
+  #geom_boxplot(varwidth = TRUE,notch = FALSE) + 
+  geom_violin(scale = "width",trim = FALSE, draw_quantiles = c(0.5)) + 
+  #geom_jitter(width=0.1) +
+  theme_bw() + 
+  ylab( paste("log2(TPM)") ) +
+  #ylim(0,10) +
+  xlab( "Diagnosis" ) +
+  #geom_hline(yintercept=0, size=0.1) + 
+  theme( title = element_text(size=13, face="bold")
+         ,axis.title.x = element_text(size=13, face="bold")
+         ,axis.title.y = element_text(size=13, face="bold")
+         ,axis.text.x = element_text(size=10, face="bold", angle=90, vjust=1)
+         ,axis.text.y = element_text(size=10, face="bold")
+         ,axis.ticks.x =element_blank()
+         ,strip.text.y= element_blank()
+         ,strip.text.x=element_text(size=13,face="bold")
+         ,strip.background=element_blank()
+         ,panel.grid.major.x=element_blank()
+         ,panel.grid.minor.x=element_blank()
+         ,panel.border = element_rect(colour = "black", fill=NA, size=0.0000000002, linetype = 2)
+         ,panel.spacing = unit(0, "cm")
+         ,strip.switch.pad.grid = unit(0, "cm")
+  ) + facet_wrap( ~ variable, scales="free", nrow = 7) +
+  scale_x_discrete(labels=setNames(as.character(finalExhaustionMatrix.tidy$Diagnosis), finalExhaustionMatrix.tidy$Diagnosis.Marker))
+dev.off()
+
+############ TP53 Analysis ###################################
+
+TP53.mutant.samples <- read.table("C:/Users/sindiris/R Scribble/RNASeq.RSEM/TP53.Unique.txt",header = T)
+TP53.mutant.samples <- left_join(TP53.mutant.samples, rnaseqProject$validMetaDataDF[,c("Sample.Biowulf.ID.GeneExp","Sample.ID","DIAGNOSIS.Alias")], 
+                                 by="Sample.ID") %>% arrange(Sample.ID)
+HLA_geneexp      <- rbind(expressionTMM.RPKM.GSEA.Input[c("HLA-A", "HLA-B", "HLA-C"),])
+HLA_geneexp.t <- t(HLA_geneexp) %>% data.frame() %>% tibble::rownames_to_column(var = "Sample.Biowulf.ID.GeneExp") 
+HLA_geneexp.t <- HLA_geneexp.t %>% dplyr::mutate(Group = ifelse(Sample.Biowulf.ID.GeneExp %in% 
+                                                                  TP53.mutant.samples$Sample.Biowulf.ID.GeneExp, "TP53-mutant", "TP53-wildtype"))
+HLA_geneexp.t <- left_join(HLA_geneexp.t, rnaseqProject$validMetaDataDF[,c("Sample.Biowulf.ID.GeneExp", "DIAGNOSIS.Alias", "LIBRARY_TYPE")], 
+                           by="Sample.Biowulf.ID.GeneExp")
+HLA_geneexp.t <- HLA_geneexp.t %>% dplyr::mutate(Group = ifelse(DIAGNOSIS.Alias == "NS", "Normal", Group))
+
+HLA_geneexp.t <- HLA_geneexp.t %>% dplyr::filter(!grepl("CellLine", LIBRARY_TYPE))
+
+my_comparisons=list(c("TP53-mutant","TP53-wildtype"), c("TP53-mutant", "Normal"), c("TP53-wildtype","Normal"))
+
+pdf("C:/Users/sindiris/R Scribble/RNASeq.RSEM/HLA-Tumor-samples.pdf", height = 20, width = 15)
+HLA.A <- ggplot(HLA_geneexp.t, aes(x=Group, y=HLA.A , fill=Group)) + geom_boxplot() + scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9")) +
+                        geom_jitter(shape=16, position=position_jitter(0.2)) +  theme(legend.position = "none") +
+                        stat_compare_means( paired = FALSE,comparisons = my_comparisons) +
+                        stat_compare_means(method = "anova", label.y = 16) + 
+                        ylab("HLA.A RPKM")
+HLA.B <- ggplot(HLA_geneexp.t, aes(x=Group, y=HLA.B, fill=Group)) + geom_boxplot()  + scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9")) +
+                        geom_jitter(shape=16, position=position_jitter(0.2)) +  theme(legend.position = "none") +
+                        stat_compare_means( paired = FALSE,comparisons = my_comparisons) +
+                        stat_compare_means(method = "anova", label.y = 12.5) + 
+                        ylab("HLA.B RPKM")
+                       
+HLA.C <- ggplot(HLA_geneexp.t, aes(x=Group, y=HLA.C , fill=Group)) + geom_boxplot()  + scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9")) +
+                        geom_jitter(shape=16, position=position_jitter(0.2)) +  theme(legend.position = "none") +
+                        stat_compare_means( paired = FALSE,comparisons = my_comparisons) +
+                        stat_compare_means(method = "anova", label.y = 12.5) + 
+                        ylab("HLA.C RPKM")
+grid.arrange(HLA.A,HLA.B,HLA.C,nrow = 3)
+dev.off()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
