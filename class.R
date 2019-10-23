@@ -75,7 +75,6 @@ ProjectSetUp <- R6Class(
     ## Read ExhaustionMarker annotation file
     readExhaustionMarker = function(){
       self$emDF <- readRDS(self$emRDS)
-      print(self$emDF)
     },
     ## Read CellSurface annotation file
     readCellSurface = function(){
@@ -116,7 +115,6 @@ ProjectSetUp <- R6Class(
     ## Get Color map
     getFactorColorMap = function(){
       customColorsDF <- self$metaDataDF %>% dplyr::filter(! LIBRARY_TYPE %in% c("CellLine", "Normal"))
-      print(dim(customColorsDF)); print(dim( self$metaDataDF))
       customColorsDF <-  customColorsDF[,c(self$factorName, "Color")] %>% data.frame() %>% dplyr::distinct()
       customColorsDF[,self$factorName]  <- gsub(".Tumor", "", customColorsDF[,self$factorName])
       colnames(customColorsDF)[1] <- "Diagnosis";
@@ -125,7 +123,6 @@ ProjectSetUp <- R6Class(
     ## Get Color map
     getFactorColorMapAll = function(){
       customColorsDFAll <- self$metaDataDF %>% dplyr::filter(! LIBRARY_TYPE %in% c("Normal"))
-      print(dim(customColorsDFAll)); print(dim( self$metaDataDF))
       customColorsDFAll <-  customColorsDFAll[,c(self$factorName, "Color.Substatus")] %>% data.frame() %>% dplyr::distinct()
       # customColorsDFAll[,self$factorName]  <- gsub(".Tumor", "", customColorsDFAll[,self$factorName])
       colnames(customColorsDFAll)[1] <- "Diagnosis";
@@ -764,6 +761,17 @@ CoreUtilities <- R6Class(
         cor  =(cormat)[ut],
         p = pmat[ut]
       )
+    },
+    rcorr_groups = function(annotDF = NULL, dataDF = NULL, GroupID =NULL, samplesID= NULL) {
+      unique_groups <- unique(as.character(annotDF[,GroupID]))
+      mergedDF <- do.call(rbind, lapply(unique_groups, function(x) {
+        each_group_samples <- annotDF %>% dplyr::filter_(.dots =paste0("grepl(\"",x,"\",",GroupID,")") )
+        each_group_samplesDF <- dataDF %>% dplyr::select(one_of(each_group_samples[,samplesID]))
+        print(paste("group name", x,"  ", dim(each_group_samplesDF)[1], " ",dim(each_group_samplesDF)[2] ))
+        each_group_samplesDF.corr <- rcorr(t(each_group_samplesDF), type = "spearman");
+        return(flattenCorrMatrix(each_group_samplesDF.corr$r, each_group_samplesDF.corr$P, x))
+      } ))
+      return(mergedDF)
     }
   )
 )

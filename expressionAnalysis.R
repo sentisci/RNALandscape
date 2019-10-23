@@ -14,20 +14,20 @@ rnaseqProject <- ProjectSetUp$new(
   date                    = unlist(strsplit(x = as.character(Sys.time()), "\\s+"))[[1]],
   time                    = unlist(strsplit(x = as.character(Sys.time()), "\\s+"))[[2]],
   projectName             = "RNASeq.RSEM",
-  annotationRDS           = "C:/Users/sindiris/R Scribble/Annotation RDS/annotation_ENSEMBL_gene.RDS",
-  pcRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/pc.other.HGNCTableFlat.rds",
-  emRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/EMGenes.RDS",
-  tfRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/TFs_no_epimachines.RDS",
-  csRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/CellSurface.RDS",
-  cgaRDS                  = "C:/Users/sindiris/R Scribble/Annotation RDS/cancerGermlineAntigens.rds",
-  ewsr1Fli1RDS            = "C:/Users/sindiris/R Scribble/Annotation RDS/EWSR1_FL1_DownstreamTargets.RDS",
-  pax3Foxo1RDS             = "C:/Users/sindiris/R Scribble/Annotation RDS/PAX3_FOXO1_DownstreamTargets.RDS",
+  annotationRDS           = "T:/Sivasish_Sindiri/R Scribble/Annotation RDS/annotation_ENSEMBL_gene.RDS",
+  pcRDS                   = "T:/Sivasish_Sindiri/R Scribble/Annotation RDS/pc.other.HGNCTableFlat.rds",
+  emRDS                   = "T:/Sivasish_Sindiri/R Scribble/Annotation RDS/EMGenes.RDS",
+  tfRDS                   = "T:/Sivasish_Sindiri/R Scribble/Annotation RDS/TFs_no_epimachines.RDS",
+  csRDS                   = "T:/Sivasish_Sindiri/R Scribble/Annotation RDS/CellSurface.RDS",
+  cgaRDS                  = "T:/Sivasish_Sindiri/R Scribble/Annotation RDS/cancerGermlineAntigens.rds",
+  ewsr1Fli1RDS            = "T:/Sivasish_Sindiri/R Scribble/Annotation RDS/EWSR1_FL1_DownstreamTargets.RDS",
+  pax3Foxo1RDS             = "T:/Sivasish_Sindiri/R Scribble/Annotation RDS/PAX3_FOXO1_DownstreamTargets.RDS",
   
-  BrainExpRDS             = "C:/Users/sindiris/R Scribble/Annotation RDS/VitalExpression/expressionTMM.RPKM.Brain.v2.RDS",
-  HeartExpRDS             = "C:/Users/sindiris/R Scribble/Annotation RDS/VitalExpression/expressionTMM.RPKM.Heart.v2.RDS", 
-  KidneyExpRDS            = "C:/Users/sindiris/R Scribble/Annotation RDS/VitalExpression/expressionTMM.RPKM.Kidney.v2.RDS", 
-  LiverExpRDS             = "C:/Users/sindiris/R Scribble/Annotation RDS/VitalExpression/expressionTMM.RPKM.Liver.v2.RDS", 
-  LungExpRDS              = "C:/Users/sindiris/R Scribble/Annotation RDS/VitalExpression/expressionTMM.RPKM.Lung.v2.RDS", 
+  BrainExpRDS             = "T:/Sivasish_Sindiri/R Scribble/Annotation RDS/VitalExpression/expressionTMM.RPKM.Brain.v2.RDS",
+  HeartExpRDS             = "T:/Sivasish_Sindiri/R Scribble/Annotation RDS/VitalExpression/expressionTMM.RPKM.Heart.v2.RDS", 
+  KidneyExpRDS            = "T:/Sivasish_Sindiri/R Scribble/Annotation RDS/VitalExpression/expressionTMM.RPKM.Kidney.v2.RDS", 
+  LiverExpRDS             = "T:/Sivasish_Sindiri/R Scribble/Annotation RDS/VitalExpression/expressionTMM.RPKM.Liver.v2.RDS", 
+  LungExpRDS              = "T:/Sivasish_Sindiri/R Scribble/Annotation RDS/VitalExpression/expressionTMM.RPKM.Lung.v2.RDS", 
   
   outputPrefix            = "landscape",
   filterGenes             = TRUE,
@@ -50,7 +50,7 @@ rnaseqProject <- ProjectSetUp$new(
   #Keep only PolyA
   # factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), "Normal.ribozero"=list("LibraryPrep" = "Ribozero"))
   ## Remove Celllines
-  factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"))
+  ## factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"))
   # factorsToExclude          = list('None'=list("LIBRARY_TYPE"=""))
 )
 
@@ -99,7 +99,8 @@ mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Gene
                                                    metadata          = rnaseqProject$metaDataDF,
                                                    metadataFileRefCol=rnaseqProject$metadataFileRefCol )
 
-#saveRDS(mergeObjectsNoDup, "C:/Users/sindiris/R Scribble/RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.RDS")
+# saveRDS(mergeObjectsNoDup, "T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.RDS")
+saveRDS(mergeObjectsNoDup, "T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.Tumor.RDS")
 
 #mergeObjectsNoDup <- readRDS("../RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.RDS")
 
@@ -143,7 +144,7 @@ expressionObj        <- GeneExpNormalization$new(
 ### RawCounts
 #expressionTMM.Counts          = expressionObj$edgeRMethod("RawCounts")
 ## Normalised counts
-expressionTMM.NormDF         = expressionObj$edgeRMethod("NormFactorDF")
+#expressionTMM.NormDF         = expressionObj$edgeRMethod("NormFactorDF")
 ### RPKM
 expressionTMM.RPKM            = expressionObj$edgeRMethod("TMM-RPKM", logtransform = TRUE, zscore = FALSE)
 
@@ -156,9 +157,10 @@ expressionTMM.RPKM.arr <- expressionTMM.RPKM %>% dplyr::select(one_of("Chr","Sta
 
 ## Add additional annotations (sample Id alias) ####
 AliasNames_df                 <- dplyr::left_join( data.frame("Sample.Biowulf.ID.GeneExp"=colnames(expressionTMM.RPKM)), 
-                                                   rnaseqProject$validMetaDataDF[,c("Sample.Biowulf.ID.GeneExp", "Sample.ID.Alias", 
+                                                   rnaseqProject$validMetaDataDF[,c("Sample.Biowulf.ID.GeneExp", "Sample.ID.Alias", "Sample.Data.ID", 
+                                                                                    "DIAGNOSIS.Alias",
                                                                                     rnaseqProject$factorName)] )
-AliasColnames                 <- c(as.character(AliasNames_df[c(1:7),1]), as.character(AliasNames_df[-c(1:7),2]))
+AliasColnames                 <- c(as.character(AliasNames_df[c(1:7),1]), as.character(AliasNames_df[-c(1:7),3]))
 
 
 ## Perform Sanity Check for the above operations #####
@@ -166,7 +168,7 @@ stopifnot( length(colnames(expressionTMM.RPKM)) == length(AliasColnames) )
 colnames(expressionTMM.RPKM)  <- AliasColnames
 
 ### Save expression (TMM-RPKM/whatwever asked for in the above step) to a file ####
-write.table(expressionTMM.RPKM.arr, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
+write.table(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
                                       paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.",rnaseqProject$date,".txt"),sep="/"),
             sep="\t", row.names = FALSE, quote = FALSE)
 saveRDS(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
@@ -327,7 +329,7 @@ colnames(ScoresForSpread)      <- ScoresForSpread[1,];
 ScoresForSpreadHeat            <- ScoresForSpread[-1,]
 ScoresForSpreadHeat            <- t(apply(ScoresForSpreadHeat, 1, as.numeric))
 colnames(ScoresForSpreadHeat)  <- colnames(ScoresForSpread)
-#write.table(ScoresForSpread, "C:/Users/sindiris/R Scribble/RNASeq/PlotData/ScoresperDiagSigEnrichZscore.txt", sep="\t", quote = F, col.names = T, row.names = F)
+#write.table(ScoresForSpread, "T:/Sivasish_Sindiri/R Scribble/RNASeq/PlotData/ScoresperDiagSigEnrichZscore.txt", sep="\t", quote = F, col.names = T, row.names = F)
 
 ## Open the PDF File
 #pdf( paste(rnaseqProject$workDir, rnaseqProject$projectName, rnaseqProject$plotsDir,"PercentSamplesEnrichmentScoreHeatMap.Cibersort.pdf", sep="/"), height=10, width = 20)
@@ -363,7 +365,7 @@ library("psych")
 ## Read the ssGSEA output
 ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.2019-01-31.PROJ.KeggSig.gct")
 ## Read the DDR genes file
-DDRGenes <- read.table("C:/Users/sindiris/R Scribble/Annotation RDS/276_DDR_Genes.v2.txt", sep="\t", header = T, stringsAsFactors = FALSE)
+DDRGenes <- read.table("T:/Sivasish_Sindiri/R Scribble/Annotation RDS/276_DDR_Genes.v2.txt", sep="\t", header = T, stringsAsFactors = FALSE)
 ## sanity check if any DDR genes are missing form the expression matrix
 excludeGenesIndx <- which(! DDRGenes$DDRGenes %in% rownames(expressionTMM.RPKM.GSEA.Input))
 DDRGenesPresent <- DDRGenes$DDRGenes[-excludeGenesIndx]; length(DDRGenesPresent)
@@ -378,25 +380,25 @@ ssGSEAScores.DDRGenes  <- rbind(ssGSEAScores,DDRGenesGeneExpFinal)
 ssGSEAScores.DDRGenes.corr <- rcorr(t(ssGSEAScores.DDRGenes),  type = "spearman");View(ssGSEAScores.DDRGenes.corr)
 ## Plot the heatmap
 col<- colorRampPalette(c("blue", "white", "red"))(20)
-pdf("C:/Users/sindiris/R Scribble/RNASeq.RSEM/Figures/ImmuneScoreVSDDRgeneExp.pdf", height = 55, width = 55)
+pdf("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/Figures/ImmuneScoreVSDDRgeneExp.pdf", height = 55, width = 55)
 heatmap(x = ssGSEAScores.DDRGenes.corr$r, col = col, symm = TRUE, keep.dendro = FALSE)
 dev.off()
 ## slicing out the interesting part
 ssGSEAScores.DDRGenes  <- rbind(ssGSEAScores[c("T.regulatory_PMID_30127393_neg", "T.regulatory_PMID_30127393_pos"),],DDRGenesGeneExpFinal)
 ssGSEAScores.DDRGenes.corr <- rcorr(t(ssGSEAScores.DDRGenes),  type = "spearman"); View(ssGSEAScores.DDRGenes.corr)
-pdf("C:/Users/sindiris/R Scribble/RNASeq.RSEM/Figures/ImmuneScoreVSDDRgeneExpSelected.pdf", height = 55, width = 55)
+pdf("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/Figures/ImmuneScoreVSDDRgeneExpSelected.pdf", height = 55, width = 55)
 heatmap(x = ssGSEAScores.DDRGenes.corr$r, col = col, symm = TRUE, keep.dendro = FALSE)
 dev.off()
 ## Writing data to files
-write.table(ssGSEAScores.DDRGenes, "C:/Users/sindiris/R Scribble/RNASeq.RSEM/FigureData/ssGSEAScores.DDRGenes.txt", quote = FALSE, sep = "\t")
-write.table(ssGSEAScores.DDRGenes.corr$p, "C:/Users/sindiris/R Scribble/RNASeq.RSEM/FigureData/ImmuneSoreVSDDRgexp.p.txt", quote = FALSE)
+write.table(ssGSEAScores.DDRGenes, "T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/FigureData/ssGSEAScores.DDRGenes.txt", quote = FALSE, sep = "\t")
+write.table(ssGSEAScores.DDRGenes.corr$p, "T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/FigureData/ImmuneSoreVSDDRgexp.p.txt", quote = FALSE)
 
 ### Perform correlation analysis  for CTA genes ####
 ## Read the ssGSEA output
 ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.Khanlab.pc.log2.2019-06-14.PROJ.kegg.immune.rm.dups.gct")
 ## Read the DDR genes file
 rm(CGAGenes)
-CGAGenes <- as.character(rnaseqProject$cgaDF$GeneName)
+CGAGenes <- as.character(rnaseqProject$csDF$GeneName)
 ## sanity check if any DDR genes are missing form the expression matrix
 excludeGenesIndx <- which(! CGAGenes %in% rownames(expressionTMM.RPKM.GSEA.Input)); length(excludeGenesIndx)
 DDRGenesabsent <- CGAGenes[excludeGenesIndx]; as.character(DDRGenesabsent)
@@ -409,18 +411,49 @@ rownames(DDRGenesGeneExp)[indx];
 DDRGenesGeneExpFinal <-  DDRGenesGeneExp[complete.cases(DDRGenesGeneExp), ]; dim(DDRGenesGeneExpFinal)
 ## bind geneexpression matrix to immunescore matrix and perform correlation
 cytolyticScore          <- corUtilsFuncs$cytolyticScore(expressionTMM.RPKM.GSEA.Input)
-ssGSEAScores.CGAGenes  <- t(rbind(ssGSEAScores[4,],cytolyticScore,DDRGenesGeneExpFinal))
-ssGSEAScores.CGAGenes.corr <- rcorr(ssGSEAScores.CGAGenes, type = "spearman");
-write.table(flattenCorrMatrix(ssGSEAScores.CGAGenes.corr$r, ssGSEAScores.CGAGenes.corr$P), "C:/Users/sindiris/R Scribble/RNASeq.RSEM/ImmuneSore.VS.cga.exp.txt", quote = FALSE, sep="\t")
-# corr_coef <- ssGSEAScores.CGAGenes.corr$r
-# corr_coef[is.nan(corr_coef)] <- 0
-## Plot the heatmap
-# col<- colorRampPalette(c("blue", "white", "red"))(20)
-# pdf("C:/Users/sindiris/R Scribble/RNASeq.RSEM/Figures/ImmuneScore.VS.cga.geneExp.pdf", height = 55, width = 55)
-# heatmap(x = corr_coef, col = col, symm = TRUE, keep.dendro = FALSE)
-# dev.off()
-# ## Writing data to files
-# write.table(ssGSEAScores.CGAGenes, "C:/Users/sindiris/R Scribble/RNASeq.RSEM/FigureData/ssGSEAScores.cga.Genes.txt", quote = FALSE, sep = "\t")
+ssGSEAScores.CGAGenes  <- rbind(ssGSEAScores[4,],cytolyticScore,DDRGenesGeneExpFinal) %>% data.frame()
+
+## Remove Normal samples
+Tumor_samples_annot <- AliasNames_df %>% dplyr::filter(!grepl('Teratoma',DIAGNOSIS.Substatus.Tumor.Normal.Tissue))
+Tumor_samples_annot <- Tumor_samples_annot[complete.cases(Tumor_samples_annot),]
+ssGSEAScores.CGAGenes.Tumor <- ssGSEAScores.CGAGenes %>% dplyr::select(one_of(as.character(Tumor_samples_annot$Sample.Biowulf.ID.GeneExp)))
+dim(ssGSEAScores.CGAGenes.Tumor)
+
+## For all tumor samples
+# ssGSEAScores.CGAGenes.corr <- rcorr(t(ssGSEAScores.CGAGenes.Tumor), type = "spearman");
+# ssGSEAScores.CGAGenes.cytolytic <- flattenCorrMatrix(ssGSEAScores.CGAGenes.corr$r, ssGSEAScores.CGAGenes.corr$P) %>% filter(grepl('CytolyticScore|T.cells_CD8', row))
+# write.table(ssGSEAScores.CGAGenes.cytolytic, 
+#             "T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/CD8.cytolytic.tf.all.Tumor.corr.txt", quote = FALSE, sep="\t")
+
+Tumor_samples_annot$DIAGNOSIS.Substatus.Tumor.Normal.Tissue <- gsub('NS.*','NS',Tumor_samples_annot$DIAGNOSIS.Substatus.Tumor.Normal.Tissue)
+## Perform rcorr for each tumor groups 
+correlationDF <- rcorr_groups(Tumor_samples_annot, ssGSEAScores.CGAGenes.Tumor, rnaseqProject$factorName, "Sample.Biowulf.ID.GeneExp")
+correlationDF_cytolytic <- correlationDF %>% filter(grepl('CytolyticScore|T.cells_CD8', row))
+write.table(correlationDF_cytolytic, 
+            "T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/CD8.cytolytic.cs.each.Tumor.corr.txt", quote = FALSE, sep="\t")
+
+
+### Perform annotation for the above
+table_diff_Exp_annot <- read.table("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/CD8/CD8.annotation/TranscriptionFactor.Summarised.traditionalRank.Dexp.txt",
+                                   sep="\t", header = T, row.names = 1)
+colnames(table_diff_Exp_annot) <- gsub("NormalsStatus", '', colnames(table_diff_Exp_annot))
+
+cor.data <- read.table("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/CD8/CD8.annotation/CD8.cytolytic.tf.each.Tumor.corr.txt",
+                       sep="\t", header = T, row.names = 1)
+
+diff_exp_annotate <- function(x, lookupDF=NA){
+  value = lookupDF[x["column"],x["group"]]
+  if(is.null(value)){
+    value= NA
+  }
+  x$DiffExp <- value
+  return(data.frame(x))
+}
+
+annotatedList <- apply(cor.data, 1, diff_exp_annotate, lookupDF=table_diff_Exp_annot)
+annotatedDF <- do.call(rbind.data.frame,annotatedList)
+write.table(annotatedDF, 
+            "T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/CD8.cytolytic.tf.each.Tumor.corr.diff.exp.txt", quote = FALSE, sep="\t")
 
 
 
@@ -429,7 +462,7 @@ write.table(flattenCorrMatrix(ssGSEAScores.CGAGenes.corr$r, ssGSEAScores.CGAGene
 #ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.2019-01-31.PROJ.KeggSig.gct")
 ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.Khanlab.pc.log2.2019-06-14.PROJ.kegg.immune.rm.dups.gct")
 ## Read the DDR genes file
-EMGenes <- read.table("C:/Users/sindiris/R Scribble/Annotation RDS/Exhaustion_markers_genes.txt", sep="\t", header = T, stringsAsFactors = FALSE)
+EMGenes <- read.table("T:/Sivasish_Sindiri/R Scribble/Annotation RDS/Exhaustion_markers_genes.txt", sep="\t", header = T, stringsAsFactors = FALSE)
 ## sanity check if any EM genes are missing form the expression matrix
 excludeGenesIndx <- which(!EMGenes$Exhaustion_Marker_Genes %in% rownames(expressionTMM.RPKM.GSEA.Input))
 if( length(EMGenesPresent) != 0) {
@@ -470,7 +503,7 @@ ggplot(ssGSEAScores.T.df, aes(x = Kegg_Antigen_processing_and_presentation, y = 
 
 ## Plot heatmap for the above
 col<- colorRampPalette(c("blue", "white", "red"))(100)
-pdf("C:/Users/sindiris/R Scribble/RNASeq.RSEM/Figures/ImmuneScoreVSDDRgeneExp.pdf", height = 55, width = 55)
+pdf("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/Figures/ImmuneScoreVSDDRgeneExp.pdf", height = 55, width = 55)
 heatmap(x = ssGSEAScores.EMGenes.corr$r, col = col, symm = TRUE, keep.dendro = FALSE)
 pheatmap(ssGSEAScores.corr$r, col = col)
 dev.off()
@@ -660,13 +693,13 @@ group2FPKM.T = 1 ; group1FPKM.T = 1;  PValue.T = 0.05 ; logFoldDiff.T = 0 ; FDR_
 selectedGeneList <- "ExhaustionMarkers"
 Zscored.logFC = 0.25 ; Zscore.group2 = 0.5; group2FPKM = 5 ; group1FPKM = 1;  PValue = 0.001 ; logFC = 4 ; FDR = 0.05
 
-MergedDiffExpResultDir <- paste0("C:/Users/sindiris/R Scribble//RNASeq.RSEM/MergedDiffExpResults/",selectedGeneList)
+MergedDiffExpResultDir <- paste0("T:/Sivasish_Sindiri/R Scribble//RNASeq.RSEM/MergedDiffExpResults/",selectedGeneList)
 
 # Step 2.  Perform Merging of differential expression file across groups ####
 dir.create(MergedDiffExpResultDir)
 ConditionGroup <- c(unique(sapply(dgeObj$pairedList, function(x){ return(paste(x[1],x[2],sep = "_"))  })), c("Normals_WT", "Normals_CCSK") )
 #ConditionGroup <- c(unique(sapply(dgeObj$pairedList, function(x){ return(paste(x[1],x[2],sep = "_"))  })))
-groups <- list.dirs(paste("C:/Users/sindiris/R Scribble//RNASeq.RSEM//DiffExpResults/", sep=""))[-1]; groups[1]
+groups <- list.dirs(paste("T:/Sivasish_Sindiri/R Scribble//RNASeq.RSEM//DiffExpResults/", sep=""))[-1]; groups[1]
 output <- sapply(groups, mergeDiffTestResults, type="Gene", colInterest=c(7,9,10,11,12, 15:28), rowNamesCol = 2,
                  fileSuffix=paste0(selectedGeneList,".txt"), saveDirPath=MergedDiffExpResultDir)
 
@@ -1177,7 +1210,7 @@ plotLists <- corUtilsFuncs$OneVariablePlotSort( colList, Scores=Scores, orderOfF
 #### Neoantigen Post-Processing #####
 
 ## neoantigen from variants
-neoantigenFromVariants <- read.csv("C:/Users/sindiris/R Scribble/RNASeq.Mutation.data/NeoantigenCountFromVariants.txt", sep = "\t", header = T) %>% data.table()
+neoantigenFromVariants <- read.csv("T:/Sivasish_Sindiri/R Scribble/RNASeq.Mutation.data/NeoantigenCountFromVariants.txt", sep = "\t", header = T) %>% data.table()
 neoantigenFromVariantsAnnot <- dplyr::full_join( rnaseqProject$metaDataDF, neoantigenFromVariants, by="Sample.Biowulf.ID") %>% 
                                 dplyr::filter(!is.na(Patient.ID)) %>%
                                 dplyr::filter( ! LIBRARY_TYPE %in% c("CellLine","Normal")) %>%
@@ -1186,7 +1219,7 @@ neoantigenFromVariantsAnnot <- dplyr::full_join( rnaseqProject$metaDataDF, neoan
 dim(neoantigenFromVariantsAnnot); 
 #View(neoantigenFromVariantsAnnot)
 ## neoantigen from fusions
-neoantigenFromFusions <- read.csv("C:/Users/sindiris/R Scribble/RNASeq.Mutation.data/NeoantigenCountFromFusions.txt", sep = "\t", header = T) %>% data.table() %>% 
+neoantigenFromFusions <- read.csv("T:/Sivasish_Sindiri/R Scribble/RNASeq.Mutation.data/NeoantigenCountFromFusions.txt", sep = "\t", header = T) %>% data.table() %>% 
                                dplyr::select_(.dots=c("Sample.Biowulf.ID","DIAGNOSIS.Substatus.Tumor.Normal.Tissue", "Sample.ID.Alias", "FusionNeoAntigenCount"))
 dim(neoantigenFromFusions); 
 #View(neoantigenFromFusions)                                
@@ -1434,7 +1467,7 @@ dev.off()
 
 ############ TP53 Analysis ###################################
 
-TP53.mutant.samples <- read.table("C:/Users/sindiris/R Scribble/RNASeq.RSEM/TP53.Unique.txt",header = T)
+TP53.mutant.samples <- read.table("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/TP53.Unique.txt",header = T)
 TP53.mutant.samples <- left_join(TP53.mutant.samples, rnaseqProject$validMetaDataDF[,c("Sample.Biowulf.ID.GeneExp","Sample.ID","DIAGNOSIS.Alias")], 
                                  by="Sample.ID") %>% arrange(Sample.ID)
 HLA_geneexp      <- rbind(expressionTMM.RPKM.GSEA.Input[c("HLA-A", "HLA-B", "HLA-C"),])
@@ -1449,7 +1482,7 @@ HLA_geneexp.t <- HLA_geneexp.t %>% dplyr::filter(!grepl("CellLine", LIBRARY_TYPE
 
 my_comparisons=list(c("TP53-mutant","TP53-wildtype"), c("TP53-mutant", "Normal"), c("TP53-wildtype","Normal"))
 
-pdf("C:/Users/sindiris/R Scribble/RNASeq.RSEM/HLA-Tumor-samples.pdf", height = 20, width = 15)
+pdf("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/HLA-Tumor-samples.pdf", height = 20, width = 15)
 HLA.A <- ggplot(HLA_geneexp.t, aes(x=Group, y=HLA.A , fill=Group)) + geom_boxplot() + scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9")) +
                         geom_jitter(shape=16, position=position_jitter(0.2)) +  theme(legend.position = "none") +
                         stat_compare_means( paired = FALSE,comparisons = my_comparisons) +
@@ -1470,8 +1503,130 @@ grid.arrange(HLA.A,HLA.B,HLA.C,nrow = 3)
 dev.off()
 
 
+################################################################# ERV Analysis #################################################
+
+## Flatten rcorr results in to a table
+flattenCorrMatrix <- function(cormat, pmat, group_name="") {
+  ut <- upper.tri(cormat)
+  data.frame(
+    row = rownames(cormat)[row(cormat)[ut]],
+    column = rownames(cormat)[col(cormat)[ut]],
+    cor  =(cormat)[ut],
+    p = pmat[ut],
+    group = group_name
+  )
+}
+
+## Do Correlation for each diagnosis groups
+rcorr_groups = function(annotDF = NULL, dataDF = NULL, GroupID =NULL, samplesID= NULL) {
+  unique_groups <- unique(as.character(annotDF[,GroupID]))
+  mergedDF <- do.call(rbind, lapply(unique_groups, function(x) {
+    each_group_samples <- annotDF %>% dplyr::filter_(.dots =paste0("grepl(\"",x,"\",",GroupID,")") )
+    each_group_samplesDF <- dataDF %>% dplyr::select(one_of(each_group_samples[,samplesID]))
+    print(paste("group name", x,"  ", dim(each_group_samplesDF)[1], " ",dim(each_group_samplesDF)[2] ))
+    each_group_samplesDF.corr <- rcorr(t(each_group_samplesDF), type = "spearman");
+    return(flattenCorrMatrix(each_group_samplesDF.corr$r, each_group_samplesDF.corr$P, x))
+  } ))
+  return(mergedDF)
+}
+
+## coorelation plots
+correlationPlots <- function(varName="", constName="", df=NA, customColorDF=NA, xlab="Log Total Clones"){
+  
+  print(paste(varName))
+  df <- df %>% dplyr::filter_(.dots = paste0(varName, ">=", 5))
+  customColorsVector <- setNames( as.character(customColorDF$Color), as.character(customColorDF$Diagnosis))
+  corrTest <- cor.test(df[,constName], df[,varName], method = "spearman")
+  if  ( corrTest$p.value < 2.2e-16 ) { corrTest$p.value = 2.2e-16 }
+  plot <- ggplot(df, aes_string(x=constName, y=varName)) + 
+    geom_smooth(method=lm,  fill="grey") +
+    geom_point(aes(colour = factor(Diagnosis)), show.legend = T, size=2, shape=16) + 
+    scale_colour_manual(values=customColorsVector) +
+    theme_bw() +
+    theme(axis.text=element_text(size=13)
+          ,axis.title=element_text(size=13,face="bold")) +
+    xlab(xlab) +
+    ylab(paste("Erv expression", sep=" "))+
+    # theme(legend.position = "none") +
+    ggtitle(paste("Corr.Coeff = ", signif(corrTest$estimate[[1]],5), "\np-value = ", signif(corrTest$p.value,5), "", varName,sep=""))
+  
+  return(list(plot))
+} 
+
+## Read ERV expression file
+
+## Need to improve the below code
+## Log the expression and saved  ## NO need to use everytime.
+# erv.data.max <- read.csv("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/ERV_final_files/data.geneNames.merged.max.txt", sep="\t", header = T)
+# colnames(erv.data.max) <- gsub(".rsem.ENS.FPKM","",colnames(erv.data.max))
+# erv.data.max <- erv.data.max %>% tibble::column_to_rownames(var="geneName")
+# erv.data.max <- log(erv.data.max+1,2)
+# # write.table(erv.data.max, "T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/ERV_final_files/data.geneNames.merged.max.log2.txt", sep="\t", quote = F)
+# ## Get cytolytic score and save
+# cytolyticScore          <- corUtilsFuncs$cytolyticScore(expressionTMM.RPKM.GSEA.Input)
+# write.table(cytolyticScore, "T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/ERV_final_files/cytolyticScore.txt", sep="\t", quote = F)
+
+## Read the final expression file
+erv.data.max.cytolytic <- read.csv("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/ERV_final_files/data.geneNames.merged.max.cytolytic.v2.log2.txt",
+                                     sep="\t", header = T)
+# erv.data.max.cytolytic.complete <- erv.data.max.cytolytic[complete.cases(erv.data.max.cytolytic),] %>% data.frame()
+erv.data.max.cytolytic <- tibble::column_to_rownames(erv.data.max.cytolytic, var = "GeneID")
+
+## Add additional annotations (sample Id alias) ####
+AliasNames_df                 <- dplyr::left_join( data.frame("Sample.Data.ID"=colnames(erv.data.max.cytolytic)), 
+                                          rnaseqProject$validMetaDataDF[,c("Sample.Biowulf.ID.GeneExp",
+                                          "Sample.ID.Alias", "Sample.Data.ID", "DIAGNOSIS.Alias" ,"Color",
+                                          rnaseqProject$factorName)] )
+## Remove Normal samples
+Tumor_samples_annot <- AliasNames_df %>% dplyr::filter(!grepl('Teratoma',DIAGNOSIS.Substatus.Tumor.Normal.Tissue))
+Tumor_samples_annot <- Tumor_samples_annot[complete.cases(Tumor_samples_annot),]
+erv.data.max.cytolytic.Tumor <- erv.data.max.cytolytic %>% dplyr::select(one_of(Tumor_samples_annot$Sample.Data.ID)); dim(erv.data.max.cytolytic.Tumor)
+
+## For all tumor samples
+erv.data.max.cytolytic.Tumor.corr <- rcorr(t(erv.data.max.cytolytic.Tumor), type = "spearman");
+erv.data.max.cytolytic.Tumor.corr.cytolytic <- flattenCorrMatrix(erv.data.max.cytolytic.Tumor.corr$r, erv.data.max.cytolytic.Tumor.corr$P) %>% filter(grepl('CytolyticScore', column))
+write.table(erv.data.max.cytolytic.Tumor.corr.cytolytic, 
+             "T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/erv.data.max.cytolytic.Tumor.all.corr.txt", quote = FALSE, sep="\t")
+
+Tumor_samples_annot$DIAGNOSIS.Substatus.Tumor.Normal.Tissue <- gsub('NS.*','NS',Tumor_samples_annot$DIAGNOSIS.Substatus.Tumor.Normal.Tissue)
+## Perform rcorr for each tumor groups 
+correlationDF <- rcorr_groups(Tumor_samples_annot, erv.data.max.cytolytic.Tumor, "DIAGNOSIS.Substatus.Tumor.Normal.Tissue", "Sample.Data.ID")
+correlationDF_cytolytic <- correlationDF %>% filter(grepl('CytolyticScore', column))
+write.table(correlationDF_cytolytic, 
+            "T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/erv.data.max.cytolytic.Tumor.each.corr.txt", quote = FALSE, sep="\t")
 
 
+### Plot correlation plot for the following ERVs ###
+sig.Ervs <- c("LTR12E_LTR/ERV1","LTR16E2_LTR/ERVL","LTR23_LTR/ERV1","LTR70_LTR/ERV1",
+              "LTR86B2_LTR/ERVL","MER11B_LTR/ERVK","MER52A_LTR/ERV1","MER61C_LTR/ERV1",
+              "MER83C_LTR/ERV1","MLT2B5_LTR/ERVL")
+
+subset_data_annot <- cbind(t(erv.data.max.cytolytic.Tumor[c(sig.Ervs, "CytolyticScore"),]),
+                           Diagnosis=as.character(Tumor_samples_annot$DIAGNOSIS.Substatus.Tumor.Normal.Tissue)) %>% data.table()
+
+#colnames(subset_data_annot) <- gsub("/",".", colnames(subset_data_annot))
+## Generate custom colors
+customColorDF    <- rbind(rnaseqProject$customColorsDF, data.frame(Diagnosis=c("NS"), Color=c("#000000")))
+sig.Ervs.valid <- sub("/",".", sig.Ervs) ; cols = sig.Ervs.valid
+dataDF <- data.frame(subset_data_annot)
+dataDF[c(sig.Ervs.valid, "CytolyticScore")] <- sapply(dataDF[c(sig.Ervs.valid, "CytolyticScore")],as.numeric)
+dataDF$Diagnosis <- gsub('^NS.*','NS',dataDF$Diagnosis)
+dataDF %<>% dplyr::filter(!grepl("NS",Diagnosis))
+#dataDF.RMS.FP <- dataDF %>% dplyr::filter(Diagnosis %in% c("RMS.FN"))
+
+## Plot all of them
+plotLists <- lapply(sig.Ervs.valid, correlationPlots, constName="CytolyticScore", xlab="CTL Score", df=dataDF, 
+                          customColorDF=customColorDF)
+ERVCytolyticScorePlots <- lapply(plotLists, function(l) l[[1]] )
+ggsave("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/Figures/erv.correlation_plots.pdf", marrangeGrob(ERVCytolyticScorePlots, ncol=1, nrow=1),
+       width = 15, height = 10)
+
+## plot individual ERV specific to diagnosis
+sig.Ervs.specific <- "MLT2B5_LTR.ERVL"
+dataDF.diagnosis <- dataDF %>% dplyr::filter(grepl("NB.Unknown",Diagnosis)); dim(dataDF.diagnosis)
+plotLists <- lapply(sig.Ervs.specific, correlationPlots, constName="CytolyticScore", xlab="CTL Score", df=dataDF.diagnosis, 
+                    customColorDF=customColorDF)
+ggsave(paste0("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/Figures/",sig.Ervs.specific,".pdf"),width = 10, height = 10)
 
 
 
