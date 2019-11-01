@@ -46,8 +46,8 @@ makeEntropyInput <- function(filename, inputDir="", outputDir="", cloneType="") 
   }
   
   if(nrow(exomeData)>0){
-      exomeDataEntropy <- data.frame(VJcombo=paste(exomeData$v,exomeData$j,sep="."), Counts=exomeData$count, Vcassette=exomeData$v, 
-                                 Jcassette=exomeData$j, aaCDR3_filtered = exomeData$cdr3aa, ntCDR3= exomeData$cdr3nt)
+    exomeDataEntropy <- data.frame(VJcombo=paste(exomeData$v,exomeData$j,sep="."), Counts=exomeData$count, Vcassette=exomeData$v, 
+                                   Jcassette=exomeData$j, aaCDR3_filtered = exomeData$cdr3aa, ntCDR3= exomeData$cdr3nt)
   } else {
     exomeDataEntropy <- emptyDFEntropy
   }
@@ -98,7 +98,6 @@ emptyDFEntropyResults <- data.frame(FileName=c(), Hcdr3 =c(), Htot=c(), CLcdr3=c
                                     Num_totCDR3 =c())
 
 ### List files and read data into a single data matrix ####
-
 fileList <- list.files("./CloneFiles.v2/")
 #fileList <- list.files("./tcr_rnaseq/")
 AllClonesData             <- rbindlist( lapply(fileList, function(x){
@@ -181,7 +180,7 @@ write.table(AllEntropyData, "AllEntropyData_H_CL_JS.landscape.TRB.v3.txt", sep =
 AllEntropyData$FileName <- gsub(".Entropy.tx","",AllEntropyData$FileName)
 AllEntropyData %<>% dplyr::rename(Sample.ID=FileName)
 AllEntropyData.annot <- dplyr::full_join(AllEntropyData, metaData[,c("Sample.ID", "SAMPLE_ID.Alias","LIBRARY_TYPE","DIAGNOSIS.Alias")], by="Sample.ID")
-  
+
 
 ############################################ Section 1b Select DF ################################################################
 ### To Do  ####
@@ -198,11 +197,10 @@ countObj$Sample.Data.ID <- gsub("convert.|.clones.txt","", countObj$Sample.Data.
 #countObj$SAMPLE_ID <- gsub("-","_", countObj$SAMPLE_ID)
 countObj.Annot <- dplyr::left_join(countObj, metaData, by="Sample.Data.ID") %>% 
   dplyr::select(one_of("count", "freq", "cdr3nt", "cdr3aa", "v", "d", "j", "VEnd", "DStart", "DEnd", "JStart", "Sample.Biowulf.ID.GeneExp", "Sample.ID.Alias",
-                         "LIBRARY_TYPE","DIAGNOSIS.Substatus.Tumor.Normal.Tissue", "Color.Jun" )) ; head(countObj.Annot)
+                       "LIBRARY_TYPE","DIAGNOSIS.Substatus.Tumor.Normal.Tissue", "Color.Jun" )) ; head(countObj.Annot)
 ### Plot the clone expansion
 countObj.Annot.NoCL <- countObj.Annot %>% filter(!grepl('CellLine',LIBRARY_TYPE)) %>% filter(!grepl('^NS', DIAGNOSIS.Substatus.Tumor.Normal.Tissue) )
 countObj.Annot.NoCL %<>% dplyr::rename(Diagnosis = DIAGNOSIS.Substatus.Tumor.Normal.Tissue)
-
 
 countObj.Annot.complete <- countObj.Annot.NoCL[complete.cases(countObj.Annot.NoCL),]
 ## sanity check
@@ -213,7 +211,6 @@ dim(countObj.Annot.complete)
 
 #################################################################################### For TCRSeq ################################################################
 ### For now Select DF manually ####
-
 #cloneType = "IGHClones"  ; countObj <- cloneObjIG %>% as.data.frame()
 cloneType = "TRBClones"  ; countObj <- cloneObjTCR %>% as.data.frame()
 
@@ -246,7 +243,6 @@ countObj.Annot.NoCL.totalReads <- countObj.Annot.NoCL.totalReads %>% dplyr::sele
                                                                                    Diagnosis, 
                                                                                    count, readCountsSum, ReadsPerMillion,
                                                                                    Color.Jun)
-                                                                                   #Color.Substatus)
 
 #toPlotDF <- countObj.Annot.NoCL.totalReads %>% dplyr::mutate(ReadsPerMillion = if_else(ReadsPerMillion >= 2, 2, ReadsPerMillion))
 
@@ -255,7 +251,7 @@ toPlotDF <- countObj.Annot.NoCL.totalReads %>% dplyr::filter(count > 0) %>%
   group_by(Sample.Biowulf.ID.GeneExp) %>% 
   mutate(rank = dense_rank( -count )) %>% 
   distinct()
-  # mutate(good_ranks = order(order(order_values, decreasing=TRUE)))
+# mutate(good_ranks = order(order(order_values, decreasing=TRUE)))
 View(toPlotDF)
 
 val = c("NB.MYCN.NA", "ASPS", "HBL", "NB.Unknown", "RMS.FP", "RMS.FN", "NB.MYCN.A", "UDS", "OS", "EWS", "DSRCT", "SS", "CCSK", "ML", "WT", "YST", "Teratoma")
@@ -340,10 +336,10 @@ ggplot(toPlotDF[,c(1,3,5,6,7)]) +
         panel.border = element_rect(colour = "skyblue", fill=NA, size=1)) +
   scale_y_continuous(name = "log rank",
                      trans = "reverse")
-                     #,
-                     #breaks = c(0,  2,  4,  6, 8),
-                     #labels = c(1,  4,  16, 64, 256)) +
-  coord_trans(x = "log2") +
+#,
+#breaks = c(0,  2,  4,  6, 8),
+#labels = c(1,  4,  16, 64, 256)) +
+coord_trans(x = "log2") +
   scale_x_continuous(minor_breaks = c(),
                      breaks = c(0.01, 0.04, 0.3, 2,10,50,200,600),
                      labels = c(0.01, 0.04, 0.3, 2,10,50,200,600) ) 
@@ -436,7 +432,7 @@ ssGSEA.zscore <- apply(ssGSEAScores, 1, zscore_All) ; ssGSEA.t <- ssGSEA.zscore 
 countObj.Annot.gb.Samples.Annotate.NoNS <- countObj.Annot.gb.Samples.Annotate %>% filter( ! LIBRARY_TYPE %in% c("Normal", "CellLine")) %>% dplyr::mutate(TotalCloneSum = log10(TotalCloneSum+1)) 
 length(unique(countObj.Annot.gb.Samples.Annotate.NoNS$Diagnosis))
 immuneScore.Clones <- left_join(countObj.Annot.gb.Samples.Annotate.NoNS[,c("Sample.Biowulf.ID.GeneExp", "TotalCloneSum", "Diagnosis")], ssGSEA.t, by="Sample.Biowulf.ID.GeneExp") %>% 
-                      data.frame
+  data.frame
 #immuneScore.Clones %<>% tibble::column_to_rownames("Sample.Biowulf.ID.GeneExp")
 #immuneScore.Clones$TotalCloneSum <- log10(immuneScore.Clones$TotalCloneSum + 1)
 
@@ -459,7 +455,7 @@ dev.off()
 
 selectCol="TotalCloneSum" ; StatsFinalCol="Diagnosis" ; SampleNames <- "Sample.ID.Alias"
 tcrcloneCountPre          <- countObj.Annot.gb.Samples.Annotate.NoNS %>% 
-                             dplyr::select_(.dots=c(paste0("selectCol"), paste0("StatsFinalCol"), paste0("SampleNames")))
+  dplyr::select_(.dots=c(paste0("selectCol"), paste0("StatsFinalCol"), paste0("SampleNames")))
 
 tcrcloneCountPre.Diag   <- tcrcloneCountPre %>%  dplyr::rename_(.dots = setNames(list(SampleNames,StatsFinalCol),c("Samples","Diagnosis"))) 
 ScoresPre               <- tcrcloneCountPre.Diag[,!(colnames(tcrcloneCountPre.Diag) %in% c("Samples")), drop=FALSE]
