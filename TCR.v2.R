@@ -211,8 +211,8 @@ dim(countObj.Annot.complete)
 
 #################################################################################### For TCRSeq ################################################################
 ### For now Select DF manually ####
-cloneType = "IGHClones"  ; countObj <- cloneObjIG %>% as.data.frame()
-#cloneType = "TRBClones"  ; countObj <- cloneObjTCR %>% as.data.frame()
+#cloneType = "IGHClones"  ; countObj <- cloneObjIG %>% as.data.frame()
+cloneType = "TRBClones"  ; countObj <- cloneObjTCR %>% as.data.frame()
 
 ### Attach metadata and generate countObj ####
 countObj <- countObj %>% dplyr::rename(Sample.Data.ID=SampleName); 
@@ -662,6 +662,15 @@ ggarrange(plotlist = list(TumorPrivatePlot, InHouseNormalsPlot, warenetalNormals
 dev.off()
 
 ############################# GLIPH analysis ###################################################
+gliph.Khanlab <- read.table("./gliph/GliphInput.khanlab-convergence-groups.v2.txt", sep="\t", header = T)
+gliph.Khanlab %<>% arrange(-Column1) %<>% separate(Column2, c("Column2a", "Column2b"), sep="-")
+gliph.Warren <- read.table("./gliph/GliphInput.Warren-convergence-groups.v2.txt", sep="\t", header = T)
+gliph.Warren %<>% arrange(-Column1) %<>% separate(Column2, c("Column2a", "Column2b"), sep="-")
 
+vennCDR3aaList <- list('khanlab'=as.character(gliph.Khanlab$Column2b),
+                       'Waren'= as.character(gliph.Warren$Column2b))
+vennCDR3aaList <- list('khanlab'=as.character('a','b','c'),
+                       'Waren'= as.character('a','b','c'))
+v.table <- venn::venn(vennCDR3aaList, ilab=TRUE, zcolor = "style", size = 15, cexil = 1, cexsn = 1)
 
 

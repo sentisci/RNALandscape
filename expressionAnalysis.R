@@ -50,7 +50,7 @@ rnaseqProject <- ProjectSetUp$new(
   #Keep only PolyA
   # factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), "Normal.ribozero"=list("LibraryPrep" = "Ribozero"))
   ## Remove Celllines
-  ## factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"))
+  factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"))
   # factorsToExclude          = list('None'=list("LIBRARY_TYPE"=""))
 )
 
@@ -100,9 +100,12 @@ mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Gene
                                                    metadataFileRefCol=rnaseqProject$metadataFileRefCol )
 
 # saveRDS(mergeObjectsNoDup, "T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.RDS")
-saveRDS(mergeObjectsNoDup, "T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.Tumor.RDS")
+# saveRDS(mergeObjectsNoDup, "T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.Cellline.RDS")
 
-#mergeObjectsNoDup <- readRDS("../RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.RDS")
+## Tumor Normal and no cell line
+mergeObjectsNoDup <- readRDS("../RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.RDS")
+## Tumor Normal and Cellline
+## mergeObjectsNoDup <- readRDS("../RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.Cellline.RDS")
 
 ## Evaluate presence of duplicate features (genes) and consolidate them ####
 setDT(mergeObjectsNoDup, keep.rownames = TRUE)
@@ -160,7 +163,7 @@ AliasNames_df                 <- dplyr::left_join( data.frame("Sample.Biowulf.ID
                                                    rnaseqProject$validMetaDataDF[,c("Sample.Biowulf.ID.GeneExp", "Sample.ID.Alias", "Sample.Data.ID", 
                                                                                     "DIAGNOSIS.Alias",
                                                                                     rnaseqProject$factorName)] )
-AliasColnames                 <- c(as.character(AliasNames_df[c(1:7),1]), as.character(AliasNames_df[-c(1:7),3]))
+AliasColnames                 <- c(as.character(AliasNames_df[c(1:7),1]), as.character(AliasNames_df[-c(1:7),1]))
 
 
 ## Perform Sanity Check for the above operations #####
@@ -213,7 +216,7 @@ factorsToExclude              = paste(c("NS.", "YST", "Teratoma"), collapse = "|
 selected.metadata              <- rnaseqProject$validMetaDataDF  %>% 
                                   filter_(  .dots = paste0("!grepl(", "'", factorsToExclude , "'" ,",", rnaseqProject$factorName, ")")) %>% 
                                   dplyr::select_( .dots=c(rnaseqProject$metadataFileRefCol, rnaseqProject$factorName ) )
-ssGSEAScores.HLA.Cyto.Selected <- ssGSEAScores.HLA.Cyto %>% dplyr::select(.dots = as.character(selected.metadata[, rnaseqProject$metadataFileRefCol]))
+ssGSEAScores.HLA.Cyto.Selected <- ssGSEAScores.HLA.Cyto %>% dplyr::select(one_of(as.character(selected.metadata[, rnaseqProject$metadataFileRefCol])))
 dim(ssGSEAScores.HLA.Cyto.Selected)
 
 ## sanity check Checking metadata vs data ##
