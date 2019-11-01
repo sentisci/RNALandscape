@@ -182,8 +182,6 @@ AllEntropyData %<>% dplyr::rename(Sample.ID=FileName)
 AllEntropyData.annot <- dplyr::full_join(AllEntropyData, metaData[,c("Sample.ID", "SAMPLE_ID.Alias","LIBRARY_TYPE","DIAGNOSIS.Alias")], by="Sample.ID")
   
 
-
-
 ############################################ Section 1b Select DF ################################################################
 ### To Do  ####
 ### Add switch case to select Clone df based on user input ###
@@ -199,7 +197,7 @@ countObj$Sample.Data.ID <- gsub("convert.|.clones.txt","", countObj$Sample.Data.
 #countObj$SAMPLE_ID <- gsub("-","_", countObj$SAMPLE_ID)
 countObj.Annot <- dplyr::left_join(countObj, metaData, by="Sample.Data.ID") %>% 
   dplyr::select(one_of("count", "freq", "cdr3nt", "cdr3aa", "v", "d", "j", "VEnd", "DStart", "DEnd", "JStart", "Sample.Biowulf.ID.GeneExp", "Sample.ID.Alias",
-                         "LIBRARY_TYPE","DIAGNOSIS.Substatus.Tumor.Normal.Tissue", "Color.Substatus" )) ; head(countObj.Annot)
+                         "LIBRARY_TYPE","DIAGNOSIS.Substatus.Tumor.Normal.Tissue", "Color.Jun" )) ; head(countObj.Annot)
 ### Plot the clone expansion
 countObj.Annot.NoCL <- countObj.Annot %>% filter(!grepl('CellLine',LIBRARY_TYPE)) %>% filter(!grepl('^NS', DIAGNOSIS.Substatus.Tumor.Normal.Tissue) )
 countObj.Annot.NoCL %<>% dplyr::rename(Diagnosis = DIAGNOSIS.Substatus.Tumor.Normal.Tissue)
@@ -244,7 +242,7 @@ countObj.Annot.NoCL.totalReads$ReadsPerMillion <- ( countObj.Annot.NoCL.totalRea
 countObj.Annot.NoCL.totalReads <- countObj.Annot.NoCL.totalReads %>% dplyr::select(Sample.Biowulf.ID.GeneExp, 
                                                                                    Diagnosis, 
                                                                                    count, readCountsSum, ReadsPerMillion,
-                                                                                   Color.Substatus)
+                                                                                   Color.Jun)
 
 #toPlotDF <- countObj.Annot.NoCL.totalReads %>% dplyr::mutate(ReadsPerMillion = if_else(ReadsPerMillion >= 2, 2, ReadsPerMillion))
 
@@ -256,10 +254,17 @@ toPlotDF <- countObj.Annot.NoCL.totalReads %>% dplyr::filter(count > 0) %>%
   # mutate(good_ranks = order(order(order_values, decreasing=TRUE)))
 View(toPlotDF)
 
+val = c("NB.MYCN.NA", "ASPS", "HBL", "NB.Unknown", "RMS.FP", "RMS.FN", "NB.MYCN.A", "UDS", "OS", "EWS", "DSRCT", "SS", "CCSK", "ML", "WT", "YST", "Teratoma")
+toPlotDF$Diagnosis <- factor(toPlotDF$Diagnosis,levels = val, ordered = TRUE)
+toPlotDF %<>% dplyr::arrange(Diagnosis)
+customColorsVector <- setNames( unique(as.character(toPlotDF$Color.Jun)), unique(as.character(toPlotDF$Diagnosis)) )
+# %<>% dplyr::mutate(Color.Jun = factor(Color.Jun, levels = unique(Color.Jun), ordered = TRUE))
 ### For RNASeq in Reverse
+pdf("RNASeq.color.jun.step.v6.pdf", height = 15, width = 25)
 ggplot(toPlotDF[,c(1,3,5,6,7)]) +
-  geom_step(aes(x = rank, y = ReadsPerMillion, group=Sample.Biowulf.ID.GeneExp,colour=Color.Substatus), 
+  geom_step(aes(x = rank, y = ReadsPerMillion, group=Sample.Biowulf.ID.GeneExp, colour= as.character(toPlotDF$Diagnosis) ), 
             size=0.7 ) +
+  scale_colour_manual(values=customColorsVector) +
   facet_wrap(~toPlotDF$Diagnosis) +
   theme_bw() +
   theme(legend.position="none") +
@@ -273,11 +278,12 @@ ggplot(toPlotDF[,c(1,3,5,6,7)]) +
   scale_y_continuous(minor_breaks = c(),
                      breaks = c(0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 3, 4),
                      labels = c(0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 3, 4) 
-  )
+  ) 
+dev.off()
 
 ### For RNASeq in original
 ggplot(toPlotDF[,c(1,3,5,6,7)]) +
-  geom_step(aes(y = rank, x = ReadsPerMillion, group=Sample.Biowulf.ID.GeneExp,colour=Color.Substatus), 
+  geom_step(aes(y = rank, x = ReadsPerMillion, group=Sample.Biowulf.ID.GeneExp,colour=Color.Jun), 
             size=0.7 ) +
   facet_wrap(~toPlotDF$Diagnosis) +
   theme_bw() +
@@ -298,7 +304,7 @@ ggplot(toPlotDF[,c(1,3,5,6,7)]) +
 ### For TCRSeq
 pdf("TCRSeq.color.step.v4.pdf", height = 15, width = 25)
 ggplot(toPlotDF[,c(1,3,5,6,7)]) +
-  geom_step(aes(y = rank, x = ReadsPerMillion, group=Sample.Biowulf.ID.GeneExp,colour=Color.Substatus), 
+  geom_step(aes(y = rank, x = ReadsPerMillion, group=Sample.Biowulf.ID.GeneExp,colour=Color.Jun), 
             size=0.7 ) +
   facet_wrap(~toPlotDF$Diagnosis) +
   theme_bw() +
@@ -318,7 +324,7 @@ dev.off()
 
 pdf("IGH.color.step.v5.pdf", height = 15, width = 25)
 ggplot(toPlotDF[,c(1,3,5,6,7)]) +
-  geom_step(aes(y = log2(rank), x = ReadsPerMillion, group=Sample.Biowulf.ID.GeneExp,colour=Color.Substatus), 
+  geom_step(aes(y = log2(rank), x = ReadsPerMillion, group=Sample.Biowulf.ID.GeneExp,colour=Color.Jun), 
             size=0.7 ) +
   facet_wrap(~toPlotDF$Diagnosis) +
   theme_bw() +

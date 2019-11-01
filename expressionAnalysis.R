@@ -1180,10 +1180,17 @@ entropyMetassGSEA <- dplyr::left_join(entropyMeta.Filt, ssGSEA.t, by="Sample.Dat
 entropyMetassGSEA <- entropyMetassGSEA[complete.cases(entropyMetassGSEA), ] %>% dplyr::rename_(.dots = setNames(list(rnaseqProject$factorName),c("Diagnosis")))
 
 ## Correlation Plot
+#### Adding Jun's Color Scheme data obtained from TCRv2.R script
+### Unfortunately, change of color decision 
+### was taken at the end of project, and its very difficult me to change multiple things 
+### Team decided to keep the previous color scheme as it is.
+customColorsVector <- data.frame(Color=unique(as.character(toPlotDF$Color.Jun)), Diagnosis= unique(as.character(toPlotDF$Diagnosis)) )
+#### 
 varNames <- colnames(entropyMetassGSEA[,16:58]) 
-plotLists <- lapply(varNames, correlationPlots, constName="Htot..Entropy.", xlab="Entropy", df= data.frame(entropyMetassGSEA), customColorDF=customColorDF)
+plotLists <- lapply(varNames, correlationPlots, constName="Htot..Entropy.", xlab="Entropy", df= data.frame(entropyMetassGSEA), 
+                    customColorDF=customColorsVector)
 ImmuneScorePlots <- lapply(plotLists, function(l) l[[1]] )
-SBName =paste0(TCRResultsDir,"/ImmuneScore.vs.Htot..Entropy",cloneType,".pdf")
+SBName =paste0(TCRResultsDir,"ImmuneScore.vs.Htot..Entropy",cloneType,"v2.jun.pdf")
 ggsave(SBName, marrangeGrob(ImmuneScorePlots, ncol=1, nrow=1), width = 15, height = 10)
 dev.off()
 
