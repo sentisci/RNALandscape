@@ -75,6 +75,10 @@ ProjectSetUp <- R6Class(
     ## Read ExhaustionMarker annotation file
     readExhaustionMarker = function(){
       self$emDF <- readRDS(self$emRDS)
+<<<<<<< HEAD
+=======
+      print(self$emDF)
+>>>>>>> f45e3d86cece0acfc1b021eb1346ced812bce159
     },
     ## Read CellSurface annotation file
     readCellSurface = function(){
@@ -752,6 +756,7 @@ CoreUtilities <- R6Class(
                    " -gui false",
                    sep="")
       return(cmd)
+<<<<<<< HEAD
     },
     flattenCorrMatrix = function(cormat, pmat) {
       ut <- upper.tri(cormat)
@@ -772,6 +777,8 @@ CoreUtilities <- R6Class(
         return(flattenCorrMatrix(each_group_samplesDF.corr$r, each_group_samplesDF.corr$P, x))
       } ))
       return(mergedDF)
+=======
+>>>>>>> f45e3d86cece0acfc1b021eb1346ced812bce159
     }
   )
 )
