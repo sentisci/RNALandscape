@@ -1651,8 +1651,6 @@ HLA.C <- ggplot(HLA_geneexp.t, aes(x=Group, y=HLA.C , fill=Group)) + geom_boxplo
 grid.arrange(HLA.A,HLA.B,HLA.C,nrow = 3)
 dev.off()
 
-
-<<<<<<< HEAD
 ################################################################# ERV Analysis #################################################
 
 ## Flatten rcorr results in to a table
