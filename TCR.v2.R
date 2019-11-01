@@ -2,11 +2,7 @@ setwd("T:/Sivasish_Sindiri/R_workspace/MiXCR/")
 
 ## Khanlab meta data
 metaData <- read.csv("MetadataMapper.v3.txt", sep="\t")
-<<<<<<< HEAD
 # metaData <- read.csv("tcr_rnaseq_file.txt", sep="\t")
-=======
-metaData <- read.csv("tcr_rnaseq_file.txt", sep="\t")
->>>>>>> f45e3d86cece0acfc1b021eb1346ced812bce159
 
 ############################################ Section 0 Declare functions ##########################################################
 
@@ -102,20 +98,13 @@ emptyDFEntropyResults <- data.frame(FileName=c(), Hcdr3 =c(), Htot=c(), CLcdr3=c
                                     Num_totCDR3 =c())
 
 ### List files and read data into a single data matrix ####
-<<<<<<< HEAD
+
 fileList <- list.files("./CloneFiles.v2/")
 #fileList <- list.files("./tcr_rnaseq/")
 AllClonesData             <- rbindlist( lapply(fileList, function(x){
   print(x)
   #exomeData <- read.csv( paste("./tcr_rnaseq/", x, sep=""), sep="\t", header = TRUE )
   exomeData <- read.csv( paste("./CloneFiles.v2/", x, sep=""), sep="\t", header = TRUE )
-=======
-#fileList <- list.files("./CloneFiles.v2/")
-fileList <- list.files("./tcr_rnaseq/")
-AllClonesData             <- rbindlist( lapply(fileList, function(x){
-  print(x)
-  exomeData <- read.csv( paste("./tcr_rnaseq/", x, sep=""), sep="\t", header = TRUE )
->>>>>>> f45e3d86cece0acfc1b021eb1346ced812bce159
   if(nrow(exomeData)>0){
     exomeData$SampleName <- x
   } else {
@@ -194,11 +183,6 @@ AllEntropyData %<>% dplyr::rename(Sample.ID=FileName)
 AllEntropyData.annot <- dplyr::full_join(AllEntropyData, metaData[,c("Sample.ID", "SAMPLE_ID.Alias","LIBRARY_TYPE","DIAGNOSIS.Alias")], by="Sample.ID")
   
 
-<<<<<<< HEAD
-=======
-
-
->>>>>>> f45e3d86cece0acfc1b021eb1346ced812bce159
 ############################################ Section 1b Select DF ################################################################
 ### To Do  ####
 ### Add switch case to select Clone df based on user input ###
@@ -213,18 +197,12 @@ countObj <- countObj %>% dplyr::rename(Sample.Data.ID=SampleName);
 countObj$Sample.Data.ID <- gsub("convert.|.clones.txt","", countObj$Sample.Data.ID)
 #countObj$SAMPLE_ID <- gsub("-","_", countObj$SAMPLE_ID)
 countObj.Annot <- dplyr::left_join(countObj, metaData, by="Sample.Data.ID") %>% 
-<<<<<<< HEAD
   dplyr::select(one_of("count", "freq", "cdr3nt", "cdr3aa", "v", "d", "j", "VEnd", "DStart", "DEnd", "JStart", "Sample.Biowulf.ID.GeneExp", "Sample.ID.Alias",
                          "LIBRARY_TYPE","DIAGNOSIS.Substatus.Tumor.Normal.Tissue", "Color.Jun" )) ; head(countObj.Annot)
 ### Plot the clone expansion
 countObj.Annot.NoCL <- countObj.Annot %>% filter(!grepl('CellLine',LIBRARY_TYPE)) %>% filter(!grepl('^NS', DIAGNOSIS.Substatus.Tumor.Normal.Tissue) )
 countObj.Annot.NoCL %<>% dplyr::rename(Diagnosis = DIAGNOSIS.Substatus.Tumor.Normal.Tissue)
-=======
-  dplyr::select_(.dots=c("count", "freq", "cdr3nt", "cdr3aa", "v", "d", "j", "VEnd", "DStart", "DEnd", "JStart", "Sample.Biowulf.ID.GeneExp", "Sample.ID.Alias",
-                         "LIBRARY_TYPE","DIAGNOSIS.Substatus.Tumor.Normal.Tissue", "Color.Substatus" )) ; head(countObj.Annot)
-### Plot the clone expansion
-countObj.Annot.NoCL <- countObj.Annot %>% filter(!grepl('CellLine',LIBRARY_TYPE)) %>% filter(!grepl('^NS', DIAGNOSIS.Substatus.Tumor.Normal.Tissue) )
->>>>>>> f45e3d86cece0acfc1b021eb1346ced812bce159
+
 
 countObj.Annot.complete <- countObj.Annot.NoCL[complete.cases(countObj.Annot.NoCL),]
 ## sanity check
@@ -235,13 +213,9 @@ dim(countObj.Annot.complete)
 
 #################################################################################### For TCRSeq ################################################################
 ### For now Select DF manually ####
-<<<<<<< HEAD
+
 #cloneType = "IGHClones"  ; countObj <- cloneObjIG %>% as.data.frame()
 cloneType = "TRBClones"  ; countObj <- cloneObjTCR %>% as.data.frame()
-=======
-cloneType = "IGHClones"  ; countObj <- cloneObjIG %>% as.data.frame()
-#cloneType = "TRBClones"  ; countObj <- cloneObjTCR %>% as.data.frame()
->>>>>>> f45e3d86cece0acfc1b021eb1346ced812bce159
 
 ### Attach metadata and generate countObj ####
 countObj <- countObj %>% dplyr::rename(Sample.Data.ID=SampleName); 
@@ -271,11 +245,8 @@ countObj.Annot.NoCL.totalReads$ReadsPerMillion <- ( countObj.Annot.NoCL.totalRea
 countObj.Annot.NoCL.totalReads <- countObj.Annot.NoCL.totalReads %>% dplyr::select(Sample.Biowulf.ID.GeneExp, 
                                                                                    Diagnosis, 
                                                                                    count, readCountsSum, ReadsPerMillion,
-<<<<<<< HEAD
                                                                                    Color.Jun)
-=======
-                                                                                   Color.Substatus)
->>>>>>> f45e3d86cece0acfc1b021eb1346ced812bce159
+                                                                                   #Color.Substatus)
 
 #toPlotDF <- countObj.Annot.NoCL.totalReads %>% dplyr::mutate(ReadsPerMillion = if_else(ReadsPerMillion >= 2, 2, ReadsPerMillion))
 
@@ -287,7 +258,6 @@ toPlotDF <- countObj.Annot.NoCL.totalReads %>% dplyr::filter(count > 0) %>%
   # mutate(good_ranks = order(order(order_values, decreasing=TRUE)))
 View(toPlotDF)
 
-<<<<<<< HEAD
 val = c("NB.MYCN.NA", "ASPS", "HBL", "NB.Unknown", "RMS.FP", "RMS.FN", "NB.MYCN.A", "UDS", "OS", "EWS", "DSRCT", "SS", "CCSK", "ML", "WT", "YST", "Teratoma")
 toPlotDF$Diagnosis <- factor(toPlotDF$Diagnosis,levels = val, ordered = TRUE)
 toPlotDF %<>% dplyr::arrange(Diagnosis)
@@ -339,11 +309,6 @@ ggplot(toPlotDF[,c(1,3,5,6,7)]) +
 pdf("TCRSeq.color.step.v4.pdf", height = 15, width = 25)
 ggplot(toPlotDF[,c(1,3,5,6,7)]) +
   geom_step(aes(y = rank, x = ReadsPerMillion, group=Sample.Biowulf.ID.GeneExp,colour=Color.Jun), 
-=======
-pdf("TCRSeq.color.step.v4.pdf", height = 15, width = 25)
-ggplot(toPlotDF[,c(1,3,5,6,7)]) +
-  geom_step(aes(y = rank, x = ReadsPerMillion, group=Sample.Biowulf.ID.GeneExp,colour=Color.Substatus), 
->>>>>>> f45e3d86cece0acfc1b021eb1346ced812bce159
             size=0.7 ) +
   facet_wrap(~toPlotDF$Diagnosis) +
   theme_bw() +
@@ -363,11 +328,7 @@ dev.off()
 
 pdf("IGH.color.step.v5.pdf", height = 15, width = 25)
 ggplot(toPlotDF[,c(1,3,5,6,7)]) +
-<<<<<<< HEAD
   geom_step(aes(y = log2(rank), x = ReadsPerMillion, group=Sample.Biowulf.ID.GeneExp,colour=Color.Jun), 
-=======
-  geom_step(aes(y = log2(rank), x = ReadsPerMillion, group=Sample.Biowulf.ID.GeneExp,colour=Color.Substatus), 
->>>>>>> f45e3d86cece0acfc1b021eb1346ced812bce159
             size=0.7 ) +
   facet_wrap(~toPlotDF$Diagnosis) +
   theme_bw() +
@@ -704,7 +665,6 @@ pdf("ven.probability.pdf", height = 10, width = 10)
 ggarrange(plotlist = list(TumorPrivatePlot, InHouseNormalsPlot, warenetalNormalsPlot),common.legend=TRUE, nrow = 3)
 dev.off()
 
-<<<<<<< HEAD
 ############################# GLIPH analysis ###################################################
 gliph.Khanlab <- read.table("./gliph/GliphInput.khanlab-convergence-groups.v2.txt", sep="\t", header = T)
 gliph.Khanlab %<>% arrange(-Column1) %<>% separate(Column2, c("Column2a", "Column2b"), sep="-")
@@ -716,8 +676,5 @@ vennCDR3aaList <- list('khanlab'=as.character(gliph.Khanlab$Column2b),
 vennCDR3aaList <- list('khanlab'=as.character('a','b','c'),
                        'Waren'= as.character('a','b','c'))
 v.table <- venn::venn(vennCDR3aaList, ilab=TRUE, zcolor = "style", size = 15, cexil = 1, cexsn = 1)
-=======
-
->>>>>>> f45e3d86cece0acfc1b021eb1346ced812bce159
 
 

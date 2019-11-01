@@ -14,7 +14,6 @@ rnaseqProject <- ProjectSetUp$new(
   date                    = unlist(strsplit(x = as.character(Sys.time()), "\\s+"))[[1]],
   time                    = unlist(strsplit(x = as.character(Sys.time()), "\\s+"))[[2]],
   projectName             = "RNASeq.RSEM",
-<<<<<<< HEAD
   annotationRDS           = "T:/Sivasish_Sindiri/R Scribble/Annotation RDS/annotation_ENSEMBL_gene.RDS",
   pcRDS                   = "T:/Sivasish_Sindiri/R Scribble/Annotation RDS/pc.other.HGNCTableFlat.rds",
   emRDS                   = "T:/Sivasish_Sindiri/R Scribble/Annotation RDS/EMGenes.RDS",
@@ -23,16 +22,6 @@ rnaseqProject <- ProjectSetUp$new(
   cgaRDS                  = "T:/Sivasish_Sindiri/R Scribble/Annotation RDS/cancerGermlineAntigens.rds",
   ewsr1Fli1RDS            = "T:/Sivasish_Sindiri/R Scribble/Annotation RDS/EWSR1_FL1_DownstreamTargets.RDS",
   pax3Foxo1RDS             = "T:/Sivasish_Sindiri/R Scribble/Annotation RDS/PAX3_FOXO1_DownstreamTargets.RDS",
-=======
-  annotationRDS           = "C:/Users/sindiris/R Scribble/Annotation RDS/annotation_ENSEMBL_gene.RDS",
-  pcRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/pc.other.HGNCTableFlat.rds",
-  emRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/EMGenes.RDS",
-  tfRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/TFs_no_epimachines.RDS",
-  csRDS                   = "C:/Users/sindiris/R Scribble/Annotation RDS/CellSurface.RDS",
-  cgaRDS                  = "C:/Users/sindiris/R Scribble/Annotation RDS/cancerGermlineAntigens.rds",
-  ewsr1Fli1RDS            = "C:/Users/sindiris/R Scribble/Annotation RDS/EWSR1_FL1_DownstreamTargets.RDS",
-  pax3Foxo1RDS             = "C:/Users/sindiris/R Scribble/Annotation RDS/PAX3_FOXO1_DownstreamTargets.RDS",
->>>>>>> f45e3d86cece0acfc1b021eb1346ced812bce159
   
   BrainExpRDS             = "T:/Sivasish_Sindiri/R Scribble/Annotation RDS/VitalExpression/expressionTMM.RPKM.Brain.v2.RDS",
   HeartExpRDS             = "T:/Sivasish_Sindiri/R Scribble/Annotation RDS/VitalExpression/expressionTMM.RPKM.Heart.v2.RDS", 
@@ -61,11 +50,7 @@ rnaseqProject <- ProjectSetUp$new(
   #Keep only PolyA
   # factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), "Normal.ribozero"=list("LibraryPrep" = "Ribozero"))
   ## Remove Celllines
-<<<<<<< HEAD
   factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"))
-=======
-  ## factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"))
->>>>>>> f45e3d86cece0acfc1b021eb1346ced812bce159
   # factorsToExclude          = list('None'=list("LIBRARY_TYPE"=""))
 )
 
@@ -114,7 +99,6 @@ mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Gene
                                                    metadata          = rnaseqProject$metaDataDF,
                                                    metadataFileRefCol=rnaseqProject$metadataFileRefCol )
 
-<<<<<<< HEAD
 # saveRDS(mergeObjectsNoDup, "T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.RDS")
 # saveRDS(mergeObjectsNoDup, "T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.Cellline.RDS")
 
@@ -122,11 +106,6 @@ mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Gene
 mergeObjectsNoDup <- readRDS("../RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.RDS")
 ## Tumor Normal and Cellline
 ## mergeObjectsNoDup <- readRDS("../RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.Cellline.RDS")
-=======
-#saveRDS(mergeObjectsNoDup, "C:/Users/sindiris/R Scribble/RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.RDS")
-
-#mergeObjectsNoDup <- readRDS("../RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.RDS")
->>>>>>> f45e3d86cece0acfc1b021eb1346ced812bce159
 
 ## Evaluate presence of duplicate features (genes) and consolidate them ####
 setDT(mergeObjectsNoDup, keep.rownames = TRUE)
@@ -168,11 +147,7 @@ expressionObj        <- GeneExpNormalization$new(
 ### RawCounts
 #expressionTMM.Counts          = expressionObj$edgeRMethod("RawCounts")
 ## Normalised counts
-<<<<<<< HEAD
 #expressionTMM.NormDF         = expressionObj$edgeRMethod("NormFactorDF")
-=======
-expressionTMM.NormDF         = expressionObj$edgeRMethod("NormFactorDF")
->>>>>>> f45e3d86cece0acfc1b021eb1346ced812bce159
 ### RPKM
 expressionTMM.RPKM            = expressionObj$edgeRMethod("TMM-RPKM", logtransform = TRUE, zscore = FALSE)
 
@@ -185,17 +160,10 @@ expressionTMM.RPKM.arr <- expressionTMM.RPKM %>% dplyr::select(one_of("Chr","Sta
 
 ## Add additional annotations (sample Id alias) ####
 AliasNames_df                 <- dplyr::left_join( data.frame("Sample.Biowulf.ID.GeneExp"=colnames(expressionTMM.RPKM)), 
-<<<<<<< HEAD
                                                    rnaseqProject$validMetaDataDF[,c("Sample.Biowulf.ID.GeneExp", "Sample.ID.Alias", "Sample.Data.ID", 
                                                                                     "DIAGNOSIS.Alias",
                                                                                     rnaseqProject$factorName)] )
 AliasColnames                 <- c(as.character(AliasNames_df[c(1:7),1]), as.character(AliasNames_df[-c(1:7),1]))
-
-=======
-                                                   rnaseqProject$validMetaDataDF[,c("Sample.Biowulf.ID.GeneExp", "Sample.ID.Alias", 
-                                                                                    rnaseqProject$factorName)] )
-AliasColnames                 <- c(as.character(AliasNames_df[c(1:7),1]), as.character(AliasNames_df[-c(1:7),2]))
->>>>>>> f45e3d86cece0acfc1b021eb1346ced812bce159
 
 
 ## Perform Sanity Check for the above operations #####
@@ -203,11 +171,7 @@ stopifnot( length(colnames(expressionTMM.RPKM)) == length(AliasColnames) )
 colnames(expressionTMM.RPKM)  <- AliasColnames
 
 ### Save expression (TMM-RPKM/whatwever asked for in the above step) to a file ####
-<<<<<<< HEAD
 write.table(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
-=======
-write.table(expressionTMM.RPKM.arr, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
->>>>>>> f45e3d86cece0acfc1b021eb1346ced812bce159
                                       paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.",rnaseqProject$date,".txt"),sep="/"),
             sep="\t", row.names = FALSE, quote = FALSE)
 saveRDS(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
@@ -252,11 +216,8 @@ factorsToExclude              = paste(c("NS.", "YST", "Teratoma"), collapse = "|
 selected.metadata              <- rnaseqProject$validMetaDataDF  %>% 
                                   filter_(  .dots = paste0("!grepl(", "'", factorsToExclude , "'" ,",", rnaseqProject$factorName, ")")) %>% 
                                   dplyr::select_( .dots=c(rnaseqProject$metadataFileRefCol, rnaseqProject$factorName ) )
-<<<<<<< HEAD
+
 ssGSEAScores.HLA.Cyto.Selected <- ssGSEAScores.HLA.Cyto %>% dplyr::select(one_of(as.character(selected.metadata[, rnaseqProject$metadataFileRefCol])))
-=======
-ssGSEAScores.HLA.Cyto.Selected <- ssGSEAScores.HLA.Cyto %>% dplyr::select(.dots = as.character(selected.metadata[, rnaseqProject$metadataFileRefCol]))
->>>>>>> f45e3d86cece0acfc1b021eb1346ced812bce159
 dim(ssGSEAScores.HLA.Cyto.Selected)
 
 ## sanity check Checking metadata vs data ##
@@ -768,7 +729,6 @@ superheat(CorrDF,
           title.size = 6)
 dev.off()
 
->>>>>>> f45e3d86cece0acfc1b021eb1346ced812bce159
 colfunc <- colorRampPalette(c("#f2f2f2", "gold","firebrick3"))
 pheatmap(CorrDF, 
          #color =c("#e0e0d1", "#004080"), 
@@ -872,11 +832,7 @@ group2FPKM.T = 1 ; group1FPKM.T = 1;  PValue.T = 0.05 ; logFoldDiff.T = 0 ; FDR_
 selectedGeneList <- "ExhaustionMarkers"
 Zscored.logFC = 0.25 ; Zscore.group2 = 0.5; group2FPKM = 5 ; group1FPKM = 1;  PValue = 0.001 ; logFC = 4 ; FDR = 0.05
 
-<<<<<<< HEAD
 MergedDiffExpResultDir <- paste0("T:/Sivasish_Sindiri/R Scribble//RNASeq.RSEM/MergedDiffExpResults/",selectedGeneList)
-=======
-MergedDiffExpResultDir <- paste0("C:/Users/sindiris/R Scribble//RNASeq.RSEM/MergedDiffExpResults/",selectedGeneList)
->>>>>>> f45e3d86cece0acfc1b021eb1346ced812bce159
 
 # Step 2.  Perform Merging of differential expression file across groups ####
 dir.create(MergedDiffExpResultDir)
@@ -1400,11 +1356,8 @@ plotLists <- corUtilsFuncs$OneVariablePlotSort( colList, Scores=Scores, orderOfF
 #### Neoantigen Post-Processing #####
 
 ## neoantigen from variants
-<<<<<<< HEAD
+
 neoantigenFromVariants <- read.csv("T:/Sivasish_Sindiri/R Scribble/RNASeq.Mutation.data/NeoantigenCountFromVariants.txt", sep = "\t", header = T) %>% data.table()
-=======
-neoantigenFromVariants <- read.csv("C:/Users/sindiris/R Scribble/RNASeq.Mutation.data/NeoantigenCountFromVariants.txt", sep = "\t", header = T) %>% data.table()
->>>>>>> f45e3d86cece0acfc1b021eb1346ced812bce159
 neoantigenFromVariantsAnnot <- dplyr::full_join( rnaseqProject$metaDataDF, neoantigenFromVariants, by="Sample.Biowulf.ID") %>% 
                                 dplyr::filter(!is.na(Patient.ID)) %>%
                                 dplyr::filter( ! LIBRARY_TYPE %in% c("CellLine","Normal")) %>%
@@ -1413,11 +1366,7 @@ neoantigenFromVariantsAnnot <- dplyr::full_join( rnaseqProject$metaDataDF, neoan
 dim(neoantigenFromVariantsAnnot); 
 #View(neoantigenFromVariantsAnnot)
 ## neoantigen from fusions
-<<<<<<< HEAD
 neoantigenFromFusions <- read.csv("T:/Sivasish_Sindiri/R Scribble/RNASeq.Mutation.data/NeoantigenCountFromFusions.txt", sep = "\t", header = T) %>% data.table() %>% 
-=======
-neoantigenFromFusions <- read.csv("C:/Users/sindiris/R Scribble/RNASeq.Mutation.data/NeoantigenCountFromFusions.txt", sep = "\t", header = T) %>% data.table() %>% 
->>>>>>> f45e3d86cece0acfc1b021eb1346ced812bce159
                                dplyr::select_(.dots=c("Sample.Biowulf.ID","DIAGNOSIS.Substatus.Tumor.Normal.Tissue", "Sample.ID.Alias", "FusionNeoAntigenCount"))
 dim(neoantigenFromFusions); 
 #View(neoantigenFromFusions)                                
@@ -1828,10 +1777,6 @@ dataDF.diagnosis <- dataDF %>% dplyr::filter(grepl("NB.Unknown",Diagnosis)); dim
 plotLists <- lapply(sig.Ervs.specific, correlationPlots, constName="CytolyticScore", xlab="CTL Score", df=dataDF.diagnosis, 
                     customColorDF=customColorDF)
 ggsave(paste0("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/Figures/",sig.Ervs.specific,".pdf"),width = 10, height = 10)
-=======
-
-
->>>>>>> f45e3d86cece0acfc1b021eb1346ced812bce159
 
 
 
