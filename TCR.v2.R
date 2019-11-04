@@ -97,6 +97,7 @@ emptyDFEntropyResults <- data.frame(FileName=c(), Hcdr3 =c(), Htot=c(), CLcdr3=c
                                     Hcdr3_max=c(), Hvj_max =c(), Htot_max=c(), CLcdr3_max=c(), Num_CDR3= c(), Num_VJ= c(),
                                     Num_totCDR3 =c())
 
+
 ### List files and read data into a single data matrix ####
 
 fileList <- list.files("./CloneFiles.v2/")
@@ -676,5 +677,31 @@ vennCDR3aaList <- list('khanlab'=as.character(gliph.Khanlab$Column2b),
 vennCDR3aaList <- list('khanlab'=as.character('a','b','c'),
                        'Waren'= as.character('a','b','c'))
 v.table <- venn::venn(vennCDR3aaList, ilab=TRUE, zcolor = "style", size = 15, cexil = 1, cexsn = 1)
+
+############################# Disect consensus with respect to diagnosis ######################
+
+#countObj.Annot.complete
+customColorsVector <- setNames( unique(as.character(toPlotDF$Color.Jun)), unique(as.character(toPlotDF$Diagnosis)) )
+consesus <- lapply(seq(3,12), function(x){
+  first_consensus <- unlist(strsplit(as.character(gliph.Khanlab[x,3]),split = " "))
+  length(first_consensus)-gliph.Khanlab[x,1]
+  first_consensus_indexes <- which( as.character(countObj.Annot.complete$cdr3aa) %in% first_consensus )
+  first_countObj.Annot.complete <- countObj.Annot.complete[first_consensus_indexes,]
+  first_countObj.Annot.complete$ConsensusSeq <- as.character(gliph.Khanlab[x,2])
+  return(first_countObj.Annot.complete[,c("Diagnosis", "ConsensusSeq")])
+})
+consensus_final <- do.call(rbind, consesus)
+consensus_final$ConsensusSeq <- factor(consensus_final$ConsensusSeq, levels = unique(consensus_final$ConsensusSeq), ordered = TRUE)
+g <- ggplot(consensus_final, aes(ConsensusSeq)) + 
+     geom_bar(aes(fill = factor(Diagnosis))) +
+     scale_fill_manual(values = customColorsVector) +
+     theme(title = element_text(size=13, face="bold")
+         ,axis.title.x = element_text(size=13, face="bold")
+         ,axis.title.y = element_text(size=13, face="bold")
+         ,axis.text.x = element_text(size=10, face="bold", angle=90, vjust=1))
+plot(g)
+
+
+
 
 

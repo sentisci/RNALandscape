@@ -1778,19 +1778,66 @@ ggsave(paste0("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/Figures/",sig.Ervs.spe
 
 
 
+### Analyse Nanostring datasets
+## Function declaration
+plotViolins <- function(x, df = NA, group = NA , ylab = NA, xlab = NA, title=NA){
+  genemarker <- x
+  # genemarker <- "4.1BB"
+  # group <- "Risk"
+  # ylab <- "Standardised ROI count"
+  # xlab <- "Risk"
+  customColorsVector <- c('0' = "#56B4E9", '1'='#E69F00' )
+  if(is.na(title)){
+    title = genemarker
+  } else {
+    title = genemarker
+  }
+  if(is.na(xlab)){
+    xlab = group
+  } else {
+    xlab = xlab
+  }
+  
 
+  p <- ggplot(df, aes_string(x = group, y = genemarker, fill= group)) + 
+    geom_boxplot(aes_string(fill = group)) +
+    geom_dotplot(binaxis='y', stackdir='center', dotsize=0.4, position=position_dodge(1),
+                 fill=c("black")) +
+    scale_fill_manual(values=customColorsVector) +
+    theme_bw() +
+    ylab(ylab) +
+    xlab(xlab) +
+    ggtitle(title) +
+    #ylim(0,34)+
+    theme(axis.title=element_text(face="bold",size="17"), text = element_text(size=10, face="bold"),
+          plot.title = element_text(hjust=0.5),
+          legend.text= element_text(face="bold",size="12"),
+          strip.text.x=element_text(size=10,face="bold", angle=90),
+          legend.position="none")
+  return(p)
+}
 
+## Read nanostring dataset
+nanostringData <- read.csv("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/NanoString/ROI_Map_ClinicalInfo_with Zscored ImmuneMarker_shortlist_send_For Sivasish.txt",
+                            sep="\t", header = TRUE)
+## Factor variables to use as Groups/categories
+nanostringData$Risk <- as.factor(nanostringData$Risk)
+nanostringData$NMYC <- as.factor(nanostringData$NMYC)
+## Plot Violin plots for all markers
+genemarkers <- colnames(nanostringData)[-c(1:8)]
+plotLists.all <- lapply(genemarkers, plotViolins, df = nanostringData, group="Risk", ylab="Standardised marker counts")
 
+nanostringData.post.treat <- nanostringData %>% dplyr::filter(grepl('post', Post.Treatment));dim(nanostringData.post.treat)
+plotLists.post <- lapply(genemarkers, plotViolins, df = nanostringData.post.treat, group="Risk", ylab="Standardised marker counts")
 
+nanostringData.no.treat <- nanostringData %>% dplyr::filter(!grepl('post', Post.Treatment));dim(nanostringData.no.treat)
+plotLists.no.treat <- lapply(genemarkers, plotViolins, df = nanostringData.no.treat, group="Risk", ylab="Standardised marker counts")
 
+all_plotlists <- c(rbind(plotLists.all, plotLists.post, plotLists.no.treat))
 
-
-
-
-
-
-
-
+ggarrange(all_plotlists[[1]], all_plotlists[[2]], all_plotlists[[3]],
+          ncol = 3,
+          labels = c('all', 'post', 'no'))
 
 
 
