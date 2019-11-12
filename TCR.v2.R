@@ -682,7 +682,7 @@ v.table <- venn::venn(vennCDR3aaList, ilab=TRUE, zcolor = "style", size = 15, ce
 
 #countObj.Annot.complete
 customColorsVector <- setNames( unique(as.character(toPlotDF$Color.Jun)), unique(as.character(toPlotDF$Diagnosis)) )
-consesus <- lapply(seq(3,12), function(x){
+consesus <- lapply(seq(5,105), function(x){
   first_consensus <- unlist(strsplit(as.character(gliph.Khanlab[x,3]),split = " "))
   length(first_consensus)-gliph.Khanlab[x,1]
   first_consensus_indexes <- which( as.character(countObj.Annot.complete$cdr3aa) %in% first_consensus )
@@ -691,6 +691,7 @@ consesus <- lapply(seq(3,12), function(x){
   return(first_countObj.Annot.complete[,c("Diagnosis", "ConsensusSeq")])
 })
 consensus_final <- do.call(rbind, consesus)
+consensus_final %<>% group_by(ConsensusSeq) %>% mutate(Count = n()) %>% arrange(-(Count))
 consensus_final$ConsensusSeq <- factor(consensus_final$ConsensusSeq, levels = unique(consensus_final$ConsensusSeq), ordered = TRUE)
 g <- ggplot(consensus_final, aes(ConsensusSeq)) + 
      geom_bar(aes(fill = factor(Diagnosis))) +

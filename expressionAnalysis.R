@@ -138,7 +138,7 @@ expressionObj        <- GeneExpNormalization$new(
   annotationDF      = rnaseqProject$annotationDF, 
   design            = rnaseqProject$metaDataDF[,rnaseqProject$factorName], 
   #design           = newMetaDataDF[,rnaseqProject$factorName],
-  proteinCodingOnly = FALSE,
+  proteinCodingOnly = TRUE,
   corUtilsFuncs     = corUtilsFuncs
 )
 
@@ -149,7 +149,7 @@ expressionObj        <- GeneExpNormalization$new(
 ## Normalised counts
 #expressionTMM.NormDF         = expressionObj$edgeRMethod("NormFactorDF")
 ### RPKM
-expressionTMM.RPKM            = expressionObj$edgeRMethod("TMM-RPKM", logtransform = TRUE, zscore = FALSE)
+expressionTMM.RPKM            = expressionObj$edgeRMethod("TMM-RPKM", logtransform = FALSE, zscore = FALSE)
 
 ## Arrange data by histology and Library type
 arrange_metadata <- rnaseqProject$validMetaDataDF %>% arrange(DIAGNOSIS.Substatus.Tumor.Normal.Tissue, desc(LIBRARY_TYPE))
@@ -163,7 +163,7 @@ AliasNames_df                 <- dplyr::left_join( data.frame("Sample.Biowulf.ID
                                                    rnaseqProject$validMetaDataDF[,c("Sample.Biowulf.ID.GeneExp", "Sample.ID.Alias", "Sample.Data.ID", 
                                                                                     "DIAGNOSIS.Alias",
                                                                                     rnaseqProject$factorName)] )
-AliasColnames                 <- c(as.character(AliasNames_df[c(1:7),1]), as.character(AliasNames_df[-c(1:7),1]))
+AliasColnames                 <- c(as.character(AliasNames_df[c(1:7),1]), as.character(AliasNames_df[-c(1:7),2]))
 
 
 ## Perform Sanity Check for the above operations #####
@@ -594,8 +594,7 @@ superheat(CorrDF,
           title.size = 6)
 dev.off()
 
-<<<<<<< HEAD
-=======
+
 #### Perform correlation analysis between Exhaustion markers and immune signatures ####
 ## Read the ssGSEA output
 #ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.2019-01-31.PROJ.KeggSig.gct")
@@ -1406,18 +1405,24 @@ FirststQu <- as.numeric(summary_TotalNeoantigenCount["1st Qu."]); paste("Firstst
 Median    <- as.numeric(summary_TotalNeoantigenCount["Median"]); paste("Median ", Median)
 thirdQu   <- as.numeric(summary_TotalNeoantigenCount["3rd Qu."]); paste("thirdQu ", thirdQu)
 
-neoantigenFromSamplesFinal[TotalNeoantigenCount <= FirststQu, Sample.ID.Alias ] %>% length()
-neoantigenFromSamplesFinal[TotalNeoantigenCount > FirststQu & TotalNeoantigenCount < Median, Sample.ID.Alias ] %>% length()
-neoantigenFromSamplesFinal[TotalNeoantigenCount >= thirdQu, Sample.ID.Alias ] %>% length()
+# neoantigenFromSamplesFinal[TotalNeoantigenCount <= FirststQu, Sample.ID.Alias ] %>% length()
+# neoantigenFromSamplesFinal[TotalNeoantigenCount > FirststQu & TotalNeoantigenCount < Median, Sample.ID.Alias ] %>% length()
+neoantigenFromSamplesFinal[TotalNeoantigenCount < Median, Sample.ID.Alias ] %>% length()
+neoantigenFromSamplesFinal[TotalNeoantigenCount >= Median, Sample.ID.Alias ] %>% length()
 
 #### Split data matrix into High, Intermediate and Low expression matrices
 ### Expression Matrix
 expressionTMM.RPKM.Neoantigen <- expressionTMM.RPKM %>% dplyr::select(-one_of(c("Chr","Start","End","GeneID", "Length", "Strand")))
 
+## Following Samples removed because neoantigen burden for variant calling failed.
+samplesToRemove <- c("OS.PALWWX", "OS.PANPUM", "OS.PAUUML", "OS.PAUYTT", "OS.PALZGU", "OS.PAMHYN", "OS.PANSEN")
+expressionTMM.RPKM.Neoantigen.SR <- expressionTMM.RPKM.Neoantigen %>% dplyr::select(-one_of(samplesToRemove))
+dim(expressionTMM.RPKM.Neoantigen.SR)
 ### Get Mean expression of each category ####
 
+############################################### Neoantigen analysis for the cohort #######################################
 ### Get mean expression of low neoantgen burden samples.
-FPKM.Data.NeoAntiBurd.Low    <- expressionTMM.RPKM.Neoantigen %>% dplyr::select( one_of( 
+FPKM.Data.NeoAntiBurd.Low    <- expressionTMM.RPKM.Neoantigen.SR %>% dplyr::select( one_of( 
   c("GeneName",as.character(neoantigenFromSamplesFinal[TotalNeoantigenCount <= FirststQu, Sample.ID.Alias ]) ) ))
 FPKM.Data.NeoAntiBurd.Low %<>% tibble::column_to_rownames(var="GeneName")
 dim(FPKM.Data.NeoAntiBurd.Low); FPKM.Data.NeoAntiBurd.Low[1:5,1:5]
@@ -1428,8 +1433,16 @@ colnames(FPKM.Data.NeoAntiBurd.Low.mean) <- "FPKM.Data.NeoAntiBurd.Low.mean"
 head(FPKM.Data.NeoAntiBurd.Low.mean); dim(FPKM.Data.NeoAntiBurd.Low);
 
 ### Get mean expression of intermediate neoantgen burden samples.
-FPKM.Data.NeoAntiBurd.Intermediate    <- expressionTMM.RPKM.Neoantigen %>% dplyr::select( one_of( 
+FPKM.Data.NeoAntiBurd.Intermediate    <- expressionTMM.RPKM.Neoantigen.SR %>% dplyr::select( one_of( 
   c("GeneName",as.character(neoantigenFromSamplesFinal[TotalNeoantigenCount > FirststQu & TotalNeoantigenCount < Median, Sample.ID.Alias ]) ) ))
+FPKM.Data.NeoAntiBurd.Intermediate %<>% tibble::column_to_rownames(var="GeneName")
+dim(FPKM.Data.NeoAntiBurd.Intermediate); FPKM.Data.NeoAntiBurd.Intermediate[1:5,1:5]
+
+############################################ New Addition Start ###############
+
+### Get mean expression of intermediate neoantgen burden samples.
+FPKM.Data.NeoAntiBurd.Intermediate    <- expressionTMM.RPKM.Neoantigen.SR %>% dplyr::select( one_of( 
+  c("GeneName",as.character(neoantigenFromSamplesFinal[TotalNeoantigenCount < Median, Sample.ID.Alias ]) ) ))
 FPKM.Data.NeoAntiBurd.Intermediate %<>% tibble::column_to_rownames(var="GeneName")
 dim(FPKM.Data.NeoAntiBurd.Intermediate); FPKM.Data.NeoAntiBurd.Intermediate[1:5,1:5]
 
@@ -1438,9 +1451,11 @@ FPKM.Data.NeoAntiBurd.Intermediate.mean     <- as.data.frame(apply(FPKM.Data.Neo
 colnames(FPKM.Data.NeoAntiBurd.Intermediate.mean) <- "FPKM.Data.NeoAntiBurd.Intermediate.mean"
 head(FPKM.Data.NeoAntiBurd.Intermediate.mean); dim(FPKM.Data.NeoAntiBurd.Intermediate);
 
+############################################ New Addition End #################
+
 ### Get mean expression of high neoantgen burden samples.
-FPKM.Data.NeoAntiBurd.High    <- expressionTMM.RPKM.Neoantigen %>% dplyr::select( one_of( 
-  c("GeneName",as.character(neoantigenFromSamplesFinal[TotalNeoantigenCount >= thirdQu, Sample.ID.Alias ]) ) ))
+FPKM.Data.NeoAntiBurd.High    <- expressionTMM.RPKM.Neoantigen.SR %>% dplyr::select( one_of( 
+  c("GeneName",as.character(neoantigenFromSamplesFinal[TotalNeoantigenCount >= Median, Sample.ID.Alias ]) ) ))
 FPKM.Data.NeoAntiBurd.High %<>% tibble::column_to_rownames(var="GeneName")
 dim(FPKM.Data.NeoAntiBurd.High); FPKM.Data.NeoAntiBurd.High[1:5,1:5]
 
@@ -1470,22 +1485,36 @@ FC.High.IntermediateLow <-  log2(FPKM.Data.NeoAntiBurd.High.mean + 1) - log2(Int
 FC.High.IntermediateLow <- cbind(expressionTMM.RPKM[,c("Chr","Start","End","GeneName","GeneID")], FC.High.IntermediateLow)
 FC.High.IntermediateLow.rnk <- FC.High.IntermediateLow %>% dplyr::arrange(-FPKM.Data.NeoAntiBurd.High.mean)
 head(FC.High.IntermediateLow.rnk); dim(FC.High.IntermediateLow.rnk)
-write.table(FC.High.IntermediateLow.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.High.IntermediateLow.pc.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
+write.table(FC.High.IntermediateLow.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.High.IntermediateLow.pc.v6.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
 
 FC.Intermediate.HighLow <-  log2(FPKM.Data.NeoAntiBurd.Intermediate.mean + 1) - log2(HighLow.Mean + 1)
 FC.Intermediate.HighLow <- cbind(expressionTMM.RPKM[,c("Chr","Start","End","GeneName","GeneID")], FC.Intermediate.HighLow)
 FC.Intermediate.HighLow.rnk <- FC.Intermediate.HighLow %>% dplyr::arrange(-FPKM.Data.NeoAntiBurd.Intermediate.mean)
 head(FC.Intermediate.HighLow.rnk); dim(FC.Intermediate.HighLow.rnk)
-write.table(FC.Intermediate.HighLow.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.Intermediate.HighLow.pc.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
+write.table(FC.Intermediate.HighLow.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.Intermediate.HighLow.pc.v6.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
 
 FC.Low.HighIntermediate <-  log2(FPKM.Data.NeoAntiBurd.Low.mean + 1) - log2(HighIntermediate.Mean + 1)
 FC.Low.HighIntermediate <- cbind(expressionTMM.RPKM[,c("Chr","Start","End","GeneName","GeneID")], FC.Low.HighIntermediate)
 FC.Low.HighIntermediate.rnk <- FC.Low.HighIntermediate %>% dplyr::arrange(-FPKM.Data.NeoAntiBurd.Low.mean)
 head(FC.Low.HighIntermediate.rnk); dim(FC.Low.HighIntermediate.rnk)
-write.table(FC.Low.HighIntermediate.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.Low.HighIntermediate.pc.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
+write.table(FC.Low.HighIntermediate.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.Low.HighIntermediate.pc.v6.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
+
+############################################ New Addition Start #################
+FPKM.intermediate.rnk <- FPKM.Data.NeoAntiBurd.Intermediate.mean %>% tibble::rownames_to_column(var="GeneName") %>% 
+                                            dplyr::arrange(-FPKM.Data.NeoAntiBurd.Intermediate.mean) %>% 
+                                            dplyr::mutate(FPKM.Data.NeoAntiBurd.Intermediate.mean = log2(FPKM.Data.NeoAntiBurd.Intermediate.mean+1))
+head(FPKM.intermediate.rnk); dim(FPKM.intermediate.rnk)
+write.table(FPKM.intermediate.rnk, paste0("../RNASeq.RSEM/GSEA/rnk/FPKM.intermediate.v7.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
+
+FPKM.High.rnk <- FPKM.Data.NeoAntiBurd.High.mean %>% tibble::rownames_to_column(var="GeneName") %>% 
+                                      dplyr::arrange(-FPKM.Data.NeoAntiBurd.High.mean) %>%
+                                      dplyr::mutate(FPKM.Data.NeoAntiBurd.High.mean = log2(FPKM.Data.NeoAntiBurd.High.mean+1))
+head(FPKM.High.rnk); dim(FPKM.High.rnk)
+write.table(FPKM.High.rnk, paste0("../RNASeq.RSEM/GSEA/rnk/FPKM.High.v7.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
+############################################ New Addition End #################
 
 ### Extract data from GSEA files ####
-folder = "../RNASeq.RSEM/GSEA/results/NeoantigenVsImmueScore.PC.Cibersort/"
+folder = "../RNASeq.RSEM/GSEA/results/NeoantigenVsImmueScore.PC.Cibersort.v6/"
 allDirs                <- list.dirs(folder, recursive=FALSE);allDirs
 preRankedGSEA.DF.NES  <- cbind(as.data.frame(lapply(allDirs, corUtilsFuncs$NESorPvalGSEAPrerank, colNumb=5))) 
 preRankedGSEA.DF.Pval <- cbind(as.data.frame(lapply(allDirs, corUtilsFuncs$NESorPvalGSEAPrerank, colNumb=7)))
@@ -1556,12 +1585,181 @@ LowPlot <- ggplot(Low, aes(x=NES, y=Pval, colour=NES>0)) +
         axis.title=element_text(size=13,face="bold"),
         legend.position="none") 
 
-pdf(paste0("../RNASeq.RSEM/Figures/Figure 4b.PC",".pdf"), height=10, width = 20)
+pdf(paste0("../RNASeq.RSEM/Figures/Figure 4b.PC.v6",".pdf"), height=10, width = 20)
 ggarrange(HighPlot, IntermediatePlot,LowPlot,  
           labels = c("A.", "B.", "C."),
           ncol = 3, nrow = 1,
           legend = NULL)
 dev.off()
+
+############################################### Neoantigen analysis for the OS #######################################
+## Perform the same for OS samples only
+neoantigenFromSamplesFinal %<>% filter(DIAGNOSIS.Substatus.Tumor.Normal.Tissue == "OS") %<>% data.table()
+
+## Perform the same for OS samples only
+## Following Samples removed because neoantigen burden for variant calling failed.
+samplesToRemove <- c("OS.PALWWX", "OS.PANPUM", "OS.PAUUML", "OS.PAUYTT", "OS.PALZGU", "OS.PAMHYN", "OS.PANSEN")
+expressionTMM.RPKM.Neoantigen.SR <- expressionTMM.RPKM.Neoantigen %>% 
+                                dplyr::select(one_of("GeneName",neoantigenFromSamplesFinal$Sample.ID.Alias)) %>% 
+                                dplyr::select(-one_of(samplesToRemove))
+dim(expressionTMM.RPKM.Neoantigen.SR)
+
+
+### Get mean expression of low neoantgen burden samples.
+FPKM.Data.NeoAntiBurd.Low    <- expressionTMM.RPKM.Neoantigen.SR %>% dplyr::select( one_of( 
+  c("GeneName",as.character(neoantigenFromSamplesFinal[TotalNeoantigenCount <= FirststQu, Sample.ID.Alias ]) ) ))
+FPKM.Data.NeoAntiBurd.Low %<>% tibble::column_to_rownames(var="GeneName")
+dim(FPKM.Data.NeoAntiBurd.Low); FPKM.Data.NeoAntiBurd.Low[1:5,1:5]
+
+#FPKM.Data.NeoAntiBurd.Low.mean     <- as.data.frame(apply(log2(FPKM.Data.NeoAntiBurd.Low + 1), 1, mean)); 
+FPKM.Data.NeoAntiBurd.Low.mean     <- as.data.frame(apply(FPKM.Data.NeoAntiBurd.Low, 1, mean)); 
+colnames(FPKM.Data.NeoAntiBurd.Low.mean) <- "FPKM.Data.NeoAntiBurd.Low.mean"
+head(FPKM.Data.NeoAntiBurd.Low.mean); dim(FPKM.Data.NeoAntiBurd.Low);
+
+### Get mean expression of intermediate neoantgen burden samples.
+FPKM.Data.NeoAntiBurd.Intermediate    <- expressionTMM.RPKM.Neoantigen.SR %>% dplyr::select( one_of( 
+  c("GeneName",as.character(neoantigenFromSamplesFinal[TotalNeoantigenCount > FirststQu & TotalNeoantigenCount < thirdQu, Sample.ID.Alias ]) ) ))
+FPKM.Data.NeoAntiBurd.Intermediate %<>% tibble::column_to_rownames(var="GeneName")
+dim(FPKM.Data.NeoAntiBurd.Intermediate); FPKM.Data.NeoAntiBurd.Intermediate[1:5,1:5]
+
+#FPKM.Data.NeoAntiBurd.Intermediate.mean     <- as.data.frame(apply(log2(FPKM.Data.NeoAntiBurd.Intermediate + 1), 1, mean)); 
+FPKM.Data.NeoAntiBurd.Intermediate.mean     <- as.data.frame(apply(FPKM.Data.NeoAntiBurd.Intermediate, 1, mean))
+colnames(FPKM.Data.NeoAntiBurd.Intermediate.mean) <- "FPKM.Data.NeoAntiBurd.Intermediate.mean"
+head(FPKM.Data.NeoAntiBurd.Intermediate.mean); dim(FPKM.Data.NeoAntiBurd.Intermediate);
+
+### Get mean expression of high neoantgen burden samples.
+FPKM.Data.NeoAntiBurd.High    <- expressionTMM.RPKM.Neoantigen.SR %>% dplyr::select( one_of( 
+  c("GeneName",as.character(neoantigenFromSamplesFinal[TotalNeoantigenCount >= thirdQu, Sample.ID.Alias ]) ) ))
+FPKM.Data.NeoAntiBurd.High %<>% tibble::column_to_rownames(var="GeneName")
+dim(FPKM.Data.NeoAntiBurd.High); FPKM.Data.NeoAntiBurd.High[1:5,1:5]
+
+#FPKM.Data.NeoAntiBurd.High.mean     <- as.data.frame(apply(log2(FPKM.Data.NeoAntiBurd.High + 1), 1, mean)); 
+FPKM.Data.NeoAntiBurd.High.mean     <- as.data.frame(apply(FPKM.Data.NeoAntiBurd.High, 1, mean)); 
+colnames(FPKM.Data.NeoAntiBurd.High.mean) <- "FPKM.Data.NeoAntiBurd.High.mean"
+head(FPKM.Data.NeoAntiBurd.High.mean); dim(FPKM.Data.NeoAntiBurd.High);
+
+### Get expression of 2 categories for comparision ###
+IntermediateLow <- cbind(FPKM.Data.NeoAntiBurd.Intermediate, FPKM.Data.NeoAntiBurd.Low)
+#IntermediateLow.Mean <- as.data.frame(apply(log2(IntermediateLow+1), 1, mean)); colnames(IntermediateLow.Mean) <- "IntermediateLow"
+IntermediateLow.Mean <- as.data.frame(apply(IntermediateLow, 1, mean)); colnames(IntermediateLow.Mean) <- "IntermediateLow"
+dim(IntermediateLow.Mean); head(IntermediateLow.Mean)
+
+HighLow <- cbind(FPKM.Data.NeoAntiBurd.High, FPKM.Data.NeoAntiBurd.Low)
+#HighLow.Mean <- as.data.frame(apply(log2(HighLow+1), 1, mean)); colnames(HighLow.Mean) <- "HighLow"
+HighLow.Mean <- as.data.frame(apply(HighLow, 1, mean)); colnames(HighLow.Mean) <- "HighLow"
+dim(HighLow.Mean); head(HighLow.Mean)
+
+HighIntermediate <- cbind(FPKM.Data.NeoAntiBurd.High, FPKM.Data.NeoAntiBurd.Intermediate)
+#HighIntermediate.Mean <- as.data.frame(apply(log2(HighIntermediate+1), 1, mean)); colnames(HighIntermediate.Mean) <- "HighIntermediate"
+HighIntermediate.Mean <- as.data.frame(apply(HighIntermediate, 1, mean)); colnames(HighIntermediate.Mean) <- "HighIntermediate"
+dim(HighIntermediate.Mean); head(HighIntermediate.Mean)
+
+### Find ratio between one vs rest of the groups ###
+FC.High.IntermediateLow <-  log2(FPKM.Data.NeoAntiBurd.High.mean + 1) - log2(IntermediateLow.Mean + 1)
+FC.High.IntermediateLow <- cbind(expressionTMM.RPKM[,c("Chr","Start","End","GeneName","GeneID")], FC.High.IntermediateLow)
+FC.High.IntermediateLow.rnk <- FC.High.IntermediateLow %>% dplyr::arrange(-FPKM.Data.NeoAntiBurd.High.mean)
+head(FC.High.IntermediateLow.rnk); dim(FC.High.IntermediateLow.rnk)
+write.table(FC.High.IntermediateLow.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.High.IntermediateLow.pc.v6.OS.thirdQ.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
+
+FC.Intermediate.HighLow <-  log2(FPKM.Data.NeoAntiBurd.Intermediate.mean + 1) - log2(HighLow.Mean + 1)
+FC.Intermediate.HighLow <- cbind(expressionTMM.RPKM[,c("Chr","Start","End","GeneName","GeneID")], FC.Intermediate.HighLow)
+FC.Intermediate.HighLow.rnk <- FC.Intermediate.HighLow %>% dplyr::arrange(-FPKM.Data.NeoAntiBurd.Intermediate.mean)
+head(FC.Intermediate.HighLow.rnk); dim(FC.Intermediate.HighLow.rnk)
+write.table(FC.Intermediate.HighLow.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.Intermediate.HighLow.pc.v6.OS.thirdQ.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
+
+FC.Low.HighIntermediate <-  log2(FPKM.Data.NeoAntiBurd.Low.mean + 1) - log2(HighIntermediate.Mean + 1)
+FC.Low.HighIntermediate <- cbind(expressionTMM.RPKM[,c("Chr","Start","End","GeneName","GeneID")], FC.Low.HighIntermediate)
+FC.Low.HighIntermediate.rnk <- FC.Low.HighIntermediate %>% dplyr::arrange(-FPKM.Data.NeoAntiBurd.Low.mean)
+head(FC.Low.HighIntermediate.rnk); dim(FC.Low.HighIntermediate.rnk)
+write.table(FC.Low.HighIntermediate.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.Low.HighIntermediate.pc.v6.OS.thirdQ.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
+
+### Extract data from GSEA files ###
+folder = "../RNASeq.RSEM/GSEA/results/NeoantigenVsImmueScore.PC.Cibersort.v6.OS.thirdQ/"
+allDirs                <- list.dirs(folder, recursive=FALSE);allDirs
+preRankedGSEA.DF.NES  <- cbind(as.data.frame(lapply(allDirs, corUtilsFuncs$NESorPvalGSEAPrerank, colNumb=5))) 
+preRankedGSEA.DF.Pval <- cbind(as.data.frame(lapply(allDirs, corUtilsFuncs$NESorPvalGSEAPrerank, colNumb=7)))
+#preRankedGSEA.DF.Pval.Zeros <- as.data.frame(apply(preRankedGSEA.DF.Pval, 2, function(x){ x[x==0]<-0.001; return(x)}))
+preRankedGSEA.DF.Pval.Zeros <- as.data.frame(apply(preRankedGSEA.DF.Pval, 2, function(x){ x = x+0.001; return(x)}))
+
+High <- as.data.frame(cbind(NES=preRankedGSEA.DF.NES[,1], 
+                            Pval=-log10(preRankedGSEA.DF.Pval.Zeros[,1]) ))
+Intermediate <- as.data.frame(cbind(NES=preRankedGSEA.DF.NES[,2], 
+                                    Pval=-log10(preRankedGSEA.DF.Pval.Zeros[,2]) ))
+Low    <- as.data.frame(cbind(NES=preRankedGSEA.DF.NES[,3], 
+                              Pval=-log10(preRankedGSEA.DF.Pval.Zeros[,3]) ))
+
+rownames(High) <- rownames(preRankedGSEA.DF.NES)
+rownames(Intermediate) <- rownames(preRankedGSEA.DF.NES)
+rownames(Low) <- rownames(preRankedGSEA.DF.NES)
+
+
+### Plot the volcano plot ###
+HighPlot <- ggplot(High, aes(x=NES, y=Pval, colour=NES>0 )) + 
+  scale_colour_manual(name = 'NES > 0', values = setNames(c('red','darkgreen'),c(T, F))) +
+  geom_point(size=3) +
+  geom_text_repel(aes(x=NES, y=Pval, colour=NES>0, label=gsub("-CELLS_", ".",rownames(High))),  
+                  size=3.5, force = 3) +
+  geom_hline(yintercept=1.30103, size=1) +
+  geom_vline(xintercept = 0, size=1) +
+  xlim(-2,2.5)+
+  ylim(0,3.5) +
+  xlab("Normalised enrichment Score (NES)") +
+  ylab("-log10(Pval)")+
+  ggtitle("High Neoantigen Burden ")+
+  theme_bw() +
+  theme(axis.text=element_text(size=12),
+        axis.title=element_text(size=13,face="bold"),
+        legend.position="none")
+
+IntermediatePlot <- ggplot(Intermediate, aes(x=NES, y=Pval, colour=NES>0)) + 
+  scale_colour_manual(name = 'NES > 0', values = setNames(c('red','darkgreen'),c(T, F))) +
+  geom_point(size=3) +
+  geom_text_repel(aes(x=NES, y=Pval, colour=NES>0, label=gsub("-CELLS_", ".",rownames(Intermediate))),  
+                  size=3.5, force = 3) +
+  geom_hline(yintercept=1.30103, size=1) +
+  geom_vline(xintercept = 0, size=1) +
+  xlim(-2,2)+
+  ylim(0,3.5) +
+  xlab("Normalised enrichment Score (NES)") +
+  ylab("-log10(Pval)")+
+  ggtitle("Intermediate Neoantigen Burden")+
+  theme_bw() +
+  theme(axis.text=element_text(size=12),
+        axis.title=element_text(size=13,face="bold"),
+        legend.position="none")
+
+LowPlot <- ggplot(Low, aes(x=NES, y=Pval, colour=NES>0)) + 
+  scale_colour_manual(name = 'NES > 0', values = setNames(c('red','darkgreen'),c(T, F))) +
+  geom_point(size=3) +
+  geom_text_repel(aes(x=NES, y=Pval, colour=NES>0, label=gsub("-CELLS_", ".",rownames(Low))),  
+                  size=3.5, force = 2) +
+  geom_hline(yintercept=1.30103, size=1) +
+  geom_vline(xintercept = 0, size=1) +
+  xlim(-2,2)+
+  ylim(0,3.5) +
+  xlab("Normalised enrichment Score (NES)") +
+  ylab("-log10(Pval)")+
+  ggtitle("Low Neoantigen Burden") +
+  theme_bw() +
+  theme(axis.text=element_text(size=12),
+        axis.title=element_text(size=13,face="bold"),
+        legend.position="none") 
+
+pdf(paste0("../RNASeq.RSEM/Figures/Figure 4b.PC.v6.OS.median",".pdf"), height=10, width = 20)
+ggarrange(HighPlot, IntermediatePlot,LowPlot,  
+          labels = c("A.", "B.", "C."),
+          ncol = 3, nrow = 1,
+          legend = NULL)
+dev.off()
+
+
+
+
+
+
+
+
+
 
 
 ### Violin plot for exhaustion markers ####
@@ -1780,27 +1978,32 @@ ggsave(paste0("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/Figures/",sig.Ervs.spe
 
 ### Analyse Nanostring datasets
 ## Function declaration
-plotViolins <- function(x, df = NA, group = NA , ylab = NA, xlab = NA, title=NA){
+plotViolins <- function(x, df = NA, group = NA , ylab = NA, xlab = NA, title=NA, fill = NA){
   genemarker <- x
   # genemarker <- "4.1BB"
   # group <- "Risk"
   # ylab <- "Standardised ROI count"
   # xlab <- "Risk"
-  customColorsVector <- c('0' = "#56B4E9", '1'='#E69F00' )
+  customColorsVector <- c('0' = "#C7C2B8", '1'='#E69F00' )
   if(is.na(title)){
     title = genemarker
   } else {
-    title = genemarker
+    title = paste(title,genemarker,sep="-")
   }
   if(is.na(xlab)){
     xlab = group
   } else {
     xlab = xlab
   }
-  
+  if(is.na(fill)){
+    fill = group
+  } else {
+    fill = fill
+  }
 
   p <- ggplot(df, aes_string(x = group, y = genemarker, fill= group)) + 
-    geom_boxplot(aes_string(fill = group)) +
+    #geom_boxplot(aes_string(fill = group)) +
+    geom_violin(aes_string(fill = group)) +
     geom_dotplot(binaxis='y', stackdir='center', dotsize=0.4, position=position_dodge(1),
                  fill=c("black")) +
     scale_fill_manual(values=customColorsVector) +
@@ -1813,7 +2016,8 @@ plotViolins <- function(x, df = NA, group = NA , ylab = NA, xlab = NA, title=NA)
           plot.title = element_text(hjust=0.5),
           legend.text= element_text(face="bold",size="12"),
           strip.text.x=element_text(size=10,face="bold", angle=90),
-          legend.position="none")
+          legend.position="none") +
+    stat_compare_means( method = "t.test", paired = FALSE, comparisons = list(c("0","1")) )
   return(p)
 }
 
@@ -1823,25 +2027,51 @@ nanostringData <- read.csv("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/NanoStrin
 ## Factor variables to use as Groups/categories
 nanostringData$Risk <- as.factor(nanostringData$Risk)
 nanostringData$NMYC <- as.factor(nanostringData$NMYC)
-## Plot Violin plots for all markers
+
+## Get the average of duplicate samples
 genemarkers <- colnames(nanostringData)[-c(1:8)]
-plotLists.all <- lapply(genemarkers, plotViolins, df = nanostringData, group="Risk", ylab="Standardised marker counts")
+nanostringData.group <- nanostringData %>% group_by(Samples..TMA.14.001.) %>% 
+                        summarize_at(vars(one_of(genemarkers)), mean)
+nanostringData.group.final <- dplyr::left_join(nanostringData[,c("Samples..TMA.14.001.", "NMYC", "Risk", "Post.Treatment")], nanostringData.group, 
+                                               by="Samples..TMA.14.001.")
 
-nanostringData.post.treat <- nanostringData %>% dplyr::filter(grepl('post', Post.Treatment));dim(nanostringData.post.treat)
-plotLists.post <- lapply(genemarkers, plotViolins, df = nanostringData.post.treat, group="Risk", ylab="Standardised marker counts")
+## Plot Violin plots for all markers ## Individual plot for each marker
+plotLists.all <- lapply(genemarkers, plotViolins, df = nanostringData.group.final, group="NMYC", title="All", ylab="Standardised marker counts")
 
-nanostringData.no.treat <- nanostringData %>% dplyr::filter(!grepl('post', Post.Treatment));dim(nanostringData.no.treat)
-plotLists.no.treat <- lapply(genemarkers, plotViolins, df = nanostringData.no.treat, group="Risk", ylab="Standardised marker counts")
+nanostringData.post.treat <- nanostringData.group.final %>% dplyr::filter(grepl('post', Post.Treatment));dim(nanostringData.post.treat)
+plotLists.post <- lapply(genemarkers, plotViolins, df = nanostringData.post.treat, group="NMYC", title="Post", ylab="Standardised marker counts")
 
-all_plotlists <- c(rbind(plotLists.all, plotLists.post, plotLists.no.treat))
+nanostringData.no.treat <- nanostringData.group.final %>% dplyr::filter(!grepl('post', Post.Treatment));dim(nanostringData.no.treat)
+plotLists.no.treat <- lapply(genemarkers, plotViolins, df = nanostringData.no.treat, group="NMYC", title="Pre", ylab="Standardised marker counts")
 
-ggarrange(all_plotlists[[1]], all_plotlists[[2]], all_plotlists[[3]],
-          ncol = 3,
-          labels = c('all', 'post', 'no'))
+all_plotlists <- c(rbind(plotLists.no.treat, plotLists.post, plotLists.all))
+all_plotlists <- plotLists.all
 
+ggsave(paste0("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/Figures/Nanostring.NMYC",".pdf"), marrangeGrob(all_plotlists, ncol=3, nrow = 1),
+       width = 15, height = 10)
 
+## Plot violin plots for all markers under same scale
+nanostringData.group.final.tidy   <- tidyr::gather_(nanostringData.group.final, key="GeneMarker", value="Score", genemarkers )
+immuneMarkers <- c("beta.2.microglobulin","CD45", "HLA.DR", "CD3", "CD4", "CD8", "CD45RO", "GZMB", "X4.1BB", "CD40", "CD40L",
+                   "CD86", "CD11c", "CD14", "CD163", "CD68", "CD20", "CD25", "CD27", "CD34", "CD44", "CD56", "CD80", "FoxP3",
+                   "GITR", "CTLA4", "ICOS", "IDO.1", "LAG3", "PD.1", "PD.L1", "STING.TMEM173", "TGF.beta.1", "TIM.3", "VISTA")
 
+nanostringData.group.tidy.immune <- nanostringData.group.final.tidy %>% filter(GeneMarker %in% immuneMarkers); dim(nanostringData.group.tidy.immune)
+plot <- plotViolins(x = "Score", df = nanostringData.group.tidy.immune, group = "GeneMarker", fill="NMYC", ylab="Standardised marker counts")
 
-
-
-
+### Box plot
+plot <- ggplot(nanostringData.group.tidy.immune, aes_string(x="GeneMarker", y = "Score")) + 
+            geom_boxplot(aes_string(fill = "NMYC"),
+                         position = position_dodge(0.9)) +
+          scale_fill_manual(values = c("#C7C2B8", "#E69F00")) +
+          theme(axis.title=element_text(face="bold",size="17"), 
+                text = element_text(size=10, face="bold"),
+                axis.text.x = element_text(angle = 90, hjust = 0.5, size =8, face = "bold"),
+                plot.title = element_text(hjust=0.5),
+                legend.text= element_text(face="bold",size="12"),
+                strip.text.x=element_text(size=10,face="bold", angle=90),
+                legend.position="none") +
+          stat_compare_means(method = "t.test", paired = FALSE, comparisons = list(c("0","1"))) +
+          ggtitle("Nanostring immunemarker")
+ggsave(paste0("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/Figures/Nanostring.NMYC.singlePlot",".pdf"), plot,
+                 width = 45, height = 10)
