@@ -199,7 +199,7 @@ ProjectSetUp <- R6Class(
       self$factorName <- factorName
       self$metadataFileRefCol <- metadataFileRefCol
       self$metaDataFileName <- metaDataFileName
-      self$workDir <- "C:/Users/sindiris/R Scribble/"
+      self$workDir <- "T:/Sivasish_Sindiri/R Scribble/"
       self$outputdirRDSDir <- outputdirRDSDir
       self$outputdirTXTDir <- outputdirTXTDir
       self$gseaDir <- gseaDir
