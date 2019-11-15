@@ -1446,7 +1446,7 @@ head(FPKM.Data.NeoAntiBurd.Intermediate.mean); dim(FPKM.Data.NeoAntiBurd.Interme
 
 ### Get mean expression of high neoantgen burden samples.
 FPKM.Data.NeoAntiBurd.High    <- expressionTMM.RPKM.Neoantigen.SR %>% dplyr::select( one_of( 
-  c("GeneName",as.character(neoantigenFromSamplesFinal[TotalNeoantigenCount >= thirdQu, Sample.ID.Alias ]) ) ))
+  c("GeneName",as.character(neoantigenFromSamplesFinal[TotalNeoantigenCount >= Median, Sample.ID.Alias ]) ) ))
 FPKM.Data.NeoAntiBurd.High %<>% tibble::column_to_rownames(var="GeneName")
 dim(FPKM.Data.NeoAntiBurd.High); FPKM.Data.NeoAntiBurd.High[1:5,1:5]
 
@@ -1476,22 +1476,22 @@ FC.High.IntermediateLow <-  log2(FPKM.Data.NeoAntiBurd.High.mean + 1) - log2(Int
 FC.High.IntermediateLow <- cbind(expressionTMM.RPKM[,c("Chr","Start","End","GeneName","GeneID")], FC.High.IntermediateLow)
 FC.High.IntermediateLow.rnk <- FC.High.IntermediateLow %>% dplyr::arrange(-FPKM.Data.NeoAntiBurd.High.mean)
 head(FC.High.IntermediateLow.rnk); dim(FC.High.IntermediateLow.rnk)
-write.table(FC.High.IntermediateLow.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.High.IntermediateLow.pc.v6.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
+write.table(FC.High.IntermediateLow.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.High.IntermediateLow.pc.v6.median.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
 
 FC.Intermediate.HighLow <-  log2(FPKM.Data.NeoAntiBurd.Intermediate.mean + 1) - log2(HighLow.Mean + 1)
 FC.Intermediate.HighLow <- cbind(expressionTMM.RPKM[,c("Chr","Start","End","GeneName","GeneID")], FC.Intermediate.HighLow)
 FC.Intermediate.HighLow.rnk <- FC.Intermediate.HighLow %>% dplyr::arrange(-FPKM.Data.NeoAntiBurd.Intermediate.mean)
 head(FC.Intermediate.HighLow.rnk); dim(FC.Intermediate.HighLow.rnk)
-write.table(FC.Intermediate.HighLow.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.Intermediate.HighLow.pc.v6.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
+write.table(FC.Intermediate.HighLow.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.Intermediate.HighLow.pc.v6.median.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
 
 FC.Low.HighIntermediate <-  log2(FPKM.Data.NeoAntiBurd.Low.mean + 1) - log2(HighIntermediate.Mean + 1)
 FC.Low.HighIntermediate <- cbind(expressionTMM.RPKM[,c("Chr","Start","End","GeneName","GeneID")], FC.Low.HighIntermediate)
 FC.Low.HighIntermediate.rnk <- FC.Low.HighIntermediate %>% dplyr::arrange(-FPKM.Data.NeoAntiBurd.Low.mean)
 head(FC.Low.HighIntermediate.rnk); dim(FC.Low.HighIntermediate.rnk)
-write.table(FC.Low.HighIntermediate.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.Low.HighIntermediate.pc.v6.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
+write.table(FC.Low.HighIntermediate.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.Low.HighIntermediate.pc.v6.median.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
 
 ### Extract data from GSEA files ###
-folder = "../RNASeq.RSEM/GSEA/results/NeoantigenVsImmueScore.PC.Cibersort.v6/"
+folder = "../RNASeq.RSEM/GSEA/results/NeoantigenVsImmueScore.PC.Cibersort.v4.using.High above.median//"
 allDirs                <- list.dirs(folder, recursive=FALSE);allDirs
 preRankedGSEA.DF.NES  <- cbind(as.data.frame(lapply(allDirs, corUtilsFuncs$NESorPvalGSEAPrerank, colNumb=5))) 
 preRankedGSEA.DF.Pval <- cbind(as.data.frame(lapply(allDirs, corUtilsFuncs$NESorPvalGSEAPrerank, colNumb=7)))
@@ -1518,7 +1518,7 @@ HighPlot <- ggplot(High, aes(x=NES, y=Pval, colour=NES>0 )) +
                   size=3.5, force = 3) +
   geom_hline(yintercept=1.30103, size=1) +
   geom_vline(xintercept = 0, size=1) +
-  xlim(-2,2.5)+
+  xlim(-3,3.5)+
   ylim(0,3.5) +
   xlab("Normalised enrichment Score (NES)") +
   ylab("-log10(Pval)")+
@@ -1535,7 +1535,7 @@ IntermediatePlot <- ggplot(Intermediate, aes(x=NES, y=Pval, colour=NES>0)) +
                   size=3.5, force = 3) +
   geom_hline(yintercept=1.30103, size=1) +
   geom_vline(xintercept = 0, size=1) +
-  xlim(-2,2)+
+  xlim(-3,3)+
   ylim(0,3.5) +
   xlab("Normalised enrichment Score (NES)") +
   ylab("-log10(Pval)")+
@@ -1552,7 +1552,7 @@ LowPlot <- ggplot(Low, aes(x=NES, y=Pval, colour=NES>0)) +
                   size=3.5, force = 2) +
   geom_hline(yintercept=1.30103, size=1) +
   geom_vline(xintercept = 0, size=1) +
-  xlim(-2,2)+
+  xlim(-3,3)+
   ylim(0,3.5) +
   xlab("Normalised enrichment Score (NES)") +
   ylab("-log10(Pval)")+
@@ -1562,7 +1562,7 @@ LowPlot <- ggplot(Low, aes(x=NES, y=Pval, colour=NES>0)) +
         axis.title=element_text(size=13,face="bold"),
         legend.position="none") 
 
-pdf(paste0("../RNASeq.RSEM/Figures/Figure 4b.PC.v6",".pdf"), height=10, width = 20)
+pdf(paste0("../RNASeq.RSEM/Figures/Figure 4b.PC.v4.abovemedian",".pdf"), height=10, width = 20)
 ggarrange(HighPlot, IntermediatePlot,LowPlot,  
           labels = c("A.", "B.", "C."),
           ncol = 3, nrow = 1,
@@ -1815,19 +1815,19 @@ FC.High.IntermediateLow <-  log2(FPKM.Data.NeoAntiBurd.High.mean + 1) - log2(Int
 FC.High.IntermediateLow <- cbind(expressionTMM.RPKM[,c("Chr","Start","End","GeneName","GeneID")], FC.High.IntermediateLow)
 FC.High.IntermediateLow.rnk <- FC.High.IntermediateLow %>% dplyr::arrange(-FPKM.Data.NeoAntiBurd.High.mean)
 head(FC.High.IntermediateLow.rnk); dim(FC.High.IntermediateLow.rnk)
-write.table(FC.High.IntermediateLow.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.High.IntermediateLow.pc.v1.OS.specific.Median.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
+write.table(FC.High.IntermediateLow.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.High.IntermediateLow.pc.v1.RMS.specific.Median.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
 
 FC.Intermediate.HighLow <-  log2(FPKM.Data.NeoAntiBurd.Intermediate.mean + 1) - log2(HighLow.Mean + 1)
 FC.Intermediate.HighLow <- cbind(expressionTMM.RPKM[,c("Chr","Start","End","GeneName","GeneID")], FC.Intermediate.HighLow)
 FC.Intermediate.HighLow.rnk <- FC.Intermediate.HighLow %>% dplyr::arrange(-FPKM.Data.NeoAntiBurd.Intermediate.mean)
 head(FC.Intermediate.HighLow.rnk); dim(FC.Intermediate.HighLow.rnk)
-write.table(FC.Intermediate.HighLow.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.Intermediate.HighLow.pc.v1.OS.specific.Median.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
+write.table(FC.Intermediate.HighLow.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.Intermediate.HighLow.pc.v1.RMS.specific.Median.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
 
 FC.Low.HighIntermediate <-  log2(FPKM.Data.NeoAntiBurd.Low.mean + 1) - log2(HighIntermediate.Mean + 1)
 FC.Low.HighIntermediate <- cbind(expressionTMM.RPKM[,c("Chr","Start","End","GeneName","GeneID")], FC.Low.HighIntermediate)
 FC.Low.HighIntermediate.rnk <- FC.Low.HighIntermediate %>% dplyr::arrange(-FPKM.Data.NeoAntiBurd.Low.mean)
 head(FC.Low.HighIntermediate.rnk); dim(FC.Low.HighIntermediate.rnk)
-write.table(FC.Low.HighIntermediate.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.Low.HighIntermediate.pc.v1.OS.specific.Median.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
+write.table(FC.Low.HighIntermediate.rnk[,c(4,6)], paste0("../RNASeq.RSEM/GSEA/rnk/FC.Low.HighIntermediate.pc.v1.RMS.specific.Median.rnk"), sep="\t", quote = FALSE, row.names = FALSE )
 
 ### Extract data from GSEA files ###
 folder = "../RNASeq.RSEM/GSEA/results/NeoantigenVsImmueScore.PC.Cibersort.v1.OS.Median/"
@@ -1906,6 +1906,7 @@ pdf(paste0("../RNASeq.RSEM/Figures/Figure 4b.PC.v1.OS.median",".pdf"), height=10
 ggarrange(HighPlot, IntermediatePlot,LowPlot, labels = c("A.", "B.", "C."),ncol = 3, nrow = 1,legend = NULL)
 
 dev.off()
+
 
 
 ### Violin plot for exhaustion markers ####
