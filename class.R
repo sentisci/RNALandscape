@@ -619,6 +619,147 @@ CoreUtilities <- R6Class(
       }
       return(plotLists)
     },
+    OneVariablePlotSortMean = function(colList=NA, Scores=NA, orderOfFactor=NA, orderOfSignature=NA, standardize=FALSE, logit =FALSE,
+                                   plotType="StringBean",customColorDF=NA, yLab="Score", summaryHlines =FALSE, 
+                                   sizeOfDots = 1, legendDisplay=TRUE, logBase=2){
+      
+      #if (unique(is.na(customColors))) { customColors = setNames( StatsFinal$Color, StatsFinal$Diagnosis) }
+      #function
+      seqfunc   <- function(x, start){ return(seq(start, start+1, length.out = x))}
+      xaxisSeq  <- function(x) {
+        counts                  <- x %>% dplyr::group_by(Diagnosis) %>% dplyr::summarise(n= n())
+        xvals                   <- c()
+        for(count in counts$n){ 
+          xvalsNew <- seqfunc(count, start = 1);
+          xvals <- c(xvals, xvalsNew)
+        }
+        return(xvals)
+      }
+      drawStringBeanPlot <- function(x, tidyScoresPre, customColors=NA, yLab =yLab){
+        
+        print(paste(x))
+        tidyScores             <- tidyScoresPre %>% filter(orderOfSignature == x) %>%  dplyr::group_by(orderOfSignature,Diagnosis) %>% 
+          dplyr::mutate(Med=mean(Scores)) %>% arrange(orderOfSignature,Diagnosis,Scores) %>% 
+          arrange(desc(Med)) %>% 
+          ungroup() %>%
+          mutate( Diagnosis = self$factorizeColumn(Diagnosis, unique(Diagnosis) ) ) %>% arrange(Diagnosis)
+        #mutate( Diagnosis = factorizeColumn(Diagnosis, orderOfFactor )) %>% arrange(Diagnosis)
+        tidyScores[,"SNONorm"] <- xaxisSeq(tidyScores)      
+        
+        ##Make mean Segment
+        meanY <- (tidyScores %>% dplyr::group_by(Diagnosis, orderOfSignature) %>% dplyr::summarise(meanY=mean(Scores)) %>% dplyr::arrange(Diagnosis,orderOfSignature))$meanY
+        meanX <- (tidyScores %>% dplyr::group_by(Diagnosis, orderOfSignature) %>% dplyr::summarise(meanX=mean(SNONorm))  %>% dplyr::arrange(Diagnosis,orderOfSignature))$meanX
+        segmentDF <- data.frame( xstart = meanX-0.05, ystart=meanY, xend=meanX+0.15, yend=meanY)
+        segmentDF <- cbind(segmentDF, expand.grid(Diagnosis=unique(tidyScores$Diagnosis),orderOfSignature=unique(tidyScores$orderOfSignature)))
+        
+        summaryStats <- tidyScores %>% group_by(Diagnosis) %>% summarise(maxV = max(Scores), minV =min(Scores) )
+        scoreSummary <- summary(tidyScores$Scores)
+        
+        plot <- ggplot() +
+          geom_point(data=tidyScores, aes(SNONorm, Scores, colour = factor(Diagnosis) ),show.legend = F, size=sizeOfDots) +
+          scale_colour_manual(values=customColors  ) +
+          #geom_violin(data=tidyScores, aes(SNONorm, Scores, color = factor(Diagnosis)),show.legend = F)+
+          facet_grid(orderOfSignature~Diagnosis ,switch = "both") +
+          #ylim( min(summaryStats$minV)-0.05,max(summaryStats$maxV)+0.05) + 
+          #ylim(-3,2.5) +
+          labs( title= x ) +
+          ylab( yLab ) +
+          geom_hline(yintercept=0, size=0.1) +
+          theme( title = element_text(size=13, face="bold")
+                 ,axis.title.x = element_blank()
+                 ,axis.title.y=element_text(size=10, face="bold")
+                 ,axis.text.x = element_blank()
+                 ,axis.text.y = element_text(size=10, face="bold")
+                 ,axis.ticks.x =element_blank()
+                 ,strip.text.y= element_blank()
+                 ,strip.text.x=element_text(size=10,face="bold", angle=90, vjust=1)
+                 ,strip.background=element_blank()
+                 ,panel.grid.major.x=element_blank()
+                 ,panel.grid.major.y=element_blank()
+                 ,panel.grid.minor.x=element_blank()
+                 ,panel.border = element_rect(colour = "lightgrey", fill=NA, size=0.0000000002, linetype = 1)
+                 ,panel.spacing = unit(0, "cm")
+                 ,strip.switch.pad.grid = unit(0, "cm")
+          ) +
+          geom_segment(data = segmentDF, aes(x = xstart, xend = xend, y = ystart, yend = yend), size=1.5
+                       #, linetype=2
+                       , colour="red"
+                       ,inherit.aes=FALSE
+          ) + 
+          scale_y_continuous( expand = c(0, -0.05),
+                              limits = c(min(tidyScores$Scores)-0.25, max(tidyScores$Scores)+0.25)) +
+          scale_x_continuous( expand = c(0.1, 0))
+        
+        
+        if(summaryHlines) { plot <- plot + 
+          geom_hline(yintercept = scoreSummary[[2]], linetype="dashed", colour="#8888ff", size=0.4) +
+          geom_hline(yintercept = scoreSummary[[4]], linetype="dashed", colour="#8888ff", size=0.4) + 
+          geom_hline(yintercept = scoreSummary[[5]], linetype="dashed", colour="#8888ff", size=0.4)
+        }     
+        colnames(segmentDF)[3] <- x ; segmentDF$Diagnosis <- factor(segmentDF$Diagnosis, levels = orderOfFactor, ordered = TRUE);
+        segmentDF <- segmentDF %>% arrange(Diagnosis)
+        return(list(plot, segmentDF[,c(1,3)]) )
+      }
+      drawDensityPlot <- function(x, tidyScoresPre=NA , orderOfFactor=NA, customColors=NA, yLab =yLab){
+        
+        print(paste(x))
+        tidyScores             <- tidyScoresPre %>% filter(orderOfSignature == x) %>%  dplyr::group_by(orderOfSignature,Diagnosis) %>% 
+          dplyr::mutate(Med=mean(Scores)) %>% arrange(orderOfSignature,Diagnosis,Scores) %>% 
+          arrange(desc(Med)) %>% 
+          ungroup() %>%
+          mutate( Diagnosis = self$factorizeColumn(Diagnosis, unique(Diagnosis) ) ) %>% arrange(Diagnosis)
+        #mutate( Diagnosis = factorizeColumn(Diagnosis, orderOfFactor )) %>% arrange(Diagnosis)
+        tidyScores[,"SNONorm"] <- xaxisSeq(tidyScores)
+        
+        ##Make mean Segment
+        meanY <- (tidyScores %>% dplyr::group_by(Diagnosis, orderOfSignature) %>% dplyr::summarise(meanY=mean(Scores)) %>% dplyr::arrange(Diagnosis,orderOfSignature))$meanY
+        meanX <- (tidyScores %>% dplyr::group_by(Diagnosis, orderOfSignature) %>% dplyr::summarise(meanX=mean(SNONorm))  %>% dplyr::arrange(Diagnosis,orderOfSignature))$meanX
+        segmentDF <- data.frame( xstart = meanX-0.05, ystart=meanY, xend=meanX+0.15, yend=meanY)
+        segmentDF <- cbind(segmentDF, expand.grid(Diagnosis=unique(tidyScores$Diagnosis),orderOfSignature=unique(tidyScores$orderOfSignature)))
+        
+        summaryStats <- tidyScores %>% group_by(Diagnosis) %>% summarise(maxV = max(Scores), minV =min(Scores) )
+        
+        plot <- ggplot(data=tidyScores, aes(x = Scores, y = Diagnosis, height = ..density..)) +
+          # to avoid overlaps of mountains , rel_min_height = 0.005, scale=0.9
+          geom_density_ridges2(aes(fill = Diagnosis)) +
+          scale_fill_manual(values=customColors, guide=FALSE) +
+          geom_vline(data=tidyScores, mapping=aes(xintercept=0), linetype = "dashed", colour = "maroon", size=1 ) +
+          scale_y_discrete(expand = c(0.01, 0), limits = unique(rev(tidyScores$Diagnosis))) +
+          scale_x_continuous(expand = c(0.01, 0)) +
+          theme_ridges() + 
+          theme(legend.title = element_text(size=15, face="bold") ) +
+          labs( title= x ) +
+          ylab("") +
+          xlab(yLab)
+        
+        colnames(segmentDF)[3] <- x ; segmentDF$Diagnosis <- factor(segmentDF$Diagnosis, levels = orderOfFactor, ordered = TRUE);
+        segmentDF <- segmentDF %>% arrange(Diagnosis)
+        return(list(plot, segmentDF[,c(1,3)]) )
+      }
+      
+      if(logit == TRUE) {
+        Scores[,colList] <- apply(Scores[,colList,drop=FALSE] + 1 , 2, function(x) {return(logb(x,logBase))} )
+      }
+      
+      if(standardize==TRUE){
+        Scores[,colList] <- apply(Scores[,colList,drop=FALSE], 2, self$zscore_All )
+      }
+      
+      tidyScoresPre <- Scores %>% tidyr::gather(orderOfSignature, Scores, colList);
+      mergeDF       <-  merge(tidyScoresPre, customColorDF, by.x="Diagnosis", by.y="Diagnosis", all.x=TRUE)
+      tidyScoresPre  <- mergeDF[,c(1:4)] ; # tidyScoresPre$Diagnosis <- factor(tidyScoresPre$Diagnosis, levels = orderOfFactor, ordered = TRUE)
+      
+      ## Set customColors
+      customColorsVector <- setNames( as.character(customColorDF$Color), as.character(customColorDF$Diagnosis))
+      
+      if( plotType =="StringBean") {
+        plotLists <- lapply(orderOfSignature, drawStringBeanPlot, tidyScoresPre, customColors=customColorsVector,yLab =yLab)
+      } else {
+        plotLists <- lapply(orderOfSignature, drawDensityPlot, tidyScoresPre=tidyScoresPre, orderOfFactor=orderOfFactor, customColors=customColorsVector,
+                            yLab =yLab)
+      }
+      return(plotLists)
+    },
     ## memo sort
     memoSort = function(M = NA) {
       geneOrder <- sort(rowSums(M), decreasing=TRUE, index.return=TRUE)$ix;
@@ -772,6 +913,10 @@ CoreUtilities <- R6Class(
         return(flattenCorrMatrix(each_group_samplesDF.corr$r, each_group_samplesDF.corr$P, x))
       } ))
       return(mergedDF)
+    },
+    validfMatrix = function(df=NA){
+      tempDF <- as.data.frame(lapply(df, make.names)) %>% data.frame()
+      return(tempDF)
     }
   )
 )
@@ -861,7 +1006,6 @@ GeneExpNormalization <- R6Class(
       private$saveFiles      <- saveFiles
       private$setUp()
     },
-    
     edgeRMethod      = function(x, logtransform=FALSE, zscore=FALSE) {
       
       assert_that(private$packageRNAseq == "edgeR", msg = paste0("GeneExpNormalization Object was created for ",private$packageRNAseq,
@@ -905,8 +1049,6 @@ GeneExpNormalization <- R6Class(
         tpmDF <- apply(rpkm(private$GeneDFNorm, normalized.lib.sizes = TRUE), 2 , super$fpkmToTpm) %>% tibble::rownames_to_column(var="GeneID")
         return( private$corUtilsFuncs$featureNameAnot(querryDF=tpmDF, identifier="GeneID", annotationDF=private$annotationDF) )  
       }
-      
-      
     },
     deseq2           = function(x) {
       
@@ -923,7 +1065,7 @@ GeneExpNormalization <- R6Class(
       if(x == "TPM" )         return( apply(as.data.frame(fpkm(object = private$GeneDFNorm,  robust = TRUE)), 2 , fpkmToTpm))
       if(x == "RLOG" )        return( rlog(private$GeneDFNorm, blind = TRUE)              )
       if(x == "VST" )         return( vst(private$GeneDFNorm, blind = TRUE))
-    }  
+    }
   )
 )
 

@@ -1,5 +1,7 @@
 setwd("T:/Sivasish_Sindiri/R_workspace/MiXCR/")
 
+# setwd("T:/Sivasish_Sindiri/R Scribble/RNALandscape")
+
 ## Khanlab meta data
 metaData <- read.csv("MetadataMapper.v3.txt", sep="\t")
 # metaData <- read.csv("tcr_rnaseq_file.txt", sep="\t")
@@ -127,7 +129,8 @@ readCountsSum <- apply(readCounts, 2, sum)
 readCountsSum <- as.data.frame(readCountsSum)
 readCountsSum.df <- readCountsSum %>% tibble::rownames_to_column(var="Sample.Biowulf.ID.GeneExp")
 
-### write the inputs for entropy data ####
+######################################################## ENTROPY Analysis ############################################
+### write the inputs for entropy data #
 # fileList <- list.files("./CloneFilesNitin/")
 # AllClonesEntropyData             <- sapply(fileList, makeEntropyInput, inputDir="./CloneFilesNitin/", outputDir="./CloneFilesEntropyNitin/" )
 
@@ -136,11 +139,11 @@ cloneType = "TRB"
 AllClonesEntropyData             <- sapply(fileList, makeEntropyInput,  cloneType=cloneType, inputDir="./CloneFiles.v2/", 
                                            outputDir=paste0("./CloneFilesEntropy.", cloneType, ".v2/") )
 
-### write the inputs for ImmunoseqV2 entropy data ####
+### write the inputs for ImmunoseqV2 entropy data 
 fileList <- list.files("./immunoseqv2/")
 ImmunoseqV2EntropyData             <- sapply(fileList, immunoseqv2 )
 
-# ### List files and read data into a single data matrix for Entropy results####
+# ### List files and read data into a single data matrix for Entropy results #
 # fileList <- list.files("./finalResults_H_CL_JS_Nitin/")
 # AllEntropyData             <- rbindlist( lapply(fileList, function(x){
 #   print(x)
@@ -152,7 +155,7 @@ ImmunoseqV2EntropyData             <- sapply(fileList, immunoseqv2 )
 # }) )
 # write.table(AllEntropyData, "AllEntropyData_H_CL_JS.Nitin.txt", sep = "\t", quote = FALSE, row.names = FALSE)
 # 
-# ### List files and read data into a single data matrix for Entropy results####
+# ### List files and read data into a single data matrix for Entropy results 
 # fileList <- list.files("./finalResults_H_VL_JS_Nitin.v3/")
 # AllEntropyData             <- rbindlist( lapply(fileList, function(x){
 #   print(x)
@@ -165,7 +168,7 @@ ImmunoseqV2EntropyData             <- sapply(fileList, immunoseqv2 )
 # }) )
 # write.table(AllEntropyData, "AllEntropyData_H_CL_JS.Nitin.ImmunoseqV4.txt", sep = "\t", quote = FALSE, row.names = FALSE)
 
-### List files and read data into a single data matrix for Entropy results####
+### List files and read data into a single data matrix for Entropy results
 folderName = "./finalResults_H_VL_JS_landscape.TRB.v3/"
 fileList <- list.files(folderName)
 AllEntropyData             <- rbindlist( lapply(fileList, function(x){
@@ -177,12 +180,15 @@ AllEntropyData             <- rbindlist( lapply(fileList, function(x){
   }
   return(exomeData[1,])
 }) )
-write.table(AllEntropyData, "AllEntropyData_H_CL_JS.landscape.TRB.v3.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+#write.table(AllEntropyData, "AllEntropyData_H_CL_JS.landscape.TRB.v3.txt", sep = "\t", quote = FALSE, row.names = FALSE)
 
 AllEntropyData$FileName <- gsub(".Entropy.tx","",AllEntropyData$FileName)
-AllEntropyData %<>% dplyr::rename(Sample.ID=FileName)
-AllEntropyData.annot <- dplyr::full_join(AllEntropyData, metaData[,c("Sample.ID", "SAMPLE_ID.Alias","LIBRARY_TYPE","DIAGNOSIS.Alias")], by="Sample.ID")
+AllEntropyData %<>% dplyr::rename(Sample.Data.ID=FileName)
+AllEntropyData.annot <- dplyr::full_join(AllEntropyData, metaData[,c("Sample.Data.ID", "Sample.ID.Alias",
+                                                                     "LIBRARY_TYPE",
+                                                                     "DIAGNOSIS.Substatus.Tumor.Normal.Tissue")], by="Sample.Data.ID")
   
+
 
 ############################################ Section 1b Select DF ################################################################
 ### To Do  ####
@@ -212,7 +218,7 @@ dim(countObj.Annot)
 dim(countObj.Annot.NoCL)
 dim(countObj.Annot.complete)
 
-#################################################################################### For TCRSeq ################################################################
+#################################################################################### For TCRSeq ###################################
 ### For now Select DF manually ####
 
 #cloneType = "IGHClones"  ; countObj <- cloneObjIG %>% as.data.frame()
@@ -234,6 +240,7 @@ dim(countObj)
 dim(countObj.Annot)
 dim(countObj.Annot.NoCL)
 dim(countObj.Annot.complete)
+
 
 
 ######## Make Step Plots to show expansion ############
@@ -349,10 +356,6 @@ ggplot(toPlotDF[,c(1,3,5,6,7)]) +
                      breaks = c(0.01, 0.04, 0.3, 2,10,50,200,600),
                      labels = c(0.01, 0.04, 0.3, 2,10,50,200,600) ) 
 dev.off()
-
-
-
-
 
 toPlotDF.NB.MYCN.NA <- countObj.Annot.NoCL.totalReads %>% filter(grepl('NB.MYCN.NA', DIAGNOSIS.Substatus.Tumor.Normal.Tissue))
 NB.A <- ggplot(toPlotDF.NB.MYCN.NA[,c(1,3,5,6)]) +
@@ -679,19 +682,28 @@ vennCDR3aaList <- list('khanlab'=as.character('a','b','c'),
 v.table <- venn::venn(vennCDR3aaList, ilab=TRUE, zcolor = "style", size = 15, cexil = 1, cexsn = 1)
 
 ############################# Disect consensus with respect to diagnosis ######################
-
+gliph.Khanlab <- read.table("./gliph/GliphInput.khanlab-convergence-groups.v2.txt", sep="\t", header = T)
 #countObj.Annot.complete
 customColorsVector <- setNames( unique(as.character(toPlotDF$Color.Jun)), unique(as.character(toPlotDF$Diagnosis)) )
-consesus <- lapply(seq(5,105), function(x){
+consesus <- lapply(seq(1:24579), function(x){
   first_consensus <- unlist(strsplit(as.character(gliph.Khanlab[x,3]),split = " "))
   length(first_consensus)-gliph.Khanlab[x,1]
   first_consensus_indexes <- which( as.character(countObj.Annot.complete$cdr3aa) %in% first_consensus )
   first_countObj.Annot.complete <- countObj.Annot.complete[first_consensus_indexes,]
   first_countObj.Annot.complete$ConsensusSeq <- as.character(gliph.Khanlab[x,2])
-  return(first_countObj.Annot.complete[,c("Diagnosis", "ConsensusSeq")])
+  return(first_countObj.Annot.complete[,c("Sample.Biowulf.ID.GeneExp","Diagnosis", "ConsensusSeq")])
 })
 consensus_final <- do.call(rbind, consesus)
-consensus_final %<>% group_by(ConsensusSeq) %>% mutate(Count = n()) %>% arrange(-(Count))
+consensus_final %<>% group_by(ConsensusSeq) %>% mutate(Count = n(), 
+                                                       Samples=paste0(Sample.Biowulf.ID.GeneExp, collapse = ", "),
+                                                       Samples_Count=length(unique(Sample.Biowulf.ID.GeneExp)),
+                                                       Histology=paste0(Diagnosis, collapse = ", "),
+                                                       Histology_Count=length(unique(Diagnosis)) ) %>% 
+                      dplyr::select(-one_of(c("Sample.Biowulf.ID.GeneExp","Diagnosis"))) %>%
+                      dplyr::distinct() %>%
+                      arrange(-(Count))
+
+write.table(consensus_final, "consensus_final.txt", sep="\t", row.names = FALSE, col.names = TRUE)
 consensus_final$ConsensusSeq <- factor(consensus_final$ConsensusSeq, levels = unique(consensus_final$ConsensusSeq), ordered = TRUE)
 g <- ggplot(consensus_final, aes(ConsensusSeq)) + 
      geom_bar(aes(fill = factor(Diagnosis))) +
@@ -701,6 +713,44 @@ g <- ggplot(consensus_final, aes(ConsensusSeq)) +
          ,axis.title.y = element_text(size=13, face="bold")
          ,axis.text.x = element_text(size=10, face="bold", angle=90, vjust=1))
 plot(g)
+
+## Pie chart plot
+for_pie_data <- consensus_final[,c("Histology_Count"), drop= FALSE]; head(for_pie_data)
+for_pie_dataDF <- data.frame(table(for_pie_data))
+
+## Waffle plot
+consensus_Count_waffle <- consensus_final %>% group_by(Histology_Count) %>% mutate(Sum_hist_count = sum(Count)) %>%
+              dplyr::select(one_of(c("Histology_Count", "Sum_hist_count"))) %>% 
+              arrange(desc(Sum_hist_count)) %>% 
+              distinct()
+totalCDR3s <- sum(consensus_Count_waffle$Sum_hist_count)
+consensus_Count_waffle <- consensus_Count_waffle %>% dplyr::mutate(percentage = (Sum_hist_count/totalCDR3s)*100)
+consensus_Count_waffle$Histology_Count_name <- paste0(consensus_Count_waffle$Histology_Count," ( ", 
+                                                     signif(consensus_Count_waffle$percentage,2), "% )")
+consensus_Count_waffle
+
+sample_group <- as.numeric( consensus_Count_waffle$Sum_hist_count)
+names(sample_group) <- as.character(consensus_Count_waffle$Histology_Count_name)
+
+pdf("Waffle_plot_CDR3_sequence_sharing_30_v2.pdf")
+colors <- c("#4594D0", "#E84A9A", "#808000", "#BD6354",
+            "#A5CE39", "#FFC91D", "#4258A7", "#61C29E",
+            "#9A6324", "#8E5C97", "#469990", "#f58231")
+waffle(sample_group/30, size=0.05, colors = colors,
+       title="Number of CDR3 sequences shared among histologies", 
+       xlab="1 square == 30 CDR3 sequences")
+dev.off()
+
+
+
+
+
+
+
+
+
+
+
 
 
 

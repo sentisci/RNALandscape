@@ -1,7 +1,7 @@
 rm(list=ls())
 
 ## Source all classes and packages ####
-
+setwd("T:/Sivasish_Sindiri/R Scribble/RNALandscape/")
 source("./utilityPackages.R")
 source("./statisticalPackages.R")
 source("./class.R")
@@ -35,7 +35,7 @@ rnaseqProject <- ProjectSetUp$new(
   factorName              = "DIAGNOSIS.Substatus.Tumor.Normal.Tissue",
   #factorName              = "DIAGNOSIS.Substatus.Tumor.Tissue",
   metadataFileRefCol      = "Sample.Biowulf.ID.GeneExp",
-  metaDataFileName        = "MetadataMapper.v3.txt",
+  metaDataFileName        = "MetadataMapper.v4.txt",
   outputdirRDSDir         = "GeneRDSOutput",
   outputdirTXTDir         = "GeneTXTOutput",
   gseaDir                 = "GSEA",
@@ -102,10 +102,28 @@ mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Gene
 # saveRDS(mergeObjectsNoDup, "T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.RDS")
 # saveRDS(mergeObjectsNoDup, "T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.Cellline.RDS")
 
+
+### Read DataSets ####
 ## Tumor Normal and no cell line
-mergeObjectsNoDup <- readRDS("../RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.RDS")
+mergeObjectsNoDup_data <- readRDS("../RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.RDS")
 ## Tumor Normal and Cellline
-## mergeObjectsNoDup <- readRDS("../RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.Cellline.RDS")
+## mergeObjectsNoDup_data <- readRDS("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.Celline.RDS")
+
+### Filter specific Histology samples ####
+to_filter_by_histology = FALSE
+if(to_filter_by_histology){
+# "NB.MYCN.A", "NB.MYCN.NA","NB.Unknown"
+design <- dplyr::filter(rnaseqProject$metaDataDF,DIAGNOSIS.Substatus.Tumor.Normal.Tissue %in% c("NB.MYCN.A", "NB.MYCN.NA","NB.Unknown"))
+mergeObjectsNoDup <- mergeObjectsNoDup_data %>% dplyr::select(one_of(as.character(design[,rnaseqProject$metadataFileRefCol]))); dim(mergeObjectsNoDup)
+} else {
+  design <- rnaseqProject$metaDataDF
+  design %<>% arrange(DIAGNOSIS.Substatus.Tumor.Normal.Tissue, desc(LIBRARY_TYPE))
+  mergeObjectsNoDup <- mergeObjectsNoDup_data; dim(mergeObjectsNoDup)
+}
+## Rearrange the design
+design %<>% arrange(desc(LIBRARY_TYPE),Target.Status.Life,desc(Target.Status.Risk),desc(DIAGNOSIS.Alias.substatus.T))
+design %<>% dplyr::mutate(!!rnaseqProject$metadataFileRefCol := factor(design[,rnaseqProject$metadataFileRefCol], 
+                                                                       levels = design[,rnaseqProject$metadataFileRefCol], ordered = TRUE))
 
 ## Evaluate presence of duplicate features (genes) and consolidate them ####
 setDT(mergeObjectsNoDup, keep.rownames = TRUE)
@@ -136,51 +154,72 @@ expressionObj        <- GeneExpNormalization$new(
   featureType       = "Gene", 
   packageRNAseq     = "edgeR", 
   annotationDF      = rnaseqProject$annotationDF, 
-  design            = rnaseqProject$metaDataDF[,rnaseqProject$factorName], 
+  design            = design[,rnaseqProject$factorName], 
   #design           = newMetaDataDF[,rnaseqProject$factorName],
-  proteinCodingOnly = TRUE,
+  proteinCodingOnly = FALSE,
   corUtilsFuncs     = corUtilsFuncs
 )
-
 
 ## Get expression in desired units ####
 ### RawCounts
 #expressionTMM.Counts          = expressionObj$edgeRMethod("RawCounts")
 ## Normalised counts
 #expressionTMM.NormDF         = expressionObj$edgeRMethod("NormFactorDF")
+
 ### RPKM
-expressionTMM.RPKM            = expressionObj$edgeRMethod("TMM-RPKM", logtransform = FALSE, zscore = FALSE)
+expressionTMM.RPKM            = expressionObj$edgeRMethod("TMM-RPKM", logtransform = TRUE, zscore = FALSE)
+designMatrix                  <- corUtilsFuncs$validfMatrix(df = design)
+### Zscore ###
+expressionTMM.RPKM.zscore <- expressionObj$edgeRMethod("TMM-RPKM", logtransform = TRUE, zscore = TRUE)
+## Replace NA with 0
+expressionTMM.RPKM.zscore[is.na(expressionTMM.RPKM.zscore)] <- 0
 
 ## Arrange data by histology and Library type
-arrange_metadata <- rnaseqProject$validMetaDataDF %>% arrange(DIAGNOSIS.Substatus.Tumor.Normal.Tissue, desc(LIBRARY_TYPE))
 expressionTMM.RPKM.arr <- expressionTMM.RPKM %>% dplyr::select(one_of("Chr","Start","End","Strand","GeneID","GeneName","Length",
-                                                                      as.character(factor(arrange_metadata$Sample.Biowulf.ID.GeneExp, 
-                                                                      ordered = TRUE, 
-                                                                      levels = arrange_metadata$Sample.Biowulf.ID.GeneExp))))
+                                                                      as.character(gsub("-",".",designMatrix[,rnaseqProject$metadataFileRefCol]))))
+## Add additional annotations (sample Id alias) ####
+AliasNames_df                 <- dplyr::left_join( data.frame("Sample.Biowulf.ID.GeneExp"=colnames(expressionTMM.RPKM.arr)), 
+                                                   designMatrix[,c(rnaseqProject$metadataFileRefCol,rnaseqProject$factorName,"Sample.ID.Alias", 
+                                                             "Sample.Data.ID", "DIAGNOSIS.Alias","Annotation_Target_khanlab")] )
+AliasColnames                 <- c(as.character(AliasNames_df[c(1:7),1]), as.character(AliasNames_df[-c(1:7),6])); AliasColnames
+
+## Perform Sanity Check for the above operations #####
+stopifnot( length(colnames(expressionTMM.RPKM.arr)) == length(AliasColnames) )
+colnames(expressionTMM.RPKM.arr)  <- AliasColnames
+
+### Save expression (TMM-RPKM/whatwever asked for in the above step) to a file ####
+write.table(expressionTMM.RPKM.arr, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
+                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.NB.log2",rnaseqProject$date,".txt"),sep="/"),
+            sep="\t", row.names = FALSE, quote = FALSE)
+saveRDS(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
+                                  paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.NB.log2",rnaseqProject$date,".rds"),sep="/"))
+
+## Arrange data by histology and Library type (Zscore)
+expressionTMM.RPKM.arr.zscore <- expressionTMM.RPKM.zscore  %>% dplyr::select(one_of("Chr","Start","End","Strand","GeneID","GeneName","Length",
+                                                         as.character(gsub("-",".",designMatrix[,rnaseqProject$metadataFileRefCol]))))
 
 ## Add additional annotations (sample Id alias) ####
-AliasNames_df                 <- dplyr::left_join( data.frame("Sample.Biowulf.ID.GeneExp"=colnames(expressionTMM.RPKM)), 
-                                                   rnaseqProject$validMetaDataDF[,c("Sample.Biowulf.ID.GeneExp", "Sample.ID.Alias", "Sample.Data.ID", 
-                                                                                    "DIAGNOSIS.Alias",
-                                                                                    rnaseqProject$factorName)] )
-AliasColnames                 <- c(as.character(AliasNames_df[c(1:7),1]), as.character(AliasNames_df[-c(1:7),2]))
+AliasNames_df                 <- dplyr::left_join( data.frame("Sample.Biowulf.ID.GeneExp"=colnames(expressionTMM.RPKM.arr.zscore)), 
+                                                   designMatrix[,c(rnaseqProject$metadataFileRefCol,rnaseqProject$factorName,"Sample.ID.Alias", 
+                                                                   "Sample.Data.ID", "DIAGNOSIS.Alias","Annotation_Target_khanlab")] )
+AliasColnames                 <- c(as.character(AliasNames_df[c(1:7),1]), as.character(AliasNames_df[-c(1:7),6])); AliasColnames
 
 
 ## Perform Sanity Check for the above operations #####
-stopifnot( length(colnames(expressionTMM.RPKM)) == length(AliasColnames) )
-colnames(expressionTMM.RPKM)  <- AliasColnames
+stopifnot( length(colnames(expressionTMM.RPKM.arr.zscore)) == length(AliasColnames) )
+colnames(expressionTMM.RPKM.arr.zscore)  <- AliasColnames
 
 ### Save expression (TMM-RPKM/whatwever asked for in the above step) to a file ####
-write.table(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
-                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.",rnaseqProject$date,".txt"),sep="/"),
+write.table(expressionTMM.RPKM.arr.zscore, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
+                                          paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.NB.log2.zscore",rnaseqProject$date,".txt"),sep="/"),
             sep="\t", row.names = FALSE, quote = FALSE)
-saveRDS(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
-                                  paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.",rnaseqProject$date,".rds"),sep="/"))
+saveRDS(expressionTMM.RPKM.arr.zscore, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
+                                  paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.NB.zscore",rnaseqProject$date,".rds"),sep="/"))
 
 ### Performing ssGSEA output analysis. ( Plotting the scores across histology ) ##########
 
 ### Prepare input for ssGSEA broad gene pattern
-expressionTMM.RPKM.GSEA.Input <- expressionTMM.RPKM[, -c(1:7)]; rownames(expressionTMM.RPKM.GSEA.Input) <- expressionTMM.RPKM[,6]
+expressionTMM.RPKM.GSEA.Input <- expressionTMM.RPKM.arr[, -c(1:7)]; 
 expressionTMM.RPKM.GSEA.print = corUtilsFuncs$createBroadGCTFile(expressionTMM.RPKM.GSEA.Input)
 
 ## Only For TCGA+Khanlab dataSet 
@@ -1396,9 +1435,11 @@ customColorDF    <- rnaseqProject$customColorsDF
 Scores <- neoantigenBurden %>% filter(!Diagnosis %in% c("Teratoma", "YST")) %>% dplyr::filter(complete.cases(.))
 
 ### Plot and Save ###
-plotLists <- corUtilsFuncs$OneVariablePlotSort( colList, Scores=Scores, orderOfFactor, orderOfSignature, standardize =FALSE, logit =TRUE, logBase=10,
-                                                yLab = "log10( NeoantigenBurden )", legendDisplay = FALSE, customColorDF = customColorDF, 
-                                                plotType = "StringBean", sizeOfDots = 0.8)
+customColorsVector <- data.frame(Color=unique(as.character(toPlotDF$Color.Jun)), Diagnosis= unique(as.character(toPlotDF$Diagnosis)) )
+plotLists <- corUtilsFuncs$OneVariablePlotSortMean( colList, Scores=Scores, orderOfFactor, orderOfSignature, standardize =FALSE, logit =FALSE, 
+                            logBase=10,yLab = "log10( NeoantigenBurden )", legendDisplay = FALSE, customColorDF = customColorsVector, 
+                            plotType = "StringBean", sizeOfDots = 0.8)
+plotLists
 
 #### Split data matrix into High, Intermediate and Low expression matrices
 ### Expression Matrix
@@ -1928,17 +1969,19 @@ finalExhaustionMatrix.tidy <- finalExhaustionMatrix %>% dplyr::group_by(Diagnosi
                                     order = TRUE) ) %>% 
   arrange(Diagnosis.Marker)
 
-pdf("ExhautionMarkers.Variable.RPKM.v5.pdf",height=25,width=20)
-ggplot(finalExhaustionMatrix.tidy, aes(x=Diagnosis.Marker, y=value)) + 
+pdf("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/Figures/ExhautionMarkers.Variable.RPKM.v6.pdf",height=25,width=20)
+customColorsVector <- setNames(unique(as.character(toPlotDF$Color.Jun)),unique(as.character(toPlotDF$Diagnosis)) )
+ggplot(finalExhaustionMatrix.tidy, aes(x=Diagnosis.Marker, y=log2(value+1) , fill=Diagnosis)) + 
   ##ggplot(data, aes(x=Group, y=log2(ENSG00000182752))) + 
   #geom_boxplot(varwidth = TRUE,notch = FALSE) + 
   geom_violin(scale = "width",trim = FALSE, draw_quantiles = c(0.5)) + 
   #geom_jitter(width=0.1) +
   theme_bw() + 
-  ylab( paste("log2(TPM)") ) +
+  ylab( paste("log2(FPKM)") ) +
   #ylim(0,10) +
   xlab( "Diagnosis" ) +
   #geom_hline(yintercept=0, size=0.1) + 
+  scale_fill_manual(values = customColorsVector) + 
   theme( title = element_text(size=13, face="bold")
          ,axis.title.x = element_text(size=13, face="bold")
          ,axis.title.y = element_text(size=13, face="bold")

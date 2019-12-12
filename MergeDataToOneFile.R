@@ -147,8 +147,9 @@ mergeDataSet.Neoantigens <- mergeDataSet.T %>% dplyr::select(Sample.Biowulf.ID, 
 dataSetNeo <- tidyr::gather(mergeDataSet.Neoantigens, "Alteration", "Count", Indel.Neoantigen, SNV.Neoantigen, FusionNeoAntigenCount )
 View(dataSetNeo)
 
+
 dataSetNeo1 <- dataSetNeo
-dataSetNeo1$Count <- log10(dataSetNeo$Count+1)
+dataSetNeo1$Count <- dataSetNeo$Count
 dataMean <- dataSetNeo1 %>% group_by(DIAGNOSIS.Alias.substatus, Alteration) %>%
             mutate(CountMean= mean(Count)) %>% 
             dplyr::select(DIAGNOSIS.Alias.substatus,Alteration,CountMean) %>% distinct()
@@ -156,21 +157,36 @@ dataMean$Alteration <- factor(dataMean$Alteration, ordered = TRUE, levels =c("Fu
 dataMean <- dataMean %>% filter(!DIAGNOSIS.Alias.substatus %in% c("Teratoma", "YST"))
 View(dataMean)
 
+dataMean$CountMeanLog10 <- log10(dataMean$CountMean+1)
 ## To order the histologies
-totalMeanDF = dataMean %>% group_by(DIAGNOSIS.Alias.substatus) %>% dplyr::mutate(total = sum(CountMean)) %>% dplyr::select(DIAGNOSIS.Alias.substatus, total) %>% distinct() %>% arrange(desc(total))
+totalMeanDF = dataMean %>% group_by(DIAGNOSIS.Alias.substatus) %>% dplyr::mutate(total = sum(CountMeanLog10)) %>% 
+                            dplyr::select(DIAGNOSIS.Alias.substatus, total) %>% distinct() 
 
+## Arranging histology as per the average order of Neoantigen burden in each section
+totalMeanDF %<>% arrange(desc(total))
+totalMeanDF$DIAGNOSIS.Alias.substatus <- factor(totalMeanDF$DIAGNOSIS.Alias.substatus, levels = unique(as.character(totalMeanDF$DIAGNOSIS.Alias.substatus)), ordered = TRUE)
+
+# Arranging histology as per the median order of Total Neoantigen burden
+# median_order <- c(
+#   "OS", "EWS", "HBL", "NB.Unknown", "ASPS", "ML", "NB.MYCN.NA", "RMS.FP", "NB.MYCN.A", "UDS", "RMS.FN", "SS", "DSRCT", "WT", "CCSK"
+# )
+# mean_order <- c(
+#   "OS", "NB.Unknown", "ML", "EWS", "HBL", "ASPS", "RMS.FP", "NB.MYCN.NA", "NB.MYCN.A", "UDS", "RMS.FN", "SS", "DSRCT", "WT", "CCSK"
+# )
+#totalMeanDF$DIAGNOSIS.Alias.substatus <- factor(totalMeanDF$DIAGNOSIS.Alias.substatus, levels = mean_order, ordered = TRUE)
+
+totalMeanDF <- totalMeanDF %>% arrange(DIAGNOSIS.Alias.substatus)
 dataMean$DIAGNOSIS.Alias.substatus <- factor(dataMean$DIAGNOSIS.Alias.substatus, levels = totalMeanDF$DIAGNOSIS.Alias.substatus, ordered = TRUE)
-ggplot(data=dataMean,aes(x=DIAGNOSIS.Alias.substatus,y=CountMean, fill=Alteration ))+
+ggplot(data=dataMean,aes(x=DIAGNOSIS.Alias.substatus,y=CountMeanLog10, fill=Alteration ))+
   geom_bar(stat="identity", width = 1, colour = "black") +
   coord_polar(theta = "x")+
   theme_bw() +
   scale_fill_brewer(palette="Set2")+
   #scale_fill_hue(l=40) +
-  xlab("")+ylab("Log10 Total Counts")+ggtitle("Average of tumor specific neoantigen counts")+
+  xlab("")+ylab("Average log10 Counts")+ggtitle("Average of tumor specific neoantigen counts")+
   theme(legend.position="bottom",
         text = element_text(size=15 ),
-        plot.title = element_text(hjust = 0.5))
-
+        plot.title = element_text(hjust = 0.5)) 
 
 ## Testing
 FinalMutationEdit1 <- FinalMutation %>% dplyr::mutate(Alteration = gsub("frameshift deletion|frameshift insertion|nonframeshift insertion|nonframeshift deletion","indel",Exonic.function)) %>% 
