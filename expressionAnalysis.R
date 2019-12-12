@@ -1033,8 +1033,9 @@ superheat(CTA.Filt.sorted, pretty.order.cols =F,pretty.order.rows=F,
 
 ### Performing TCR analysis
 
-#### Perfroming TCR analysis ####
+############################################## Perfroming TCR analysis ######################################
 
+cloneType = "TRB";
 ### Placeholder DF ####
 emptyDF <- data.frame(count=c(0), freq=c(0), cdr3nt=c("None"),cdr3aa=c("NF"),v=c("NF"),d=c("NF"),j=c("NF"),VEnd=c(0),DStart=c(0),
                       DEnd=c(0),JStart=c(0),SampleName=c(0))
@@ -1064,28 +1065,49 @@ readCloneFiles <- function(x, cloneType=NA){
 
 ### Start analysis for clone type: Choose clone type ####
 ## cloneType = "IGH";
-cloneType = "TRB";
-correlationPlots <- function(varName="", constName="", df=NA, customColorDF=NA, xlab="Log Total Clones"){
+
+correlationPlots <- function(varName="", constName="", df=NA, customColorDF=NA, xlab="Log Total Clones", modelingMethod="lm"){
   
   print(paste(varName))
   customColorsVector <- setNames( as.character(customColorDF$Color), as.character(customColorDF$Diagnosis))
-  corrTest <- cor.test(df[,constName], df[,varName], method = "spearman")
-  if  ( corrTest$p.value < 2.2e-16 ) { corrTest$p.value = 2.2e-16 }
+  corr.coef = ""
+  pval = ""
+  
+  if (modelingMethod=="lm") {
+    corrTest <- cor.test(df[,constName], df[,varName], method = "spearman")
+    ## if  ( corrTest$p.value < 2.2e-16 ) { corrTest$p.value = 2.2e-16 }
+    corr.coef = signif(corrTest$estimate[[1]],5)
+    pval = signif(corrTest$p.value,5)
+  } else if (modelingMethod=="gam") {
+      gam_model <- gam(df[,varName] ~ s(df[,constName]))
+      summary_gam <- summary(gam_model)
+      corr.coef = signif(summary_gam$r.sq,5)
+      pval = signif(summary_gam$s.pv,5)
+  }
+  
   plot <- ggplot(df, aes_string(x=constName, y=varName)) + 
-    geom_smooth(method=lm,  fill="grey") +
     geom_point(aes(colour = factor(Diagnosis)), show.legend = T, size=3, shape=16) + 
     scale_colour_manual(values=customColorsVector) +
     theme_bw() +
     theme(axis.text=element_text(size=13)
           ,axis.title=element_text(size=13,face="bold")) +
     xlab(xlab) +
-    ylab(paste("Standardised Enrichment Score", sep=" "))+
-    ggtitle(paste("Corr.Coeff = ", signif(corrTest$estimate[[1]],5), "\np-value = ", signif(corrTest$p.value,5), "", varName,sep=""))
+    ylab(paste("Standardised Enrichment Score", sep=" ")) 
+    
   
+  if (modelingMethod=="lm") {
+    plot <- plot + stat_smooth(method=modelingMethod, fill="grey") +
+                    ggtitle(paste("Corr.Coeff = ", corr.coef , "\np-value = ", pval , "", varName, sep=" "))
+  } else if(modelingMethod=="gam" ) {
+    plot <- plot + stat_smooth(method=modelingMethod, formula = y ~ s(x), fill="grey") +
+                  ggtitle(paste( expression(R^2), " = ", corr.coef , "\np-value = ", pval , "", varName, sep=" "))
+  }
+
   return(list(plot))
 }   
 customColorDF    <- rnaseqProject$customColorsDF
 TCRResultsDir <- paste0(rnaseqProject$workDir,rnaseqProject$projectName,"/TCR.Results/")
+
 
 ### List files and read data into a single data matrix ####
 TCRDir <- paste0(rnaseqProject$workDir,rnaseqProject$projectName,"/TCR.clones.files/")
@@ -1219,8 +1241,9 @@ immuneScore.Clones <- left_join(countObj.gb.Samples.Annotate.NoNS[,c("TotalClone
 #immuneScore.Clones %<>% tibble::column_to_rownames("Sample.ID")
 immuneScore.Clones <- immuneScore.Clones %>% dplyr::rename_(.dots = setNames(list(rnaseqProject$factorName),c("Diagnosis"))) %>% dplyr::mutate(TotalCloneSum = log10(TotalCloneSum+1))
 
-varNames <- colnames(immuneScore.Clones[,3:44])  
-plotLists <- lapply(varNames, correlationPlots, constName="TotalCloneSum",  df= data.frame(immuneScore.Clones), customColorDF=customColorDF)
+varNames <- colnames(immuneScore.Clones[,3])  
+plotLists <- lapply(varNames, correlationPlots, constName="TotalCloneSum",  df= data.frame(immuneScore.Clones), customColorDF=customColorDF,
+                    modelingMethod="loess")
 ImmuneScorePlots <- lapply(plotLists, function(l) l[[1]] )
 
 SBName =paste0(TCRResultsDir,"/ImmuneScore.vs.TotalCloneSum.",cloneType,".pdf")
@@ -1340,7 +1363,7 @@ pdf("ven.probability.pdf", height = 10, width = 10)
 ggarrange(plotlist = list(TumorPrivatePlot, InHouseNormalsPlot, warenetalNormalsPlot),common.legend=TRUE, nrow = 3)
 dev.off()
 
-### Clonality #####
+### Immune Score vs Entropy #####
 
 ssGSEAScores            <- corUtilsFuncs$parseBroadGTCOutFile("../RNASeq.RSEM/GSEA/RPKM_Data_Filt_Consolidated.GeneNames.all.pc.log2.2019-01-31.PROJ.KeggSig.gct")
 ssGSEA.zscore <- apply(ssGSEAScores, 1, corUtilsFuncs$zscore_All) ; 
@@ -1362,13 +1385,16 @@ entropyMetassGSEA <- entropyMetassGSEA[complete.cases(entropyMetassGSEA), ] %>% 
 ### Unfortunately, change of color decision 
 ### was taken at the end of project, and its very difficult me to change multiple things 
 ### Team decided to keep the previous color scheme as it is.
-customColorsVector <- data.frame(Color=unique(as.character(toPlotDF$Color.Jun)), Diagnosis= unique(as.character(toPlotDF$Diagnosis)) )
-#### 
-varNames <- colnames(entropyMetassGSEA[,16:58]) 
+colorDF <- rnaseqProject$metaDataDF %>% dplyr::filter_(.dots = paste0("!grepl(\"NS\",",rnaseqProject$factorName,")") ) %>%
+                                             dplyr::select(one_of("Color.Jun",rnaseqProject$factorName))
+customColorsVector <- data.frame(Color=unique(as.character(colorDF$Color.Jun)) , 
+                                 Diagnosis= unique(as.character(colorDF$DIAGNOSIS.Substatus.Tumor.Normal.Tissue)))
+#### 16:58
+varNames <- colnames(entropyMetassGSEA)[16:58]
 plotLists <- lapply(varNames, correlationPlots, constName="Htot..Entropy.", xlab="Entropy", df= data.frame(entropyMetassGSEA), 
-                    customColorDF=customColorsVector)
+                    customColorDF=customColorsVector, modelingMethod="gam")
 ImmuneScorePlots <- lapply(plotLists, function(l) l[[1]] )
-SBName =paste0(TCRResultsDir,"ImmuneScore.vs.Htot..Entropy",cloneType,"v2.jun.pdf")
+SBName =paste0(TCRResultsDir,"ImmuneScore.vs.Htot..Entropy",cloneType,".v4.jun.pdf")
 ggsave(SBName, marrangeGrob(ImmuneScorePlots, ncol=1, nrow=1), width = 15, height = 10)
 dev.off()
 
@@ -1390,11 +1416,10 @@ plotLists <- corUtilsFuncs$OneVariablePlotSort( colList, Scores=Scores, orderOfF
 
 
 
-### Neoantigen analysis
+############################################### Exploratory Neoantigen analysis for the cohort ####
 
-#### Neoantigen Post-Processing ##
-
-## Prepate data for downstream neoantigen from variants ####
+#### Neoantigen Post-Processing 
+## Prepate data for downstream neoantigen from variants 
 
 neoantigenFromVariants <- read.csv("T:/Sivasish_Sindiri/R Scribble/RNASeq.Mutation.data/NeoantigenCountFromVariants.txt", sep = "\t", header = T) %>% data.table()
 neoantigenFromVariantsAnnot <- dplyr::full_join( rnaseqProject$metaDataDF, neoantigenFromVariants, by="Sample.Biowulf.ID") %>% 
@@ -1422,7 +1447,7 @@ dim(neoantigenFromSamplesFinal);
 neoantigenFromSamplesPre <- neoantigenFromSamplesFinal
 #View(neoantigenFromSamplesFinal)    
 
-## Bean Plot ####
+## Bean Plot
 neoantigenBurden <- neoantigenFromSamplesFinal[,c("TotalNeoantigenCount", "DIAGNOSIS.Substatus.Tumor.Normal.Tissue")] %>% 
                                                                   dplyr::rename(Diagnosis=DIAGNOSIS.Substatus.Tumor.Normal.Tissue)
 orderOfFactor           <- as.character( unique(neoantigenBurden$Diagnosis) )
@@ -1436,14 +1461,17 @@ Scores <- neoantigenBurden %>% filter(!Diagnosis %in% c("Teratoma", "YST")) %>% 
 
 ### Plot and Save ###
 customColorsVector <- data.frame(Color=unique(as.character(toPlotDF$Color.Jun)), Diagnosis= unique(as.character(toPlotDF$Diagnosis)) )
-plotLists <- corUtilsFuncs$OneVariablePlotSortMean( colList, Scores=Scores, orderOfFactor, orderOfSignature, standardize =FALSE, logit =FALSE, 
-                            logBase=10,yLab = "log10( NeoantigenBurden )", legendDisplay = FALSE, customColorDF = customColorsVector, 
-                            plotType = "StringBean", sizeOfDots = 0.8)
+plotLists <- corUtilsFuncs$OneVariablePlotSort( colList, Scores=Scores, orderOfFactor, orderOfSignature, standardize =FALSE, logit =TRUE, 
+                            logBase=10,yLab = "log10(NeoantigenBurden)", legendDisplay = FALSE, customColorDF = customColorsVector, 
+                            plotType = "StringBean", sizeOfDots = 1.1)
 plotLists
 
 #### Split data matrix into High, Intermediate and Low expression matrices
 ### Expression Matrix
 expressionTMM.RPKM.Neoantigen <- expressionTMM.RPKM %>% dplyr::select(-one_of(c("Chr","Start","End","GeneID", "Length", "Strand")))
+
+
+
 
 
 ############################################### Neoantigen analysis for the cohort ####
@@ -2000,6 +2028,57 @@ ggplot(finalExhaustionMatrix.tidy, aes(x=Diagnosis.Marker, y=log2(value+1) , fil
   scale_x_discrete(labels=setNames(as.character(finalExhaustionMatrix.tidy$Diagnosis), finalExhaustionMatrix.tidy$Diagnosis.Marker))
 dev.off()
 
+### Violin plot for HLA-A,HLA-B,HLA-C ####
+
+RPKM.Data.Exhaustion   <- expressionTMM.RPKM %>% dplyr::filter(GeneName %in% c("HLA-A", "HLA-B", "HLA-C")) %>% dplyr::arrange(GeneName)
+Exhaustion.Transpose           <- as.data.frame(t(RPKM.Data.Exhaustion[,-c(1:7)]))
+colnames(Exhaustion.Transpose) <- RPKM.Data.Exhaustion$GeneName
+Exhaustion.Transpose            <- log2(Exhaustion.Transpose+1)
+Exhaustion.Transpose <- Exhaustion.Transpose %>% tibble::rownames_to_column(var="Sample.Biowulf.ID.GeneExp")
+Exhaustion.Transpose.diag <- dplyr::full_join(Exhaustion.Transpose, rnaseqProject$metaDataDF[,c("Sample.Biowulf.ID.GeneExp", "DIAGNOSIS.Substatus.Tumor.Normal.Tissue")], 
+                                              by="Sample.Biowulf.ID.GeneExp") %>% dplyr::rename(Diagnosis=DIAGNOSIS.Substatus.Tumor.Normal.Tissue)
+Rm.Normal.Exhaustion.Transpose <- Exhaustion.Transpose.diag %>% filter(!grepl("^NS.*|YST|Teratoma", Exhaustion.Transpose.diag$Diagnosis))
+finalExhaustionMatrix <-  melt(Rm.Normal.Exhaustion.Transpose[,-1], id.var = "Diagnosis")
+
+finalExhaustionMatrix.tidy <- finalExhaustionMatrix %>% dplyr::group_by(Diagnosis, variable) %>% 
+  dplyr::mutate(Med=median(value)) %>% arrange(Diagnosis, variable, value) %>% 
+  arrange(desc(Med)) %>% 
+  ungroup() %>% 
+  mutate( Diagnosis.Marker = factor(paste(Diagnosis,variable,sep="."), levels= unique(paste(Diagnosis,variable,sep=".")),
+                                    order = TRUE) ) %>% 
+  arrange(Diagnosis.Marker)
+
+pdf("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/Figures/HLA.Variable.RPKM.v6.pdf",height=25,width=20)
+customColorsVector <- setNames(unique(as.character(toPlotDF$Color.Jun)),unique(as.character(toPlotDF$Diagnosis)) )
+ggplot(test, aes(x=Diagnosis.Marker, y=value , fill=Diagnosis)) + 
+  ##ggplot(data, aes(x=Group, y=log2(ENSG00000182752))) + 
+  #geom_boxplot(varwidth = TRUE,notch = FALSE) + 
+  geom_violin(scale = "width",trim = FALSE, draw_quantiles = c(0.5)) + 
+  #geom_jitter(width=0.1) +
+  theme_bw() + 
+  ylab( paste("log2(FPKM)") ) +
+  #ylim(0,6) +
+  xlab( "Diagnosis" ) +
+  #geom_hline(yintercept=0, size=0.1) + 
+  scale_fill_manual(values = customColorsVector) + 
+  theme( title = element_text(size=13, face="bold")
+         ,axis.title.x = element_text(size=13, face="bold")
+         ,axis.title.y = element_text(size=13, face="bold")
+         ,axis.text.x = element_text(size=10, face="bold", angle=90, vjust=1)
+         ,axis.text.y = element_text(size=10, face="bold")
+         ,axis.ticks.x =element_blank()
+         ,strip.text.y= element_blank()
+         ,strip.text.x=element_text(size=13,face="bold")
+         ,strip.background=element_blank()
+         ,panel.grid.major.x=element_blank()
+         ,panel.grid.minor.x=element_blank()
+         ,panel.border = element_rect(colour = "black", fill=NA, size=0.0000000002, linetype = 2)
+         ,panel.spacing = unit(0, "cm")
+         ,strip.switch.pad.grid = unit(0, "cm")
+  ) + facet_wrap( ~ variable, scales="free", nrow = 7) +
+  scale_x_discrete(labels=setNames(as.character(finalExhaustionMatrix.tidy$Diagnosis), finalExhaustionMatrix.tidy$Diagnosis.Marker))
+dev.off()
+
 ############ TP53 Analysis ###################################
 
 
@@ -2265,3 +2344,25 @@ plot <- ggplot(nanostringData.group.tidy.immune, aes_string(x="GeneMarker", y = 
           ggtitle("Nanostring immunemarker")
 ggsave(paste0("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/Figures/Nanostring.NMYC.singlePlot",".pdf"), plot,
                  width = 45, height = 10)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
