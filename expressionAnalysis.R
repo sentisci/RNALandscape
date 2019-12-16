@@ -1065,7 +1065,7 @@ readCloneFiles <- function(x, cloneType=NA){
 
 ### Start analysis for clone type: Choose clone type ####
 ## cloneType = "IGH";
-
+library(ggalt)
 correlationPlots <- function(varName="", constName="", df=NA, customColorDF=NA, xlab="Log Total Clones", modelingMethod="lm"){
   
   print(paste(varName))
@@ -1083,6 +1083,12 @@ correlationPlots <- function(varName="", constName="", df=NA, customColorDF=NA, 
       summary_gam <- summary(gam_model)
       corr.coef = signif(summary_gam$r.sq,5)
       pval = signif(summary_gam$s.pv,5)
+      
+      ## Check the residuals
+      absres <- residuals.gam(gam_model) #Absolute value of the residual.
+      q <- quantile(absres, probs = .95) #The 95th quantile of this distribution
+      newdata <- df[which(absres>=q),]#the observations that lead to these residuals
+      dim(newdata)
   }
   
   plot <- ggplot(df, aes_string(x=constName, y=varName)) + 
@@ -1092,14 +1098,17 @@ correlationPlots <- function(varName="", constName="", df=NA, customColorDF=NA, 
     theme(axis.text=element_text(size=13)
           ,axis.title=element_text(size=13,face="bold")) +
     xlab(xlab) +
-    ylab(paste("Standardised Enrichment Score", sep=" ")) 
+    ylab(paste("Standardised Enrichment Score", sep=" "))
     
   
   if (modelingMethod=="lm") {
     plot <- plot + stat_smooth(method=modelingMethod, fill="grey") +
                     ggtitle(paste("Corr.Coeff = ", corr.coef , "\np-value = ", pval , "", varName, sep=" "))
   } else if(modelingMethod=="gam" ) {
-    plot <- plot + stat_smooth(method=modelingMethod, formula = y ~ s(x), fill="grey") +
+    plot <- plot + stat_smooth(method=modelingMethod, formula = y ~ s(x), fill="grey", level = 0.95) +
+                    # newdata[which(newdata[,constName] <= 5),]
+                    geom_encircle( data=newdata, color="darkgrey", size=2, stat = "identity", 
+                                   position = "identity", expand=0.02) +
                   ggtitle(paste( expression(R^2), " = ", corr.coef , "\np-value = ", pval , "", varName, sep=" "))
   }
 
@@ -1175,6 +1184,7 @@ countObj.Annot.Tumor     <- countObj.Annot %>%
 countObj.gb.Samples.Annotate.NoNS  <- countObj.Annot.Tumor  %>% dplyr::group_by(Sample.ID) %>% 
                                                   dplyr::summarise(
                                                   TotalCloneSum=sum(count),
+                                                  CloneCopies.GT.10 = sum(count>=10),
                                                   TotalClones=ifelse(n()==1 & TotalCloneSum==0, 0, n()) )  %>% 
                                                   dplyr::rename_(.dots=setNames(list("TotalClones"),c(cloneType)))
 dim(countObj.gb.Samples.Annotate.NoNS); head(countObj.gb.Samples.Annotate.NoNS); tbl_df(countObj.gb.Samples.Annotate.NoNS)
@@ -1183,7 +1193,7 @@ countObj.gb.Samples.Annotate.NoNS  <- left_join(countObj.gb.Samples.Annotate.NoN
                                                  rnaseqProject$metaDataDF[,c("Sample.ID","Sample.ID.Alias","LIBRARY_TYPE", rnaseqProject$factorName)], 
                                                  by="Sample.ID") %>% dplyr::filter(complete.cases(.))
 ## Change to factors
-countObj.gb.Samples.Annotate.NoNS     <- countObj.gb.Samples.Annotate.NoNS %>% 
+count     <- countObj.gb.Samples.Annotate.NoNS %>% 
                                           dplyr::mutate(LIBRARY_TYPE=factor(countObj.gb.Samples.Annotate.NoNS$LIBRARY_TYPE, 
                                                                levels = unique(countObj.gb.Samples.Annotate.NoNS$LIBRARY_TYPE))) %>%
                                           dplyr::mutate(DIAGNOSIS.Substatus.Tumor.Normal.Tissue=factor(countObj.gb.Samples.Annotate.NoNS$DIAGNOSIS.Substatus.Tumor.Normal.Tissue, 
@@ -1374,11 +1384,12 @@ ssGSEA.t <- left_join(ssGSEA.t,
                       by="Sample.Biowulf.ID.GeneExp") %>% dplyr::filter(complete.cases(.)); dim(ssGSEA.t)
 
 entropy <- read.table(paste0("../RNASeq.RSEM/TCR.Clones.Entropy/AllEntropyData_H_CL_JS.landscape.",cloneType,".v3.txt"), sep="\t", header = T)
-entropyMeta <- dplyr::left_join(entropy, rnaseqProject$metaDataDF[, c("Sample.Data.ID", "LIBRARY_TYPE")], by="Sample.Data.ID")
+entropyMeta <- dplyr::left_join(entropy, rnaseqProject$metaDataDF[, c("Sample.Data.ID","Sample.ID", "LIBRARY_TYPE")], by="Sample.Data.ID")
 entropyMeta.Filt <- entropyMeta %>% dplyr::filter(!LIBRARY_TYPE %in% c("Normal", "CellLine") )
 
 entropyMetassGSEA <- dplyr::left_join(entropyMeta.Filt, ssGSEA.t, by="Sample.Data.ID") 
 entropyMetassGSEA <- entropyMetassGSEA[complete.cases(entropyMetassGSEA), ] %>% dplyr::rename_(.dots = setNames(list(rnaseqProject$factorName),c("Diagnosis")))
+entropyMetassGSEA$Htot..Entropy.Zscore <- corUtilsFuncs$zscore_All(entropyMetassGSEA$Htot..Entropy.)
 
 ## Correlation Plot
 #### Adding Jun's Color Scheme data obtained from TCRv2.R script
@@ -1390,7 +1401,7 @@ colorDF <- rnaseqProject$metaDataDF %>% dplyr::filter_(.dots = paste0("!grepl(\"
 customColorsVector <- data.frame(Color=unique(as.character(colorDF$Color.Jun)) , 
                                  Diagnosis= unique(as.character(colorDF$DIAGNOSIS.Substatus.Tumor.Normal.Tissue)))
 #### 16:58
-varNames <- colnames(entropyMetassGSEA)[16:58]
+varNames <- colnames(entropyMetassGSEA)[19]
 plotLists <- lapply(varNames, correlationPlots, constName="Htot..Entropy.", xlab="Entropy", df= data.frame(entropyMetassGSEA), 
                     customColorDF=customColorsVector, modelingMethod="gam")
 ImmuneScorePlots <- lapply(plotLists, function(l) l[[1]] )

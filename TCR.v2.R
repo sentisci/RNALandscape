@@ -485,10 +485,10 @@ dev.off()
 
 ## Remove samples with no cdr3aa ####
 
-countObj.Annot.NoNA <- countObj.Annot %>% dplyr::filter( count != 0) %>% dplyr::filter( ! LIBRARY_TYPE %in% c("Normal", "CellLine")) ; dim(countObj.Annot.NoNA)
-countObj.Annot.PercentTCR <- countObj.Annot.NoNA  %>% dplyr::group_by(Sample.ID) %>% 
-  dplyr::mutate( TotalCount = sum(count), percentinSample = (count/TotalCount)) %>% 
-  dplyr::select(count, cdr3aa, DIAGNOSIS.Alias, TotalCount, percentinSample)
+countObj.Annot.NoNA <- countObj.Annot.NoCL.totalReads %>% dplyr::filter( count != 0) %>% dplyr::filter( ! grepl("NS|CellLine",LIBRARY_TYPE )) ; dim(countObj.Annot.NoNA)
+countObj.Annot.PercentTCR <- countObj.Annot.NoNA  %>% dplyr::group_by(Sample.Biowulf.ID.GeneExp) %>% 
+  dplyr::mutate( TotalCloneSum = sum(count), percentinSample = freq) %>% 
+  dplyr::select(count, cdr3aa, Diagnosis, TotalCloneSum, percentinSample,ReadsPerMillion)
 dim(countObj.Annot.PercentTCR) ; #View(countObj.Annot.PercentTCR)
 
 ## Plot and Save ####
@@ -499,24 +499,27 @@ base_breaks <- function(n = 10){
   }
 }
 
-pctPlot <- ggplot( data = countObj.Annot.PercentTCR, aes( count, percentinSample) ) + 
-  geom_point(aes(colour = factor(DIAGNOSIS.Alias)), size = 2.5) + 
+pctPlot <- ggplot( data = countObj.Annot.PercentTCR, aes( ReadsPerMillion, percentinSample) ) + 
+  geom_point(aes(colour = factor(Diagnosis)), size = 2.5) + 
   coord_trans(x="log10") +
-  scale_colour_manual("Diagnosis", values=setNames( StatsFinal$Color, StatsFinal$Diagnosis )  )+
+  scale_colour_manual("Diagnosis", values=setNames( as.character(customColorsVector$Color), as.character(customColorsVector$Diagnosis) )  )+
   scale_y_continuous( trans = log_trans(10), 
-                      name = paste0(cloneType," clone percentage in each sample"),
+                      name = paste0("frequency of a TCRB clone"),
                       breaks = c(0.01,0.1,0.25,0.50,0.75,1),
                       labels = scales::percent
   ) +
   scale_x_continuous( #trans = log_trans(10), 
-    name =  paste0(cloneType," clone copies"),
+    name =  paste0(" Copies of each TCRB clone"),
     breaks = c(1,10,25,50,100,150,200)
   ) +
   theme_bw() +
   theme( panel.grid.major = element_line(colour = "grey50", size = 0.25), 
          panel.grid.minor = element_blank())  #element_line(colour = "grey50", size = 0.25) ) + 
 
-SBName =paste(date,"Clone abundance vs expansion",cloneType,"new.pdf",sep=".")
+test <- countObj.Annot.PercentTCR %>% filter( count >= 10 & percentinSample >= 0.01 )
+countOFSamples <- test %>% group_by(Diagnosis) %>% mutate(Count = length(unique(Sample.Biowulf.ID.GeneExp))) %>% dplyr::select(Diagnosis, Count) %>% distinct() %>% arrange(Count)
+
+SBName =paste0("Clone.abundance.vs.expansion",cloneType,"v3.pdf")
 ggsave(SBName, marrangeGrob(list(pctPlot), ncol=1, nrow=1), width = 15, height = 10)
 dev.off()
 
