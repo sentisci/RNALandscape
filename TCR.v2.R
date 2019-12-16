@@ -218,13 +218,19 @@ dim(countObj.Annot)
 dim(countObj.Annot.NoCL)
 dim(countObj.Annot.complete)
 
+countObj.Annot.NoCL.totalReads <- dplyr::left_join(countObj.Annot.complete, readCountsSum.df, by="Sample.Biowulf.ID.GeneExp")
+countObj.Annot.NoCL.totalReads.complete <- countObj.Annot.NoCL.totalReads[complete.cases(countObj.Annot.NoCL.totalReads),]
+dim(countObj.Annot.NoCL.totalReads.complete)
+
+countObj.Annot.NoCL.totalReads$ReadsPerMillion <- ( countObj.Annot.NoCL.totalReads$count/countObj.Annot.NoCL.totalReads$readCountsSum)*1000000
+
 #################################################################################### For TCRSeq ###################################
-### For now Select DF manually ####
+### For now Select DF manually 
 
 #cloneType = "IGHClones"  ; countObj <- cloneObjIG %>% as.data.frame()
 cloneType = "TRBClones"  ; countObj <- cloneObjTCR %>% as.data.frame()
 
-### Attach metadata and generate countObj ####
+### Attach metadata and generate countObj #
 countObj <- countObj %>% dplyr::rename(Sample.Data.ID=SampleName); 
 countObj$Sample.Data.ID <- gsub("convert.|.clones.txt","", countObj$Sample.Data.ID)
 #countObj$SAMPLE_ID <- gsub("-","_", countObj$SAMPLE_ID)
@@ -243,16 +249,10 @@ dim(countObj.Annot.complete)
 
 
 
-######## Make Step Plots to show expansion ############
-countObj.Annot.NoCL.totalReads <- dplyr::left_join(countObj.Annot.complete, readCountsSum.df, by="Sample.Biowulf.ID.GeneExp")
-countObj.Annot.NoCL.totalReads.complete <- countObj.Annot.NoCL.totalReads[complete.cases(countObj.Annot.NoCL.totalReads),]
-dim(countObj.Annot.NoCL.totalReads.complete)
-
-countObj.Annot.NoCL.totalReads$ReadsPerMillion <- ( countObj.Annot.NoCL.totalReads$count/countObj.Annot.NoCL.totalReads$readCountsSum)*1000000
-
+######## Make Step Plots to show expansion ####
 countObj.Annot.NoCL.totalReads <- countObj.Annot.NoCL.totalReads %>% dplyr::select(Sample.Biowulf.ID.GeneExp, 
                                                                                    Diagnosis, 
-                                                                                   count, readCountsSum, ReadsPerMillion,
+                                                                                   count, freq, readCountsSum, ReadsPerMillion,
                                                                                    Color.Jun)
                                                                                    #Color.Substatus)
 
@@ -485,7 +485,7 @@ dev.off()
 
 ## Remove samples with no cdr3aa ####
 
-countObj.Annot.NoNA <- countObj.Annot.NoCL.totalReads %>% dplyr::filter( count != 0) %>% dplyr::filter( ! grepl("NS|CellLine",LIBRARY_TYPE )) ; dim(countObj.Annot.NoNA)
+countObj.Annot.NoNA <- countObj.Annot.NoCL.totalReads %>% dplyr::filter( count != 0); dim(countObj.Annot.NoNA)
 countObj.Annot.PercentTCR <- countObj.Annot.NoNA  %>% dplyr::group_by(Sample.Biowulf.ID.GeneExp) %>% 
   dplyr::mutate( TotalCloneSum = sum(count), percentinSample = freq) %>% 
   dplyr::select(count, cdr3aa, Diagnosis, TotalCloneSum, percentinSample,ReadsPerMillion)
@@ -498,28 +498,43 @@ base_breaks <- function(n = 10){
     axisTicks(log2(range(x, na.rm = TRUE)), log = TRUE, n = n)
   }
 }
+customColorsVector <- setNames( unique(as.character(countObj.Annot.NoNA$Color.Jun)), unique(as.character(countObj.Annot.NoNA$Diagnosis)))
 
 pctPlot <- ggplot( data = countObj.Annot.PercentTCR, aes( ReadsPerMillion, percentinSample) ) + 
   geom_point(aes(colour = factor(Diagnosis)), size = 2.5) + 
   coord_trans(x="log10") +
-  scale_colour_manual("Diagnosis", values=setNames( as.character(customColorsVector$Color), as.character(customColorsVector$Diagnosis) )  )+
+  scale_colour_manual("Diagnosis", values=customColorsVector  )+
   scale_y_continuous( trans = log_trans(10), 
                       name = paste0("frequency of a TCRB clone"),
                       breaks = c(0.01,0.1,0.25,0.50,0.75,1),
                       labels = scales::percent
   ) +
   scale_x_continuous( #trans = log_trans(10), 
-    name =  paste0(" Copies of each TCRB clone"),
-    breaks = c(1,10,25,50,100,150,200)
+    name =  paste0(" Expression of each TCRB clone"),
+    #breaks = c(0.1,0.5,1,5,10)
   ) +
   theme_bw() +
   theme( panel.grid.major = element_line(colour = "grey50", size = 0.25), 
          panel.grid.minor = element_blank())  #element_line(colour = "grey50", size = 0.25) ) + 
 
+## Filtering based on Frequency of each clones and its expansion (percentage) in that sample
 test <- countObj.Annot.PercentTCR %>% filter( count >= 10 & percentinSample >= 0.01 )
-countOFSamples <- test %>% group_by(Diagnosis) %>% mutate(Count = length(unique(Sample.Biowulf.ID.GeneExp))) %>% dplyr::select(Diagnosis, Count) %>% distinct() %>% arrange(Count)
+countOFSamples <- test %>% group_by(Diagnosis) %>% mutate(countOFSamples = length(unique(Sample.Biowulf.ID.GeneExp)),
+                                                          CountOFCDR3 = n()) %>% dplyr::select(Diagnosis, countOFSamples, CountOFCDR3) %>% 
+                                            distinct() %>% arrange(countOFSamples)
+countOFSamples
 
-SBName =paste0("Clone.abundance.vs.expansion",cloneType,"v3.pdf")
+## Filtering based on its expansion (percentage) in that sample and Expression quantile
+Exp_95_pct_cuttoff <- quantile(countObj.Annot.PercentTCR$ReadsPerMillion, probs = 0.99)
+test <- countObj.Annot.PercentTCR %>% filter( ReadsPerMillion >= Exp_95_pct_cuttoff & percentinSample >= 0.01 )
+countOFSamples <- test %>% group_by(Diagnosis) %>% mutate(countOFSamples = length(unique(Sample.Biowulf.ID.GeneExp)),
+                                                          CountOFCDR3 = n()) %>% dplyr::select(Diagnosis, countOFSamples, CountOFCDR3) %>% 
+                                        distinct() %>% arrange(countOFSamples)
+
+print(paste("Exp_95_pct_cuttoff ",  Exp_95_pct_cuttoff[[1]]))
+countOFSamples
+
+SBName =paste0("Clone.abundance.vs.expansion",cloneType,".Exoression.v3.pdf")
 ggsave(SBName, marrangeGrob(list(pctPlot), ncol=1, nrow=1), width = 15, height = 10)
 dev.off()
 
