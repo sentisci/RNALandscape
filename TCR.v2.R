@@ -7,7 +7,6 @@ metaData <- read.csv("MetadataMapper.v3.txt", sep="\t")
 # metaData <- read.csv("tcr_rnaseq_file.txt", sep="\t")
 
 ############################################ Section 0 Declare functions ##########################################################
-
 ### Required Custom Functions ####
 
 filterSpecificCloneTypes  <- function(cloneData, cloneType){
@@ -88,8 +87,8 @@ immunoseqv2 <- function(x) {
   
 }
 
-############################################ Section 1 Read data  #################################################################
 
+############################################ Section 1 Read data  #################################################################
 ### Placeholder DF ####
 emptyDF <- data.frame(count=c(0), freq=c(0), cdr3nt=c("NA"),cdr3aa=c("NF"),v=c("NF"),d=c("NF"),j=c("NF"),VEnd=c(0),DStart=c(0),
                       DEnd=c(0),JStart=c(0),SampleName=c(0))
@@ -128,6 +127,7 @@ readCounts <- readRDS("T:/Sivasish_Sindiri/R_workspace/MiXCR/RNASeq.readcounts.r
 readCountsSum <- apply(readCounts, 2, sum)
 readCountsSum <- as.data.frame(readCountsSum)
 readCountsSum.df <- readCountsSum %>% tibble::rownames_to_column(var="Sample.Biowulf.ID.GeneExp")
+
 
 ######################################################## ENTROPY Analysis ############################################
 ### write the inputs for entropy data #
@@ -190,6 +190,7 @@ AllEntropyData.annot <- dplyr::full_join(AllEntropyData, metaData[,c("Sample.Dat
   
 
 
+
 ############################################ Section 1b Select DF ################################################################
 ### To Do  ####
 ### Add switch case to select Clone df based on user input ###
@@ -205,7 +206,7 @@ countObj$Sample.Data.ID <- gsub("convert.|.clones.txt","", countObj$Sample.Data.
 #countObj$SAMPLE_ID <- gsub("-","_", countObj$SAMPLE_ID)
 countObj.Annot <- dplyr::left_join(countObj, metaData, by="Sample.Data.ID") %>% 
   dplyr::select(one_of("count", "freq", "cdr3nt", "cdr3aa", "v", "d", "j", "VEnd", "DStart", "DEnd", "JStart", "Sample.Biowulf.ID.GeneExp", "Sample.ID.Alias",
-                         "LIBRARY_TYPE","DIAGNOSIS.Substatus.Tumor.Normal.Tissue", "Color.Jun" )) ; head(countObj.Annot)
+                         "LIBRARY_TYPE","DIAGNOSIS.Substatus.Tumor.Normal.Tissue", "Color.Jun", "Patient.ID.updated" )) ; head(countObj.Annot)
 ### Plot the clone expansion
 countObj.Annot.NoCL <- countObj.Annot %>% filter(!grepl('CellLine',LIBRARY_TYPE)) %>% filter(!grepl('^NS', DIAGNOSIS.Substatus.Tumor.Normal.Tissue) )
 countObj.Annot.NoCL %<>% dplyr::rename(Diagnosis = DIAGNOSIS.Substatus.Tumor.Normal.Tissue)
@@ -487,8 +488,8 @@ dev.off()
 
 countObj.Annot.NoNA <- countObj.Annot.NoCL.totalReads %>% dplyr::filter( count != 0); dim(countObj.Annot.NoNA)
 countObj.Annot.PercentTCR <- countObj.Annot.NoNA  %>% dplyr::group_by(Sample.Biowulf.ID.GeneExp) %>% 
-  dplyr::mutate( TotalCloneSum = sum(count), percentinSample = freq) %>% 
-  dplyr::select(count, cdr3aa, Diagnosis, TotalCloneSum, percentinSample,ReadsPerMillion)
+  dplyr::mutate( percentinSample = freq) %>% 
+  dplyr::select(count, cdr3aa, Diagnosis, percentinSample,ReadsPerMillion,Patient.ID.updated)
 dim(countObj.Annot.PercentTCR) ; #View(countObj.Annot.PercentTCR)
 
 ## Plot and Save ####
@@ -511,11 +512,43 @@ pctPlot <- ggplot( data = countObj.Annot.PercentTCR, aes( ReadsPerMillion, perce
   ) +
   scale_x_continuous( #trans = log_trans(10), 
     name =  paste0(" Expression of each TCRB clone"),
-    #breaks = c(0.1,0.5,1,5,10)
+    breaks = c(0.1,0.5,1,2,3,4)
   ) +
   theme_bw() +
   theme( panel.grid.major = element_line(colour = "grey50", size = 0.25), 
-         panel.grid.minor = element_blank())  #element_line(colour = "grey50", size = 0.25) ) + 
+         panel.grid.minor = element_blank(),
+         legend.position = "none")  #element_line(colour = "grey50", size = 0.25) ) + 
+
+## Top plot
+topPlot <- ggplot(data = countObj.Annot.PercentTCR, aes(x=ReadsPerMillion)) + geom_density(fill="#E69F00",alpha=0.4) + theme_bw() + 
+  scale_x_continuous( trans = log_trans(10), name =  paste0(" Expression of each TCRB clone"),breaks = c(0.1,0.5,1,2,3,4) ) +
+  theme( 
+         # panel.grid.major = element_blank(),
+         # panel.grid.minor = element_blank(),
+         # panel.border = element_blank(),
+         axis.ticks = element_blank(),
+         axis.text = element_blank(),
+         axis.title = element_blank()
+        )
+  
+
+## Right plot
+countObj.Annot.PercentTCR$percentinSample100 <- (countObj.Annot.PercentTCR$percentinSample)*100
+rightPlot <- ggplot(data = countObj.Annot.PercentTCR, aes(x=percentinSample100)) + geom_density(fill="#E69F00",alpha=0.4) + theme_bw() + 
+  scale_x_continuous( trans = log_trans(10) ) + coord_flip() + 
+  theme( 
+         # panel.grid.major = element_blank(),
+         # panel.grid.minor = element_blank(),
+         # panel.border = element_blank(),
+         axis.ticks = element_blank(),
+         axis.text = element_blank(),
+         axis.title = element_blank()
+        )
+
+## Assemble all the above plots
+mainPlot <- plot_grid(topPlot, NULL, pctPlot, rightPlot, ncol = 2, align = "hv", 
+                      rel_widths = c(3, 1), rel_heights = c(1, 3))
+mainPlot
 
 ## Filtering based on Frequency of each clones and its expansion (percentage) in that sample
 test <- countObj.Annot.PercentTCR %>% filter( count >= 10 & percentinSample >= 0.01 )
@@ -525,17 +558,20 @@ countOFSamples <- test %>% group_by(Diagnosis) %>% mutate(countOFSamples = lengt
 countOFSamples
 
 ## Filtering based on its expansion (percentage) in that sample and Expression quantile
-Exp_95_pct_cuttoff <- quantile(countObj.Annot.PercentTCR$ReadsPerMillion, probs = 0.99)
+Exp_99_pct_cuttoff <- quantile(countObj.Annot.PercentTCR$ReadsPerMillion, probs = 0.99)
 test <- countObj.Annot.PercentTCR %>% filter( ReadsPerMillion >= Exp_95_pct_cuttoff & percentinSample >= 0.01 )
 countOFSamples <- test %>% group_by(Diagnosis) %>% mutate(countOFSamples = length(unique(Sample.Biowulf.ID.GeneExp)),
-                                                          CountOFCDR3 = n()) %>% dplyr::select(Diagnosis, countOFSamples, CountOFCDR3) %>% 
+                                                          countOFPatients = length(unique(Patient.ID.updated)),
+                                                          CountOFCDR3 = n()) %>% dplyr::select(Diagnosis, countOFSamples, countOFPatients, CountOFCDR3) %>% 
                                         distinct() %>% arrange(countOFSamples)
 
 print(paste("Exp_95_pct_cuttoff ",  Exp_95_pct_cuttoff[[1]]))
 countOFSamples
 
-SBName =paste0("Clone.abundance.vs.expansion",cloneType,".Exoression.v3.pdf")
-ggsave(SBName, marrangeGrob(list(pctPlot), ncol=1, nrow=1), width = 15, height = 10)
+SBName =paste0("Clone.abundance.vs.expansion",cloneType,".Exoression.v6c.pdf")
+#ggsave(SBName, marrangeGrob(list(pctPlot), ncol=1, nrow=1), width = 15, height = 10)
+pdf(SBName, width = 15, height = 10)
+mainPlot
 dev.off()
 
 ######## Comparing TCR vs BCR counts ####
@@ -576,7 +612,7 @@ countObj.Annot.gb <- countObj.Annot.complete  %>% dplyr::group_by(cdr3aa) %>%
     Samples = paste(Sample.Biowulf.ID.GeneExp, collapse = ','), 
     CloneCount = paste(count, collapse = ','),
     MedianCloneCount = median(count),
-    Diagnosis= paste(unique(DIAGNOSIS.Substatus.Tumor.Normal.Tissue), collapse = ',' )
+    Diagnosis= paste(unique(Diagnosis), collapse = ',' )
   )
 
 ## Using VDJdb
@@ -635,7 +671,7 @@ TCGANormalDistinct <- unique(TCGANormal.Shared$Sequence)
 countObj.Annot.gb.Cancer <- countObj.Annot.gb
 countObj.Annot.gb.Cancer$length <- sapply(as.character(countObj.Annot.gb$cdr3aa), nchar)
 cancerShared             <- countObj.Annot.gb.Cancer %>% filter(TotalSamples > 1); length(cancerShared$cdr3aa)
-ccancerShared.Complete    <- unlist(stringr::str_extract_all(cancerShared$cdr3aa, "^C.*F")); length(cancerShared.Complete)
+cancerShared.Complete    <- unlist(stringr::str_extract_all(cancerShared$cdr3aa, "^C.*F")); length(cancerShared.Complete)
 cancerPrivate            <- countObj.Annot.gb.Cancer %>% filter(TotalSamples == 1); length(cancerPrivate$cdr3aa)
 cancerPrivate.Complete    <- unlist(stringr::str_extract_all(cancerPrivate$cdr3aa, "^C.*F")); length(cancerPrivate.Complete)
 
@@ -667,24 +703,40 @@ InHouseNormals  <- attr(v.table,"intersections")[["In House Normal"]]; length(In
 warenetalNormals  <- attr(v.table,"intersections")[["Warreb et al (healthy)"]]; length(warenetalNormals)
 
 
-TumorPrivateFinal <- data.frame("AA"=TumorPrivate, "length"=sapply(TumorPrivate,nchar))
+TumorPrivateFinal <- data.frame("AA"=as.character(countObj.Annot.gb.Cancer$cdr3aa), 
+                                "length"=sapply(as.character(countObj.Annot.gb.Cancer$cdr3aa),nchar))
 colnames(TumorPrivateFinal) <- c("AA","Len")
 TumorPrivateFinal_15 <- TumorPrivateFinal %>% filter(Len == 15)
-TumorPrivatePlot <- ggseqlogo(as.character(TumorPrivateFinal_15$AA), seq_type='aa',  method = "probability")
+TumorPrivatePlot <- ggseqlogo(as.character(TumorPrivateFinal_15$AA), seq_type='aa',  method = "bits")
 
-warenetalNormalsFinal <- data.frame("AA"=warenetalNormals, "length"=sapply(warenetalNormals,nchar))
+warenetalNormalsFinal <- data.frame("AA"=warenetal.CDR3Beta.Complete, "length"=sapply(warenetal.CDR3Beta.Complete,nchar))
 colnames(warenetalNormalsFinal) <- c("AA","Len")
 warenetalNormalsFinal <- warenetalNormalsFinal %>% filter(Len == 15)
-warenetalNormalsPlot <- ggseqlogo(as.character(warenetalNormalsFinal$AA), seq_type='aa',  method = "probability")
+warenetalNormalsPlot <- ggseqlogo(as.character(warenetalNormalsFinal$AA), seq_type='aa',  method = "bits")
+
+vdjetalNormalsFinal <- data.frame("AA"=vdjdb.CDR3Beta, 
+                                  "length"=sapply(vdjdb.CDR3Beta,nchar))
+colnames(vdjetalNormalsFinal) <- c("AA","Len")
+vdjetalNormalsFinal <- vdjetalNormalsFinal %>% filter(Len == 15)
+vdjetalNormalsPlot <- ggseqlogo(as.character(vdjetalNormalsFinal$AA), seq_type='aa',  method = "bits")
 
 
-InHouseNormalsFinal <- data.frame("AA"=InHouseNormals, "length"=sapply(InHouseNormals,nchar))
+InHouseNormalsFinal <- data.frame("AA"=inHouseNormal.Complete, "length"=sapply(inHouseNormal.Complete,nchar))
 colnames(InHouseNormalsFinal) <- c("AA","Len")
 InHouseNormalsFinal <- InHouseNormalsFinal %>% filter(Len == 15)
-InHouseNormalsPlot <- ggseqlogo(as.character(InHouseNormalsFinal$AA), seq_type='aa',  method = "probability")
+InHouseNormalsPlot <- ggseqlogo(as.character(InHouseNormalsFinal$AA), seq_type='aa',  method = "bits")
 
-pdf("ven.probability.pdf", height = 10, width = 10)
-ggarrange(plotlist = list(TumorPrivatePlot, InHouseNormalsPlot, warenetalNormalsPlot),common.legend=TRUE, nrow = 3)
+CDR3_length <- ggplot(data=TumorPrivateFinal, aes(Len)) + 
+  geom_histogram(breaks=seq(7, 25, by=1),binwidth = 5, col="red", 
+                 fill="lightblue") + scale_x_continuous(name = "Length of CDR3\n alpha chain", breaks = seq(7, 25, 1)) + scale_y_continuous(name = "Frequency") + theme_bw()+ ggtitle("CDR3 length distribution\n in study cohort")
+
+pdf("ven.probability.bits.pdf", height = 20, width = 10)
+ggarrange(plotlist = list(TumorPrivatePlot, InHouseNormalsPlot, 
+                          vdjetalNormalsPlot, warenetalNormalsPlot,
+                          CDR3_length),
+                              common.legend=TRUE, nrow =5,
+                      labels = c("Study cohort", "Study Normal",
+                                 "VDJ.DB", "Waren et al"))
 dev.off()
 
 ############################# GLIPH analysis ###################################################

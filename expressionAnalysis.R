@@ -2039,36 +2039,97 @@ ggplot(finalExhaustionMatrix.tidy, aes(x=Diagnosis.Marker, y=log2(value+1) , fil
   scale_x_discrete(labels=setNames(as.character(finalExhaustionMatrix.tidy$Diagnosis), finalExhaustionMatrix.tidy$Diagnosis.Marker))
 dev.off()
 
-### Violin plot for HLA-A,HLA-B,HLA-C ####
+### Violin plot for HLA-A,HLA-B,HLA-C ####################################################
 
-RPKM.Data.Exhaustion   <- expressionTMM.RPKM %>% dplyr::filter(GeneName %in% c("HLA-A", "HLA-B", "HLA-C")) %>% dplyr::arrange(GeneName)
+#RPKM.Data.Exhaustion   <- expressionTMM.RPKM %>% dplyr::filter(GeneName %in% c("HLA-A", "HLA-B", "HLA-C")) %>% dplyr::arrange(GeneName)
+RPKM.Data.Exhaustion   <- expressionTMM.RPKM %>% dplyr::filter(GeneName %in% c("ECEL1", "IGF2BP1",
+                                                                               "FOXM1", "SOX11",
+                                                                               "PRAME", "PBK")) %>% dplyr::arrange(GeneName)
 Exhaustion.Transpose           <- as.data.frame(t(RPKM.Data.Exhaustion[,-c(1:7)]))
 colnames(Exhaustion.Transpose) <- RPKM.Data.Exhaustion$GeneName
-Exhaustion.Transpose            <- log2(Exhaustion.Transpose+1)
+Exhaustion.Transpose            <- Exhaustion.Transpose
 Exhaustion.Transpose <- Exhaustion.Transpose %>% tibble::rownames_to_column(var="Sample.Biowulf.ID.GeneExp")
-Exhaustion.Transpose.diag <- dplyr::full_join(Exhaustion.Transpose, rnaseqProject$metaDataDF[,c("Sample.Biowulf.ID.GeneExp", "DIAGNOSIS.Substatus.Tumor.Normal.Tissue")], 
-                                              by="Sample.Biowulf.ID.GeneExp") %>% dplyr::rename(Diagnosis=DIAGNOSIS.Substatus.Tumor.Normal.Tissue)
-Rm.Normal.Exhaustion.Transpose <- Exhaustion.Transpose.diag %>% filter(!grepl("^NS.*|YST|Teratoma", Exhaustion.Transpose.diag$Diagnosis))
-finalExhaustionMatrix <-  melt(Rm.Normal.Exhaustion.Transpose[,-1], id.var = "Diagnosis")
+Exhaustion.Transpose.diag <- dplyr::full_join(Exhaustion.Transpose, rnaseqProject$metaDataDF[,c("Sample.Biowulf.ID.GeneExp", 
+                                                                                                "Violin.normal",
+                                                                                                "Color.Jun",
+                                                                                                "LIBRARY_TYPE")], 
+                                              by="Sample.Biowulf.ID.GeneExp") %>% dplyr::rename(Diagnosis=Violin.normal)
 
-finalExhaustionMatrix.tidy <- finalExhaustionMatrix %>% dplyr::group_by(Diagnosis, variable) %>% 
+## Select dataframe for Tumor and Normal separately
+#Tumor
+Rm.Normal.Exhaustion.Transpose <- Exhaustion.Transpose.diag %>% filter(!grepl("NS.*|YST|Teratoma", Exhaustion.Transpose.diag$Diagnosis))
+#Normal
+Normal.Exhaustion.Transpose <- Exhaustion.Transpose.diag %>% filter(grepl("NS.*", Exhaustion.Transpose.diag$Diagnosis))
+
+## Tidyfy dataframe for Tumor and Normal separately
+#Tumor
+finalExhaustionMatrix.tumor <-  reshape2::melt(Rm.Normal.Exhaustion.Transpose[,-1], id.var = c("Color.Jun","Diagnosis","LIBRARY_TYPE"))
+#Normal
+Normal.Exhaustion.Transpose$Color.Jun <- "steelblue"
+finalExhaustionMatrix.normal <-  reshape2::melt(Normal.Exhaustion.Transpose[,-1], id.var = c("Color.Jun","Diagnosis","LIBRARY_TYPE"))
+
+## Ordering Tidified data frames
+# For Tumor ordering
+finalExhaustionMatrix.tidy.tumor <- finalExhaustionMatrix.tumor %>% dplyr::group_by(Diagnosis, variable) %>% 
   dplyr::mutate(Med=median(value)) %>% arrange(Diagnosis, variable, value) %>% 
   arrange(desc(Med)) %>% 
   ungroup() %>% 
   mutate( Diagnosis.Marker = factor(paste(Diagnosis,variable,sep="."), levels= unique(paste(Diagnosis,variable,sep=".")),
-                                    order = TRUE) ) %>% 
+                                    order = TRUE),
+          LIBRARY_TYPE = factor(LIBRARY_TYPE, levels=c("Tumor") )) %>% 
   arrange(Diagnosis.Marker)
 
-pdf("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/Figures/HLA.Variable.RPKM.v6.pdf",height=25,width=20)
-customColorsVector <- setNames(unique(as.character(toPlotDF$Color.Jun)),unique(as.character(toPlotDF$Diagnosis)) )
-ggplot(test, aes(x=Diagnosis.Marker, y=value , fill=Diagnosis)) + 
+# For Normal ordering
+normalS_order = c("NS.brain", "NS.heart", "NS.lung", "NS.liver", "NS.kidney", "NS.testis", "NS.ovary", "NS.other")
+finalExhaustionMatrix.tidy.normal <- finalExhaustionMatrix.normal %>% dplyr::group_by(Diagnosis, variable) %>% 
+  dplyr::mutate(Med=median(value)) %>% arrange(Diagnosis, variable, value) %>% 
+  #arrange(desc(Med)) %>% 
+  ungroup() %>% 
+  mutate( Diagnosis.Marker = factor(paste(Diagnosis,variable,sep="."), levels= unique(paste(normalS_order,variable,sep=".")),
+                                    order = TRUE),
+          LIBRARY_TYPE = factor(LIBRARY_TYPE, levels=c("Normal") )) %>% 
+  arrange(Diagnosis.Marker)
+
+finalExhaustionMatrix.tidy.normal$Diagnosis <- factor(finalExhaustionMatrix.tidy.normal$Diagnosis,
+                                                      levels = normalS_order,
+                                                      ordered = TRUE)
+
+
+## Merge both dataframes 
+finalExhaustionMatrix.tidy <- rbind( finalExhaustionMatrix.tidy.normal)
+
+
+## Construct Color vector
+#customColorsVector <- setNames(unique(as.character(finalExhaustionMatrix$Color.Jun)), unique(as.character(finalExhaustionMatrix$Diagnosis)))
+# Tumor
+customColorsVector.tumor <- setNames(unique(as.character(finalExhaustionMatrix.tidy.tumor$Color.Jun)), 
+                               unique(as.character(finalExhaustionMatrix.tidy.tumor$Diagnosis)))
+# Normal
+customColorsVector.normal <- setNames(rep("lightgrey", 8), 
+                                     unique(as.character(finalExhaustionMatrix.tidy.normal$Diagnosis)))
+# merge
+customColorsVector <- c(customColorsVector.tumor, customColorsVector.normal); customColorsVector
+customColorsVector.dummy <- setNames(rep("white", length(unname(customColorsVector))),
+                                     names(customColorsVector))
+
+
+## Make dummy dataframe to get equal dmension
+#test <- finalExhaustionMatrix.tidy %>% dplyr::filter(variable %in% c("PRAME", "ECEL1"))
+# test.dot.DF2 <- finalExhaustionMatrix.tidy %>% filter(Diagnosis %in% c("CCSK", "NS.brain") ) %>% 
+#                                     dplyr::distinct(LIBRARY_TYPE, variable, Diagnosis.Marker)
+# test.dot.DF2$value <- c(4,4,4,4,6,4,4,4,4,4,6,4)
+
+## Plot the violin/Box plots
+pdf("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/Figures/sixGenes.Variable.RPKM.v20.pdf",height=25,width=20)
+ggplot(finalExhaustionMatrix.tidy, aes(x=Diagnosis.Marker, y=value , fill=Diagnosis)) + 
   ##ggplot(data, aes(x=Group, y=log2(ENSG00000182752))) + 
-  #geom_boxplot(varwidth = TRUE,notch = FALSE) + 
   geom_violin(scale = "width",trim = FALSE, draw_quantiles = c(0.5)) + 
-  #geom_jitter(width=0.1) +
+  #geom_point(data = test.dot.DF2, aes(x = Diagnosis.Marker, y = value), fill="white", alpha=0) +
+  #geom_boxplot(width=0.2,notch = FALSE) + 
+  #geom_jitter(width=0.1,color="lightgrey", ) +
   theme_bw() + 
   ylab( paste("log2(FPKM)") ) +
-  #ylim(0,6) +
+  #ylim(-2,4) +
   xlab( "Diagnosis" ) +
   #geom_hline(yintercept=0, size=0.1) + 
   scale_fill_manual(values = customColorsVector) + 
@@ -2086,8 +2147,10 @@ ggplot(test, aes(x=Diagnosis.Marker, y=value , fill=Diagnosis)) +
          ,panel.border = element_rect(colour = "black", fill=NA, size=0.0000000002, linetype = 2)
          ,panel.spacing = unit(0, "cm")
          ,strip.switch.pad.grid = unit(0, "cm")
-  ) + facet_wrap( ~ variable, scales="free", nrow = 7) +
-  scale_x_discrete(labels=setNames(as.character(finalExhaustionMatrix.tidy$Diagnosis), finalExhaustionMatrix.tidy$Diagnosis.Marker))
+         ,legend.position = "none"
+  ) + facet_wrap( ~ variable , scales="free", nrow = 7) +
+  scale_x_discrete(labels=setNames(as.character(finalExhaustionMatrix.tidy$Diagnosis), finalExhaustionMatrix.tidy$Diagnosis.Marker)) +
+  scale_y_continuous(minor_breaks = seq(-1, 6, 1))
 dev.off()
 
 ############ TP53 Analysis ###################################
