@@ -1,3 +1,10 @@
+
+
+From: Sindiri, Sivasish (NIH/NCI) [C] <sivasish.sindiri@nih.gov> 
+  Sent: Friday, December 20, 2019 8:58 AM
+To: Sindiri, Sivasish (NIH/NCI) [C] <sivasish.sindiri@nih.gov>
+  Subject: analysis
+
 rm(list=ls())
 
 ## Source all classes and packages ####
@@ -112,9 +119,9 @@ mergeObjectsNoDup_data <- readRDS("../RNASeq.RSEM/GeneRDSOutput/RawCount/All.sam
 ### Filter specific Histology samples ####
 to_filter_by_histology = FALSE
 if(to_filter_by_histology){
-# "NB.MYCN.A", "NB.MYCN.NA","NB.Unknown"
-design <- dplyr::filter(rnaseqProject$metaDataDF,DIAGNOSIS.Substatus.Tumor.Normal.Tissue %in% c("NB.MYCN.A", "NB.MYCN.NA","NB.Unknown"))
-mergeObjectsNoDup <- mergeObjectsNoDup_data %>% dplyr::select(one_of(as.character(design[,rnaseqProject$metadataFileRefCol]))); dim(mergeObjectsNoDup)
+  # "NB.MYCN.A", "NB.MYCN.NA","NB.Unknown"
+  design <- dplyr::filter(rnaseqProject$metaDataDF,DIAGNOSIS.Substatus.Tumor.Normal.Tissue %in% c("NB.MYCN.A", "NB.MYCN.NA","NB.Unknown"))
+  mergeObjectsNoDup <- mergeObjectsNoDup_data %>% dplyr::select(one_of(as.character(design[,rnaseqProject$metadataFileRefCol]))); dim(mergeObjectsNoDup)
 } else {
   design <- rnaseqProject$metaDataDF
   design %<>% arrange(DIAGNOSIS.Substatus.Tumor.Normal.Tissue, desc(LIBRARY_TYPE))
@@ -128,18 +135,18 @@ design %<>% dplyr::mutate(!!rnaseqProject$metadataFileRefCol := factor(design[,r
 ## Evaluate presence of duplicate features (genes) and consolidate them ####
 setDT(mergeObjectsNoDup, keep.rownames = TRUE)
 mergeObjectsNoDup.pre <- mergeObjectsNoDup          %>% 
-                         dplyr::rename(GeneID = rn) 
+  dplyr::rename(GeneID = rn) 
 mergeObjectsNoDup.pre <- dplyr::left_join(rnaseqProject$annotationDF[,c("GeneID", "GeneName")], mergeObjectsNoDup.pre, by="GeneID") %>% 
-                         data.table()
+  data.table()
 mergeObjectsConso     <- corUtilsFuncs$consolidateDF(mergeObjectsNoDup.pre[,-c("GeneID")], funcName = "max", featureName = "GeneName")
 mergeObjectsConso     <- dplyr::full_join(mergeObjectsConso, rnaseqProject$annotationDF[,c("GeneID", "GeneName")], by="GeneName") %>%  
-                         data.table()
+  data.table()
 mergeObjectsConso     <- subset(mergeObjectsConso,!duplicated(mergeObjectsConso$GeneName))
 mergeObjectsConso     <- mergeObjectsConso[complete.cases(mergeObjectsConso), ]; dim(mergeObjectsConso)
 mergeObjectsConso     <- mergeObjectsConso[,-c("GeneName")]         %>% 
-                         data.frame()                               %>% 
-                         tibble::column_to_rownames(var = "GeneID") %>% 
-                         as.matrix() ; dim(mergeObjectsConso)
+  data.frame()                               %>% 
+  tibble::column_to_rownames(var = "GeneID") %>% 
+  as.matrix() ; dim(mergeObjectsConso)
 ## matching above data frame with the annotationDF
 rnaseqProject$annotationDF <- rnaseqProject$annotationDF %>% dplyr::filter(GeneID %in% rownames(mergeObjectsConso)); dim(rnaseqProject$annotationDF)
 
@@ -180,7 +187,7 @@ expressionTMM.RPKM.arr <- expressionTMM.RPKM %>% dplyr::select(one_of("Chr","Sta
 ## Add additional annotations (sample Id alias) ####
 AliasNames_df                 <- dplyr::left_join( data.frame("Sample.Biowulf.ID.GeneExp"=colnames(expressionTMM.RPKM.arr)), 
                                                    designMatrix[,c(rnaseqProject$metadataFileRefCol,rnaseqProject$factorName,"Sample.ID.Alias", 
-                                                             "Sample.Data.ID", "DIAGNOSIS.Alias","Annotation_Target_khanlab")] )
+                                                                   "Sample.Data.ID", "DIAGNOSIS.Alias","Annotation_Target_khanlab")] )
 AliasColnames                 <- c(as.character(AliasNames_df[c(1:7),1]), as.character(AliasNames_df[-c(1:7),6])); AliasColnames
 
 ## Perform Sanity Check for the above operations #####
@@ -189,14 +196,14 @@ colnames(expressionTMM.RPKM.arr)  <- AliasColnames
 
 ### Save expression (TMM-RPKM/whatwever asked for in the above step) to a file ####
 write.table(expressionTMM.RPKM.arr, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
-                                      paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.NB.log2",rnaseqProject$date,".txt"),sep="/"),
+                                          paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.NB.log2",rnaseqProject$date,".txt"),sep="/"),
             sep="\t", row.names = FALSE, quote = FALSE)
 saveRDS(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
                                   paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.NB.log2",rnaseqProject$date,".rds"),sep="/"))
 
 ## Arrange data by histology and Library type (Zscore)
 expressionTMM.RPKM.arr.zscore <- expressionTMM.RPKM.zscore  %>% dplyr::select(one_of("Chr","Start","End","Strand","GeneID","GeneName","Length",
-                                                         as.character(gsub("-",".",designMatrix[,rnaseqProject$metadataFileRefCol]))))
+                                                                                     as.character(gsub("-",".",designMatrix[,rnaseqProject$metadataFileRefCol]))))
 
 ## Add additional annotations (sample Id alias) ####
 AliasNames_df                 <- dplyr::left_join( data.frame("Sample.Biowulf.ID.GeneExp"=colnames(expressionTMM.RPKM.arr.zscore)), 
@@ -211,10 +218,10 @@ colnames(expressionTMM.RPKM.arr.zscore)  <- AliasColnames
 
 ### Save expression (TMM-RPKM/whatwever asked for in the above step) to a file ####
 write.table(expressionTMM.RPKM.arr.zscore, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
-                                          paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.NB.log2.zscore",rnaseqProject$date,".txt"),sep="/"),
+                                                 paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.NB.log2.zscore",rnaseqProject$date,".txt"),sep="/"),
             sep="\t", row.names = FALSE, quote = FALSE)
 saveRDS(expressionTMM.RPKM.arr.zscore, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
-                                  paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.NB.zscore",rnaseqProject$date,".rds"),sep="/"))
+                                             paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.NB.zscore",rnaseqProject$date,".rds"),sep="/"))
 
 ### Performing ssGSEA output analysis. ( Plotting the scores across histology ) ##########
 
@@ -251,8 +258,8 @@ stopifnot( ncol(ssGSEAScores.HLA.Cyto) == length(as.character(rnaseqProject$vali
 ## Filter specified Diagnosis
 factorsToExclude              = paste(c("NS.", "YST", "Teratoma"), collapse = "|")
 selected.metadata              <- rnaseqProject$validMetaDataDF  %>% 
-                                  filter_(  .dots = paste0("!grepl(", "'", factorsToExclude , "'" ,",", rnaseqProject$factorName, ")")) %>% 
-                                  dplyr::select_( .dots=c(rnaseqProject$metadataFileRefCol, rnaseqProject$factorName ) )
+  filter_(  .dots = paste0("!grepl(", "'", factorsToExclude , "'" ,",", rnaseqProject$factorName, ")")) %>% 
+  dplyr::select_( .dots=c(rnaseqProject$metadataFileRefCol, rnaseqProject$factorName ) )
 
 ssGSEAScores.HLA.Cyto.Selected <- ssGSEAScores.HLA.Cyto %>% dplyr::select(one_of(as.character(selected.metadata[, rnaseqProject$metadataFileRefCol])))
 dim(ssGSEAScores.HLA.Cyto.Selected)
@@ -322,8 +329,8 @@ ScoresForGather   <- tidyr::gather(ScoresZscore, key="GeneSet", value="Score", -
 ScoresForGather   <- dplyr::left_join(ScoresForGather, 
                                       rnaseqProject$metaDataDF[,c(rnaseqProject$metadataFileRefCol, rnaseqProject$factorName)], 
                                       by=rnaseqProject$metadataFileRefCol) %>% 
-                                      dplyr::filter_(  .dots = paste0("!grepl(", "'", factorsToExclude , "'" ,",", rnaseqProject$factorName, ")")) %>% 
-                                      dplyr::rename_(.dots = setNames(list(rnaseqProject$factorName),c("Diagnosis")) )
+  dplyr::filter_(  .dots = paste0("!grepl(", "'", factorsToExclude , "'" ,",", rnaseqProject$factorName, ")")) %>% 
+  dplyr::rename_(.dots = setNames(list(rnaseqProject$factorName),c("Diagnosis")) )
 
 ## Order of genesets
 genesets <- c("ImmuneSignature",
@@ -354,7 +361,7 @@ genesets <- c("ImmuneSignature",
 )
 
 Diagnosis <- c("WT", "SS", "CCSK", "EWS",  "RMS.FN", "RMS.FP", "NB.MYCN.A","NB.Unknown", "DSRCT", "NB.MYCN.NA",  "OS", "UDS", 
-                "ML", "HBL", "ASPS")
+               "ML", "HBL", "ASPS")
 ScoresForGather$GeneSet <- factor(ScoresForGather$GeneSet, levels = genesets, ordered = TRUE)
 ScoresForGather$Diagnosis <- factor(ScoresForGather$Diagnosis, levels = Diagnosis, ordered = TRUE)
 
@@ -362,12 +369,12 @@ ScoresForGather$Diagnosis <- factor(ScoresForGather$Diagnosis, levels = Diagnosi
 dim(ScoresForGather);head(ScoresForGather)
 
 ScoresForGatherPercent         <- ScoresForGather                                             %>% 
-                                  dplyr::group_by(Diagnosis, GeneSet)                         %>% 
-                                  dplyr::mutate(TotalCount = n(), Enriched = sum(Score > 0 )) %>% 
-                                  dplyr::mutate(SamplePercent = (Enriched/TotalCount)*100 )   
+  dplyr::group_by(Diagnosis, GeneSet)                         %>% 
+  dplyr::mutate(TotalCount = n(), Enriched = sum(Score > 0 )) %>% 
+  dplyr::mutate(SamplePercent = (Enriched/TotalCount)*100 )   
 ScoresForGatherUnique          <- ScoresForGatherPercent[,c(2,4,7)]                           %>% 
-                                  ungroup()                                                   %>% 
-                                  distinct()
+  ungroup()                                                   %>% 
+  distinct()
 ScoresForSpread                <- tidyr::spread( ScoresForGatherUnique, Diagnosis, SamplePercent ) %>% t() 
 colnames(ScoresForSpread)      <- ScoresForSpread[1,]; 
 ScoresForSpreadHeat            <- ScoresForSpread[-1,]
@@ -556,16 +563,16 @@ dev.off()
 ssGSEAScores.EMGenes.T <- t(ssGSEAScores.EMGenes)
 ssGSEAScores.EMGenes.T <- data.frame(ssGSEAScores.EMGenes.T) %>%  tibble::rownames_to_column(var="Sample.Biowulf.ID.GeneExp")
 ssGSEAScores.EMGenes.T.annot.all <- dplyr::left_join(ssGSEAScores.EMGenes.T, AliasNames_df[,c(1,3)], by="Sample.Biowulf.ID.GeneExp") %>%
-                                dplyr::rename(Diagnosis=DIAGNOSIS.Substatus.Tumor.Normal.Tissue)
+  dplyr::rename(Diagnosis=DIAGNOSIS.Substatus.Tumor.Normal.Tissue)
 ssGSEAScores.EMGenes.T.annot <- ssGSEAScores.EMGenes.T.annot.all %>% filter( !grepl("NS", Diagnosis) )  %>%
-                                tibble::column_to_rownames(var="Sample.Biowulf.ID.GeneExp")
+  tibble::column_to_rownames(var="Sample.Biowulf.ID.GeneExp")
 ## Make Correlation matrix
 rownames <- rep( EMGenes$Exhaustion_Marker_Genes , length( unique(ssGSEAScores.EMGenes.T.annot$Diagnosis)) ); length(rownames)
 gp = dplyr::group_by(ssGSEAScores.EMGenes.T.annot, Diagnosis)
 gpTowrite <- gp ; rownames(gpTowrite) <- rownames(ssGSEAScores.EMGenes.T.annot)
 
 CorrDF.Out.R <- dplyr::do(gp, data.frame(Cor=t(corr.test(.[,1:43], .[,44:65], method = "spearman")$r))) %>% data.frame() %>%  
-                mutate_all( funs_( interp( ~replace(., is.na(.),0) ) ) ); dim(CorrDF.Out.R); head(CorrDF.Out.R)
+  mutate_all( funs_( interp( ~replace(., is.na(.),0) ) ) ); dim(CorrDF.Out.R); head(CorrDF.Out.R)
 CorrDF.Out.R <- tibble::add_column(CorrDF.Out.R, GeneNames= rownames, .after=1) 
 CorrDF.Out.R$GeneNames <- factor(CorrDF.Out.R$GeneNames, levels = sort(unique(CorrDF.Out.R$GeneNames)))
 #write.table(CorrDF.Out.R, paste("./PlotData/", date, "CorrDF.Out.R.EM.spearman.txt", sep=""), sep="\t", row.names = F, quote = FALSE )
@@ -583,16 +590,16 @@ CorrDF.Out.R.P.TC8.TC4$Diagnosis <- factor(as.character(CorrDF.Out.R.P.TC8.TC4$D
                                                       "Teratoma","SS","CCSK","NB.Unknown","ASPS","HBL","WT","ML","UDS","YST") )
 ## Filter correlation based on the filter
 CorrDF.Out.R.P.CD8.CD4_MemoryAct <- CorrDF.Out.R.P.TC8.TC4 %>% 
-                                    mutate(TC8.TC4.MemoryAct=ifelse( abs( Cor.T.cells_CD8.x >= 0.3 & Cor.T.cells_CD8.y <= 0.05 ) |
-                                                                    abs( Cor.T.cells_CD4_memory_activated.x >= 0.3 & Cor.T.cells_CD4_memory_activated.y <= 0.05 ), 1, 0 ) ) %>%
-                                    dplyr::select(Diagnosis, GeneNames, TC8.TC4.MemoryAct) 
+  mutate(TC8.TC4.MemoryAct=ifelse( abs( Cor.T.cells_CD8.x >= 0.3 & Cor.T.cells_CD8.y <= 0.05 ) |
+                                     abs( Cor.T.cells_CD4_memory_activated.x >= 0.3 & Cor.T.cells_CD4_memory_activated.y <= 0.05 ), 1, 0 ) ) %>%
+  dplyr::select(Diagnosis, GeneNames, TC8.TC4.MemoryAct) 
 CorrDF.Out.R.P.CD8.CD4_MemoryAct.Spread <- CorrDF.Out.R.P.CD8.CD4_MemoryAct %>% tidyr::spread(Diagnosis,TC8.TC4.MemoryAct)
 CD8.CD4_MemoryAct.Spread <- CorrDF.Out.R.P.CD8.CD4_MemoryAct.Spread  %>% dplyr::mutate(Count=rowSums(.[2:ncol(CorrDF.Out.R.P.CD8.CD4_MemoryAct.Spread)]))
 CD8.CD4_MemoryAct.Spread <- tibble::add_column( CD8.CD4_MemoryAct.Spread, Legend=paste(CD8.CD4_MemoryAct.Spread$GeneNames, 
-                                                "(", 
-                                                CD8.CD4_MemoryAct.Spread$Count, ")"
-                                              ), .after=1) %>% data.frame() %>%  
-                                              dplyr::select(-contains("GeneNames"))
+                                                                                       "(", 
+                                                                                       CD8.CD4_MemoryAct.Spread$Count, ")"
+), .after=1) %>% data.frame() %>%  
+  dplyr::select(-contains("GeneNames"))
 
 ## Filter correlation based on the filter plot correlation values only.
 CorrDF.Out.R.P.CD8.heatmap <- CorrDF.Out.R.P.TC8.TC4 %>% 
@@ -601,7 +608,7 @@ CorrDF.Out.R.P.CD8.heatmap <- CorrDF.Out.R.P.TC8.TC4 %>%
 CorrDF.Out.R.P.CD8.heatmap.Spread <- CorrDF.Out.R.P.CD8.heatmap %>% tidyr::spread(Diagnosis,TC8.TC4.MemoryAct)
 CorrDF.Out.R.P.CD8.heatmap.Spread <- CorrDF.Out.R.P.CD8.heatmap.Spread  %>% dplyr::mutate(Count=rowSums(.[2:ncol(CorrDF.Out.R.P.CD8.heatmap.Spread)]))
 CorrDF.Out.R.P.CD8.heatmap.Spread <- tibble::add_column( CorrDF.Out.R.P.CD8.heatmap.Spread, Legend=paste(CorrDF.Out.R.P.CD8.heatmap.Spread$GeneNames), .after=1) %>% 
-                                                data.frame() %>% dplyr::select(-contains("GeneNames"))
+  data.frame() %>% dplyr::select(-contains("GeneNames"))
 
 ## Plot the heatmap
 CorrDF <- CorrDF.Out.R.P.CD8.heatmap.Spread
@@ -690,16 +697,16 @@ dev.off()
 ssGSEAScores.EMGenes.T <- t(ssGSEAScores.EMGenes)
 ssGSEAScores.EMGenes.T <- data.frame(ssGSEAScores.EMGenes.T) %>%  tibble::rownames_to_column(var="Sample.Biowulf.ID.GeneExp")
 ssGSEAScores.EMGenes.T.annot.all <- dplyr::left_join(ssGSEAScores.EMGenes.T, AliasNames_df[,c(1,3)], by="Sample.Biowulf.ID.GeneExp") %>%
-                                dplyr::rename(Diagnosis=DIAGNOSIS.Substatus.Tumor.Normal.Tissue)
+  dplyr::rename(Diagnosis=DIAGNOSIS.Substatus.Tumor.Normal.Tissue)
 ssGSEAScores.EMGenes.T.annot <- ssGSEAScores.EMGenes.T.annot.all %>% filter( !grepl("NS", Diagnosis) )  %>%
-                                tibble::column_to_rownames(var="Sample.Biowulf.ID.GeneExp")
+  tibble::column_to_rownames(var="Sample.Biowulf.ID.GeneExp")
 ## Make Correlation matrix
 rownames <- rep( EMGenes$Exhaustion_Marker_Genes , length( unique(ssGSEAScores.EMGenes.T.annot$Diagnosis)) ); length(rownames)
 gp = dplyr::group_by(ssGSEAScores.EMGenes.T.annot, Diagnosis)
 gpTowrite <- gp ; rownames(gpTowrite) <- rownames(ssGSEAScores.EMGenes.T.annot)
 
 CorrDF.Out.R <- dplyr::do(gp, data.frame(Cor=t(corr.test(.[,1:43], .[,44:65], method = "spearman")$r))) %>% data.frame() %>%  
-                mutate_all( funs_( interp( ~replace(., is.na(.),0) ) ) ); dim(CorrDF.Out.R); head(CorrDF.Out.R)
+  mutate_all( funs_( interp( ~replace(., is.na(.),0) ) ) ); dim(CorrDF.Out.R); head(CorrDF.Out.R)
 CorrDF.Out.R <- tibble::add_column(CorrDF.Out.R, GeneNames= rownames, .after=1) 
 CorrDF.Out.R$GeneNames <- factor(CorrDF.Out.R$GeneNames, levels = sort(unique(CorrDF.Out.R$GeneNames)))
 #write.table(CorrDF.Out.R, paste("./PlotData/", date, "CorrDF.Out.R.EM.spearman.txt", sep=""), sep="\t", row.names = F, quote = FALSE )
@@ -717,16 +724,16 @@ CorrDF.Out.R.P.TC8.TC4$Diagnosis <- factor(as.character(CorrDF.Out.R.P.TC8.TC4$D
                                                       "Teratoma","SS","CCSK","NB.Unknown","ASPS","HBL","WT","ML","UDS","YST") )
 ## Filter correlation based on the filter
 CorrDF.Out.R.P.CD8.CD4_MemoryAct <- CorrDF.Out.R.P.TC8.TC4 %>% 
-                                    mutate(TC8.TC4.MemoryAct=ifelse( abs( Cor.T.cells_CD8.x >= 0.3 & Cor.T.cells_CD8.y <= 0.05 ) |
-                                                                    abs( Cor.T.cells_CD4_memory_activated.x >= 0.3 & Cor.T.cells_CD4_memory_activated.y <= 0.05 ), 1, 0 ) ) %>%
-                                    dplyr::select(Diagnosis, GeneNames, TC8.TC4.MemoryAct) 
+  mutate(TC8.TC4.MemoryAct=ifelse( abs( Cor.T.cells_CD8.x >= 0.3 & Cor.T.cells_CD8.y <= 0.05 ) |
+                                     abs( Cor.T.cells_CD4_memory_activated.x >= 0.3 & Cor.T.cells_CD4_memory_activated.y <= 0.05 ), 1, 0 ) ) %>%
+  dplyr::select(Diagnosis, GeneNames, TC8.TC4.MemoryAct) 
 CorrDF.Out.R.P.CD8.CD4_MemoryAct.Spread <- CorrDF.Out.R.P.CD8.CD4_MemoryAct %>% tidyr::spread(Diagnosis,TC8.TC4.MemoryAct)
 CD8.CD4_MemoryAct.Spread <- CorrDF.Out.R.P.CD8.CD4_MemoryAct.Spread  %>% dplyr::mutate(Count=rowSums(.[2:ncol(CorrDF.Out.R.P.CD8.CD4_MemoryAct.Spread)]))
 CD8.CD4_MemoryAct.Spread <- tibble::add_column( CD8.CD4_MemoryAct.Spread, Legend=paste(CD8.CD4_MemoryAct.Spread$GeneNames, 
-                                                "(", 
-                                                CD8.CD4_MemoryAct.Spread$Count, ")"
-                                              ), .after=1) %>% data.frame() %>%  
-                                              dplyr::select(-contains("GeneNames"))
+                                                                                       "(", 
+                                                                                       CD8.CD4_MemoryAct.Spread$Count, ")"
+), .after=1) %>% data.frame() %>%  
+  dplyr::select(-contains("GeneNames"))
 
 ## Filter correlation based on the filter plot correlation values only.
 CorrDF.Out.R.P.CD8.heatmap <- CorrDF.Out.R.P.TC8.TC4 %>% 
@@ -735,7 +742,7 @@ CorrDF.Out.R.P.CD8.heatmap <- CorrDF.Out.R.P.TC8.TC4 %>%
 CorrDF.Out.R.P.CD8.heatmap.Spread <- CorrDF.Out.R.P.CD8.heatmap %>% tidyr::spread(Diagnosis,TC8.TC4.MemoryAct)
 CorrDF.Out.R.P.CD8.heatmap.Spread <- CorrDF.Out.R.P.CD8.heatmap.Spread  %>% dplyr::mutate(Count=rowSums(.[2:ncol(CorrDF.Out.R.P.CD8.heatmap.Spread)]))
 CorrDF.Out.R.P.CD8.heatmap.Spread <- tibble::add_column( CorrDF.Out.R.P.CD8.heatmap.Spread, Legend=paste(CorrDF.Out.R.P.CD8.heatmap.Spread$GeneNames), .after=1) %>% 
-                                                data.frame() %>% dplyr::select(-contains("GeneNames"))
+  data.frame() %>% dplyr::select(-contains("GeneNames"))
 
 ## Plot the heatmap
 CorrDF <- CorrDF.Out.R.P.CD8.heatmap.Spread
@@ -888,12 +895,12 @@ allTumorStats <- do.call(cbind, lapply(ConditionGroup, function(x){
   ## Actual filtering
   groupsCompare <- unlist(strsplit(x, "_"))
   print(groupsCompare)
-  filterDFByColNames <- c("logFC",	groupsCompare[2], groupsCompare[1])
-  newColNames <- paste0("Zscored.",c("logFC",	groupsCompare[2], groupsCompare[1]))
+  filterDFByColNames <- c("logFC",           groupsCompare[2], groupsCompare[1])
+  newColNames <- paste0("Zscored.",c("logFC",  groupsCompare[2], groupsCompare[1]))
   
   ##Zscoreing matrix
   tumorDataPvalue        <- tumorData ; print(dim(tumorData))
-  tumorDataPvalue_Zscore <- apply(tumorDataPvalue[,c("logFC",	groupsCompare[2], groupsCompare[1])],2,corUtilsFuncs$zscore_All)
+  tumorDataPvalue_Zscore <- apply(tumorDataPvalue[,c("logFC",              groupsCompare[2], groupsCompare[1])],2,corUtilsFuncs$zscore_All)
   colnames(tumorDataPvalue_Zscore) <- newColNames;
   tumorDataPvalue_Zscore <- cbind(tumorDataPvalue[,c("GeneName"),drop = FALSE], tumorDataPvalue_Zscore ) %>% data.frame()
   tumorAllData <- left_join(tumorDataPvalue_Zscore, tumorDataPvalue, by="GeneName") ; dim(tumorAllData)
@@ -926,10 +933,10 @@ allTumorStats <- do.call(cbind, lapply(ConditionGroup, function(x){
   ## Javed's Filtering
   print(colnames(tumorAllData))
   tumorAllData.filt <- tumorAllData %>% dplyr::filter_(.dots=paste0( groupsCompare[2], " >= ", group2FPKM.T ,
-                                                                           " &  logFC >=", logFoldDiff.T,
-                                                                           " &  PValue   <=", PValue.T ,
-                                                                           " &  Brain.MeanExp  < ", vitalFPKM.T ,
-                                                                           " &  Heart.MeanExp  < ", vitalFPKM.T   )) %>%
+                                                                     " &  logFC >=", logFoldDiff.T,
+                                                                     " &  PValue   <=", PValue.T ,
+                                                                     " &  Brain.MeanExp  < ", vitalFPKM.T ,
+                                                                     " &  Heart.MeanExp  < ", vitalFPKM.T   )) %>%
     dplyr::arrange_(.dots = paste0("desc(","Zscored.",groupsCompare[2], ")" ) )
   
   ## Complete filtered gene List with traditional filter
@@ -1079,16 +1086,16 @@ correlationPlots <- function(varName="", constName="", df=NA, customColorDF=NA, 
     corr.coef = signif(corrTest$estimate[[1]],5)
     pval = signif(corrTest$p.value,5)
   } else if (modelingMethod=="gam") {
-      gam_model <- gam(df[,varName] ~ s(df[,constName]))
-      summary_gam <- summary(gam_model)
-      corr.coef = signif(summary_gam$r.sq,5)
-      pval = signif(summary_gam$s.pv,5)
-      
-      ## Check the residuals
-      absres <- residuals.gam(gam_model) #Absolute value of the residual.
-      q <- quantile(absres, probs = .95) #The 95th quantile of this distribution
-      newdata <- df[which(absres>=q),]#the observations that lead to these residuals
-      dim(newdata)
+    gam_model <- gam(df[,varName] ~ s(df[,constName]))
+    summary_gam <- summary(gam_model)
+    corr.coef = signif(summary_gam$r.sq,5)
+    pval = signif(summary_gam$s.pv,5)
+    
+    ## Check the residuals
+    absres <- residuals.gam(gam_model) #Absolute value of the residual.
+    q <- quantile(absres, probs = .95) #The 95th quantile of this distribution
+    newdata <- df[which(absres>=q),]#the observations that lead to these residuals
+    dim(newdata)
   }
   
   plot <- ggplot(df, aes_string(x=constName, y=varName)) + 
@@ -1099,19 +1106,19 @@ correlationPlots <- function(varName="", constName="", df=NA, customColorDF=NA, 
           ,axis.title=element_text(size=13,face="bold")) +
     xlab(xlab) +
     ylab(paste("Standardised Enrichment Score", sep=" "))
-    
+  
   
   if (modelingMethod=="lm") {
     plot <- plot + stat_smooth(method=modelingMethod, fill="grey") +
-                    ggtitle(paste("Corr.Coeff = ", corr.coef , "\np-value = ", pval , "", varName, sep=" "))
+      ggtitle(paste("Corr.Coeff = ", corr.coef , "\np-value = ", pval , "", varName, sep=" "))
   } else if(modelingMethod=="gam" ) {
     plot <- plot + stat_smooth(method=modelingMethod, formula = y ~ s(x), fill="grey", level = 0.95) +
-                    # newdata[which(newdata[,constName] <= 5),]
-                    geom_encircle( data=newdata, color="darkgrey", size=2, stat = "identity", 
-                                   position = "identity", expand=0.02) +
-                  ggtitle(paste( expression(R^2), " = ", corr.coef , "\np-value = ", pval , "", varName, sep=" "))
+      # newdata[which(newdata[,constName] <= 5),]
+      geom_encircle( data=newdata, color="darkgrey", size=2, stat = "identity", 
+                     position = "identity", expand=0.02) +
+      ggtitle(paste( expression(R^2), " = ", corr.coef , "\np-value = ", pval , "", varName, sep=" "))
   }
-
+  
   return(list(plot))
 }   
 customColorDF    <- rnaseqProject$customColorsDF
@@ -1125,9 +1132,9 @@ AllClonesData             <- rbindlist( lapply(fileList, readCloneFiles, cloneTy
 
 ### Filter Clones by clone types ####
 cloneObj               <- corUtilsFuncs$filterSpecificCloneTypes(cloneData = AllClonesData, cloneType = cloneType) %>% 
-                          dplyr::rename(Sample.ID=SampleName) %>% 
-                          dplyr::mutate(Sample.ID = gsub("Sample_|convert.|.clones.txt","", Sample.ID)) %>% 
-                          data.frame() ; dim(cloneObj); head(cloneObj)
+  dplyr::rename(Sample.ID=SampleName) %>% 
+  dplyr::mutate(Sample.ID = gsub("Sample_|convert.|.clones.txt","", Sample.ID)) %>% 
+  data.frame() ; dim(cloneObj); head(cloneObj)
 cloneObj.Expansion.GE3 <- cloneObj %>%  dplyr::filter(grepl(cloneType,v) & count >= 3); dim(cloneObj); head(cloneObj)
 
 ### Attach metadata and generate countObj ####
@@ -1135,20 +1142,20 @@ cloneObj.Expansion.GE3 <- cloneObj %>%  dplyr::filter(grepl(cloneType,v) & count
 #countObj$Sample.ID <- gsub("Sample_|convert.|.clones.txt","", countObj$Sample.ID)
 #countObj$SAMPLE_ID <- gsub("-","_", countObj$SAMPLE_ID)
 countObj.Annot        <- dplyr::full_join(cloneObj, rnaseqProject$metaDataDF, by="Sample.ID") %>% 
-                         dplyr::select_(.dots=c("count", "freq", "cdr3nt", "cdr3aa", "v", "d", "j", "VEnd", 
-                                                "DStart", "DEnd", "JStart", "Sample.ID", "Sample.ID.Alias",
-                                                "LIBRARY_TYPE",rnaseqProject$factorName)) %>% 
-                          dplyr::filter(complete.cases(.))
+  dplyr::select_(.dots=c("count", "freq", "cdr3nt", "cdr3aa", "v", "d", "j", "VEnd", 
+                         "DStart", "DEnd", "JStart", "Sample.ID", "Sample.ID.Alias",
+                         "LIBRARY_TYPE",rnaseqProject$factorName)) %>% 
+  dplyr::filter(complete.cases(.))
 dim(countObj.Annot);head(countObj.Annot)
 
 ### Section 2 Aggregating and summarizing ####
 
 ### Summarize By Samples 
 countObj.Annot.gb.Samples  <- countObj.Annot  %>% dplyr::group_by(Sample.ID) %>% 
-                                                  dplyr::summarise(
-                                                  TotalCloneSum=sum(count),
-                                                  TotalClones=ifelse(n()==1 & TotalCloneSum==0, 0, n()) )  %>% 
-                                                  dplyr::rename_(.dots=setNames(list("TotalClones"),c(cloneType)))
+  dplyr::summarise(
+    TotalCloneSum=sum(count),
+    TotalClones=ifelse(n()==1 & TotalCloneSum==0, 0, n()) )  %>% 
+  dplyr::rename_(.dots=setNames(list("TotalClones"),c(cloneType)))
 dim(countObj.Annot.gb.Samples); head(countObj.Annot.gb.Samples); tbl_df(countObj.Annot.gb.Samples)
 
 countObj.Annot.gb.Samples.Annotate  <- left_join(countObj.Annot.gb.Samples, 
@@ -1164,13 +1171,13 @@ countObj.Annot.gb.Samples.Annotate[which(countObj.Annot.gb.Samples.Annotate$Tota
 
 ### Summarize By Diagnosis
 countObj.Annot.gb.Diagnosis  <- countObj.Annot  %>% dplyr::group_by_(.dots= list("cdr3aa", "v", "d", "j", rnaseqProject$factorName)) %>% 
-                                                    summarise(
-                                                      TotalSamples=n(), 
-                                                      Samples = paste(Sample.ID, collapse = ','), 
-                                                      CloneCount = paste(count, collapse = ','),
-                                                      MedianCloneCount = median(count)
-                                                    ) # %>% 
-                                                      # dplyr::filter(complete.cases(.))
+  summarise(
+    TotalSamples=n(), 
+    Samples = paste(Sample.ID, collapse = ','), 
+    CloneCount = paste(count, collapse = ','),
+    MedianCloneCount = median(count)
+  ) # %>% 
+# dplyr::filter(complete.cases(.))
 # saveRDS(countObj.Annot.gb.Diagnosis, paste0(TCRResultsDir,"countObj.Annot.gb.Diagnosis.Annotate",".", cloneType,".RDS" , sep=""))
 # write.table(countObj.Annot.gb.Diagnosis, paste0(TCRResultsDir,"countObj.Annot.gb.Diagnosis",".", cloneType,".txt" , sep=""), sep="\t", quote = F, row.names = F)
 
@@ -1178,25 +1185,25 @@ countObj.Annot.gb.Diagnosis  <- countObj.Annot  %>% dplyr::group_by_(.dots= list
 countObj.Annot.CL.Normal <- countObj.Annot %>% dplyr::filter(LIBRARY_TYPE %in% c("Normal", "CellLine")); dim(countObj.Annot.CL.Normal)
 cdr3_Normal_CellLine     <- countObj.Annot.CL.Normal %>% filter(cdr3aa != c("NF")) %>% distinct(cdr3aa)
 countObj.Annot.Tumor     <- countObj.Annot %>% 
-                                    dplyr::filter( !LIBRARY_TYPE %in% c("Normal", "CellLine") ) %>% 
-                                    dplyr::filter( !cdr3aa %in% c(cdr3_Normal_CellLine$cdr3aa)); dim(countObj.Annot.Tumor) 
+  dplyr::filter( !LIBRARY_TYPE %in% c("Normal", "CellLine") ) %>% 
+  dplyr::filter( !cdr3aa %in% c(cdr3_Normal_CellLine$cdr3aa)); dim(countObj.Annot.Tumor) 
 ## Summarise
 countObj.gb.Samples.Annotate.NoNS  <- countObj.Annot.Tumor  %>% dplyr::group_by(Sample.ID) %>% 
-                                                  dplyr::summarise(
-                                                  TotalCloneSum=sum(count),
-                                                  CloneCopies.GT.10 = sum(count>=10),
-                                                  TotalClones=ifelse(n()==1 & TotalCloneSum==0, 0, n()) )  %>% 
-                                                  dplyr::rename_(.dots=setNames(list("TotalClones"),c(cloneType)))
+  dplyr::summarise(
+    TotalCloneSum=sum(count),
+    CloneCopies.GT.10 = sum(count>=10),
+    TotalClones=ifelse(n()==1 & TotalCloneSum==0, 0, n()) )  %>% 
+  dplyr::rename_(.dots=setNames(list("TotalClones"),c(cloneType)))
 dim(countObj.gb.Samples.Annotate.NoNS); head(countObj.gb.Samples.Annotate.NoNS); tbl_df(countObj.gb.Samples.Annotate.NoNS)
 
 countObj.gb.Samples.Annotate.NoNS  <- left_join(countObj.gb.Samples.Annotate.NoNS, 
-                                                 rnaseqProject$metaDataDF[,c("Sample.ID","Sample.ID.Alias","LIBRARY_TYPE", rnaseqProject$factorName)], 
-                                                 by="Sample.ID") %>% dplyr::filter(complete.cases(.))
+                                                rnaseqProject$metaDataDF[,c("Sample.ID","Sample.ID.Alias","LIBRARY_TYPE", rnaseqProject$factorName)], 
+                                                by="Sample.ID") %>% dplyr::filter(complete.cases(.))
 ## Change to factors
 count     <- countObj.gb.Samples.Annotate.NoNS %>% 
-                                          dplyr::mutate(LIBRARY_TYPE=factor(countObj.gb.Samples.Annotate.NoNS$LIBRARY_TYPE, 
-                                                               levels = unique(countObj.gb.Samples.Annotate.NoNS$LIBRARY_TYPE))) %>%
-                                          dplyr::mutate(DIAGNOSIS.Substatus.Tumor.Normal.Tissue=factor(countObj.gb.Samples.Annotate.NoNS$DIAGNOSIS.Substatus.Tumor.Normal.Tissue, 
+  dplyr::mutate(LIBRARY_TYPE=factor(countObj.gb.Samples.Annotate.NoNS$LIBRARY_TYPE, 
+                                    levels = unique(countObj.gb.Samples.Annotate.NoNS$LIBRARY_TYPE))) %>%
+  dplyr::mutate(DIAGNOSIS.Substatus.Tumor.Normal.Tissue=factor(countObj.gb.Samples.Annotate.NoNS$DIAGNOSIS.Substatus.Tumor.Normal.Tissue, 
                                                                levels = unique(countObj.gb.Samples.Annotate.NoNS$DIAGNOSIS.Substatus.Tumor.Normal.Tissue)))
 # saveRDS(countObj.gb.Samples.Annotate.NoNS, paste0(TCRResultsDir,"countObj.gb.Samples.Annotate.NoNS",".", cloneType,".RDS" , sep=""))
 # write.table(countObj.gb.Samples.Annotate.NoNS, paste0(TCRResultsDir,"countObj.gb.Samples.Annotate.NoNS",".", cloneType,".txt" , sep=""), sep="\t", quote = F, row.names = F)
@@ -1207,8 +1214,8 @@ count     <- countObj.gb.Samples.Annotate.NoNS %>%
 
 selectCol="TotalCloneSum" ; StatsFinalCol=rnaseqProject$factorName ; SampleNames <- "Sample.ID.Alias"
 tcrcloneCountPre          <- countObj.gb.Samples.Annotate.NoNS %>% 
-                                dplyr::select_(.dots=c(paste0("selectCol"), paste0("StatsFinalCol"), paste0("SampleNames")))
-  
+  dplyr::select_(.dots=c(paste0("selectCol"), paste0("StatsFinalCol"), paste0("SampleNames")))
+
 tcrcloneCountPre.Diag   <- tcrcloneCountPre %>%  dplyr::rename_(.dots = setNames(list(SampleNames,StatsFinalCol),c("Samples","Diagnosis"))) 
 ScoresPre               <- tcrcloneCountPre.Diag[,!(colnames(tcrcloneCountPre.Diag) %in% c("Samples")), drop=FALSE]
 orderOfFactor           <- as.character( unique(ScoresPre$Diagnosis) )
@@ -1227,7 +1234,7 @@ plotLists <- corUtilsFuncs$OneVariablePlotSort( colList, Scores=Scores, orderOfF
 plotLists
 tcrcloneCountPlots <- lapply(plotLists, function(l) l[[1]])
 tcrcloneCountData  <- lapply(plotLists, function(l) l[[2]]) %>% data.frame(check.names = FALSE) %>% bind_rows()
-  
+
 SBName = paste0(TCRResultsDir,"/",cloneType, ".BeanPlot.v3.pdf")
 ggsave(SBName, marrangeGrob(tcrcloneCountPlots, ncol=1, nrow=1), width = 10, height = 5)
 dev.off()
@@ -1246,8 +1253,8 @@ ssGSEA.t <- left_join(ssGSEA.t,
                       by="Sample.Biowulf.ID.GeneExp") %>% dplyr::filter(complete.cases(.)); dim(ssGSEA.t)
 
 immuneScore.Clones <- left_join(countObj.gb.Samples.Annotate.NoNS[,c("TotalCloneSum",cloneType, "Sample.ID")], ssGSEA.t, by="Sample.ID") %>% 
-                      dplyr::select(-one_of(c("Sample.Biowulf.ID.GeneExp","Sample.ID"))) %>% 
-                      data.frame()
+  dplyr::select(-one_of(c("Sample.Biowulf.ID.GeneExp","Sample.ID"))) %>% 
+  data.frame()
 #immuneScore.Clones %<>% tibble::column_to_rownames("Sample.ID")
 immuneScore.Clones <- immuneScore.Clones %>% dplyr::rename_(.dots = setNames(list(rnaseqProject$factorName),c("Diagnosis"))) %>% dplyr::mutate(TotalCloneSum = log10(TotalCloneSum+1))
 
@@ -1299,9 +1306,9 @@ TCGANormal <- TCGATumorNormalTab %>% dplyr::filter(grepl('^N', Names)) ; dim(TCG
 TCGATumor  <- TCGATumorNormalTab %>% dplyr::filter(grepl('^T', Names)) ; dim(TCGATumor)
 ## Getting Only Shared TCGA Tumor CDR3aa
 TCGATumor.Shared <- TCGATumor %>% dplyr::filter( grepl(".*C[A|S]+.*F", Sequence)) %>%
-                                  dplyr::group_by(Sequence) %>% 
-                                  dplyr::mutate(Samples = paste(unique(Names), collapse = ','), Count = n(),
-                                                      DistinctSamples = length(unique(Names))) %>% dplyr::distinct()
+  dplyr::group_by(Sequence) %>% 
+  dplyr::mutate(Samples = paste(unique(Names), collapse = ','), Count = n(),
+                DistinctSamples = length(unique(Names))) %>% dplyr::distinct()
 TCGATumor.Shared.Multi <- TCGATumor.Shared %>% dplyr::filter(DistinctSamples > 1)
 TCGATumor.Shared.Multi$Length <- sapply(as.character(TCGATumor.Shared.Multi$Sequence), nchar)
 TCGATumor.Shared <- TCGATumor %>% dplyr::filter( grepl(".*C[A|S]+.*F", Sequence))
@@ -1397,7 +1404,7 @@ entropyMetassGSEA$Htot..Entropy.Zscore <- corUtilsFuncs$zscore_All(entropyMetass
 ### was taken at the end of project, and its very difficult me to change multiple things 
 ### Team decided to keep the previous color scheme as it is.
 colorDF <- rnaseqProject$metaDataDF %>% dplyr::filter_(.dots = paste0("!grepl(\"NS\",",rnaseqProject$factorName,")") ) %>%
-                                             dplyr::select(one_of("Color.Jun",rnaseqProject$factorName))
+  dplyr::select(one_of("Color.Jun",rnaseqProject$factorName))
 customColorsVector <- data.frame(Color=unique(as.character(colorDF$Color.Jun)) , 
                                  Diagnosis= unique(as.character(colorDF$DIAGNOSIS.Substatus.Tumor.Normal.Tissue)))
 #### 16:58
@@ -1434,33 +1441,33 @@ plotLists <- corUtilsFuncs$OneVariablePlotSort( colList, Scores=Scores, orderOfF
 
 neoantigenFromVariants <- read.csv("T:/Sivasish_Sindiri/R Scribble/RNASeq.Mutation.data/NeoantigenCountFromVariants.txt", sep = "\t", header = T) %>% data.table()
 neoantigenFromVariantsAnnot <- dplyr::full_join( rnaseqProject$metaDataDF, neoantigenFromVariants, by="Sample.Biowulf.ID") %>% 
-                                dplyr::filter(!is.na(Patient.ID)) %>%
-                                dplyr::filter( ! LIBRARY_TYPE %in% c("CellLine","Normal")) %>%
-                                dplyr::mutate(VariantNeoAntigenCount = ifelse(is.na(VariantNeoAntigenCount),0,VariantNeoAntigenCount)) %>%
-                                dplyr::select_(.dots=c("Sample.Biowulf.ID","DIAGNOSIS.Substatus.Tumor.Normal.Tissue", "Sample.ID.Alias", "VariantNeoAntigenCount"))
+  dplyr::filter(!is.na(Patient.ID)) %>%
+  dplyr::filter( ! LIBRARY_TYPE %in% c("CellLine","Normal")) %>%
+  dplyr::mutate(VariantNeoAntigenCount = ifelse(is.na(VariantNeoAntigenCount),0,VariantNeoAntigenCount)) %>%
+  dplyr::select_(.dots=c("Sample.Biowulf.ID","DIAGNOSIS.Substatus.Tumor.Normal.Tissue", "Sample.ID.Alias", "VariantNeoAntigenCount"))
 dim(neoantigenFromVariantsAnnot); 
 #View(neoantigenFromVariantsAnnot)
 ## neoantigen from fusions
 neoantigenFromFusions <- read.csv("T:/Sivasish_Sindiri/R Scribble/RNASeq.Mutation.data/NeoantigenCountFromFusions.txt", sep = "\t", header = T) %>% data.table() %>% 
-                               dplyr::select_(.dots=c("Sample.Biowulf.ID","DIAGNOSIS.Substatus.Tumor.Normal.Tissue", "Sample.ID.Alias", "FusionNeoAntigenCount"))
+  dplyr::select_(.dots=c("Sample.Biowulf.ID","DIAGNOSIS.Substatus.Tumor.Normal.Tissue", "Sample.ID.Alias", "FusionNeoAntigenCount"))
 dim(neoantigenFromFusions); 
 #View(neoantigenFromFusions)                                
 
 ##Merge the above two tables
 neoantigenFromSamples <- dplyr::full_join( neoantigenFromVariantsAnnot, neoantigenFromFusions,  
-                                                          by=c("Sample.Biowulf.ID","DIAGNOSIS.Substatus.Tumor.Normal.Tissue", "Sample.ID.Alias") ); 
+                                           by=c("Sample.Biowulf.ID","DIAGNOSIS.Substatus.Tumor.Normal.Tissue", "Sample.ID.Alias") ); 
 neoantigenFromSamplesFinal <- neoantigenFromSamples %>% 
-                              dplyr::mutate(FusionNeoAntigenCount = ifelse(is.na(FusionNeoAntigenCount),0,FusionNeoAntigenCount)) %>% 
-                              dplyr::mutate(VariantNeoAntigenCount = ifelse(is.na(VariantNeoAntigenCount),0,VariantNeoAntigenCount)) %>% 
-                              dplyr::mutate(TotalNeoantigenCount = FusionNeoAntigenCount +  VariantNeoAntigenCount ) %>% 
-                              data.table()
+  dplyr::mutate(FusionNeoAntigenCount = ifelse(is.na(FusionNeoAntigenCount),0,FusionNeoAntigenCount)) %>% 
+  dplyr::mutate(VariantNeoAntigenCount = ifelse(is.na(VariantNeoAntigenCount),0,VariantNeoAntigenCount)) %>% 
+  dplyr::mutate(TotalNeoantigenCount = FusionNeoAntigenCount +  VariantNeoAntigenCount ) %>% 
+  data.table()
 dim(neoantigenFromSamplesFinal);
 neoantigenFromSamplesPre <- neoantigenFromSamplesFinal
 #View(neoantigenFromSamplesFinal)    
 
 ## Bean Plot
 neoantigenBurden <- neoantigenFromSamplesFinal[,c("TotalNeoantigenCount", "DIAGNOSIS.Substatus.Tumor.Normal.Tissue")] %>% 
-                                                                  dplyr::rename(Diagnosis=DIAGNOSIS.Substatus.Tumor.Normal.Tissue)
+  dplyr::rename(Diagnosis=DIAGNOSIS.Substatus.Tumor.Normal.Tissue)
 orderOfFactor           <- as.character( unique(neoantigenBurden$Diagnosis) )
 orderOfSignature        <- colnames(neoantigenBurden)[-ncol(neoantigenBurden)]
 colList                 <- c(1:(ncol(neoantigenBurden)-1)) ; Scores <- neoantigenBurden
@@ -1473,8 +1480,8 @@ Scores <- neoantigenBurden %>% filter(!Diagnosis %in% c("Teratoma", "YST")) %>% 
 ### Plot and Save ###
 customColorsVector <- data.frame(Color=unique(as.character(toPlotDF$Color.Jun)), Diagnosis= unique(as.character(toPlotDF$Diagnosis)) )
 plotLists <- corUtilsFuncs$OneVariablePlotSort( colList, Scores=Scores, orderOfFactor, orderOfSignature, standardize =FALSE, logit =TRUE, 
-                            logBase=10,yLab = "log10(NeoantigenBurden)", legendDisplay = FALSE, customColorDF = customColorsVector, 
-                            plotType = "StringBean", sizeOfDots = 1.1)
+                                                logBase=10,yLab = "log10(NeoantigenBurden)", legendDisplay = FALSE, customColorDF = customColorsVector, 
+                                                plotType = "StringBean", sizeOfDots = 1.1)
 plotLists
 
 #### Split data matrix into High, Intermediate and Low expression matrices
@@ -1581,7 +1588,7 @@ preRankedGSEA.DF.Pval.Zeros <- as.data.frame(apply(preRankedGSEA.DF.Pval, 2, fun
 High <- as.data.frame(cbind(NES=preRankedGSEA.DF.NES[,1], 
                             Pval=-log10(preRankedGSEA.DF.Pval.Zeros[,1]) ))
 Intermediate <- as.data.frame(cbind(NES=preRankedGSEA.DF.NES[,2], 
-                              Pval=-log10(preRankedGSEA.DF.Pval.Zeros[,2]) ))
+                                    Pval=-log10(preRankedGSEA.DF.Pval.Zeros[,2]) ))
 Low    <- as.data.frame(cbind(NES=preRankedGSEA.DF.NES[,3], 
                               Pval=-log10(preRankedGSEA.DF.Pval.Zeros[,3]) ))
 
@@ -1837,8 +1844,8 @@ thirdQu   <- as.numeric(summary_TotalNeoantigenCount["3rd Qu."]); paste("thirdQu
 ## Following Samples removed because neoantigen burden for variant calling failed.
 samplesToRemove <- c("OS.PALWWX", "OS.PANPUM", "OS.PAUUML", "OS.PAUYTT", "OS.PALZGU", "OS.PAMHYN", "OS.PANSEN")
 expressionTMM.RPKM.Neoantigen.SR <- expressionTMM.RPKM.Neoantigen %>% 
-                                dplyr::select(one_of("GeneName",neoantigenFromSamplesFinal$Sample.ID.Alias)) %>% 
-                                dplyr::select(-one_of(samplesToRemove))
+  dplyr::select(one_of("GeneName",neoantigenFromSamplesFinal$Sample.ID.Alias)) %>% 
+  dplyr::select(-one_of(samplesToRemove))
 dim(expressionTMM.RPKM.Neoantigen.SR)
 
 ### Get mean expression of low neoantgen burden samples.
@@ -2057,7 +2064,7 @@ Exhaustion.Transpose.diag <- dplyr::full_join(Exhaustion.Transpose, rnaseqProjec
 
 ## Select dataframe for Tumor and Normal separately
 #Tumor
-Rm.Normal.Exhaustion.Transpose <- Exhaustion.Transpose.diag %>% filter(!grepl("NS.*|YST|Teratoma", Exhaustion.Transpose.diag$Diagnosis))
+Rm.Normal.Exhaustion.Transpose <- Exhaustion.Transpose.diag %>% filter(!grepl("NS.*", Exhaustion.Transpose.diag$Diagnosis))
 #Normal
 Normal.Exhaustion.Transpose <- Exhaustion.Transpose.diag %>% filter(grepl("NS.*", Exhaustion.Transpose.diag$Diagnosis))
 
@@ -2081,32 +2088,27 @@ finalExhaustionMatrix.tidy.tumor <- finalExhaustionMatrix.tumor %>% dplyr::group
 
 # For Normal ordering
 normalS_order = c("NS.brain", "NS.heart", "NS.lung", "NS.liver", "NS.kidney", "NS.testis", "NS.ovary", "NS.other")
+normal_levels = unlist(lapply(levels(finalExhaustionMatrix.tidy.normal$variable), function(x) { paste(normalS_order,x,sep="." )} ) )
 finalExhaustionMatrix.tidy.normal <- finalExhaustionMatrix.normal %>% dplyr::group_by(Diagnosis, variable) %>% 
-  dplyr::mutate(Med=median(value)) %>% arrange(Diagnosis, variable, value) %>% 
+  dplyr::mutate(Med=median(value)) %>% arrange(Diagnosis, variable) %>%
   #arrange(desc(Med)) %>% 
   ungroup() %>% 
-  mutate( Diagnosis.Marker = factor(paste(Diagnosis,variable,sep="."), levels= unique(paste(normalS_order,variable,sep=".")),
-                                    order = TRUE),
+  mutate( Diagnosis.Marker = factor(paste(Diagnosis,variable,sep="."), levels = normal_levels,order = TRUE),
           LIBRARY_TYPE = factor(LIBRARY_TYPE, levels=c("Normal") )) %>% 
   arrange(Diagnosis.Marker)
 
-finalExhaustionMatrix.tidy.normal$Diagnosis <- factor(finalExhaustionMatrix.tidy.normal$Diagnosis,
-                                                      levels = normalS_order,
-                                                      ordered = TRUE)
-
-
 ## Merge both dataframes 
-finalExhaustionMatrix.tidy <- rbind( finalExhaustionMatrix.tidy.normal)
+finalExhaustionMatrix.tidy <- rbind(finalExhaustionMatrix.tidy.tumor, finalExhaustionMatrix.tidy.normal)
 
 
 ## Construct Color vector
 #customColorsVector <- setNames(unique(as.character(finalExhaustionMatrix$Color.Jun)), unique(as.character(finalExhaustionMatrix$Diagnosis)))
 # Tumor
 customColorsVector.tumor <- setNames(unique(as.character(finalExhaustionMatrix.tidy.tumor$Color.Jun)), 
-                               unique(as.character(finalExhaustionMatrix.tidy.tumor$Diagnosis)))
+                                     unique(as.character(finalExhaustionMatrix.tidy.tumor$Diagnosis)))
 # Normal
 customColorsVector.normal <- setNames(rep("lightgrey", 8), 
-                                     unique(as.character(finalExhaustionMatrix.tidy.normal$Diagnosis)))
+                                      unique(as.character(finalExhaustionMatrix.tidy.normal$Diagnosis)))
 # merge
 customColorsVector <- c(customColorsVector.tumor, customColorsVector.normal); customColorsVector
 customColorsVector.dummy <- setNames(rep("white", length(unname(customColorsVector))),
@@ -2120,7 +2122,7 @@ customColorsVector.dummy <- setNames(rep("white", length(unname(customColorsVect
 # test.dot.DF2$value <- c(4,4,4,4,6,4,4,4,4,4,6,4)
 
 ## Plot the violin/Box plots
-pdf("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/Figures/sixGenes.Variable.RPKM.v20.pdf",height=25,width=20)
+pdf("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/Figures/sixGenes.Variable.RPKM.v23.violin.pdf",height=25,width=20)
 ggplot(finalExhaustionMatrix.tidy, aes(x=Diagnosis.Marker, y=value , fill=Diagnosis)) + 
   ##ggplot(data, aes(x=Group, y=log2(ENSG00000182752))) + 
   geom_violin(scale = "width",trim = FALSE, draw_quantiles = c(0.5)) + 
@@ -2149,8 +2151,8 @@ ggplot(finalExhaustionMatrix.tidy, aes(x=Diagnosis.Marker, y=value , fill=Diagno
          ,strip.switch.pad.grid = unit(0, "cm")
          ,legend.position = "none"
   ) + facet_wrap( ~ variable , scales="free", nrow = 7) +
-  scale_x_discrete(labels=setNames(as.character(finalExhaustionMatrix.tidy$Diagnosis), finalExhaustionMatrix.tidy$Diagnosis.Marker)) +
-  scale_y_continuous(minor_breaks = seq(-1, 6, 1))
+  scale_x_discrete(labels=setNames(as.character(finalExhaustionMatrix.tidy$Diagnosis), finalExhaustionMatrix.tidy$Diagnosis.Marker)) #+
+#scale_y_continuous(minor_breaks = seq(-1, 10, 1))
 dev.off()
 
 ############ TP53 Analysis ###################################
@@ -2174,21 +2176,21 @@ my_comparisons=list(c("TP53-mutant","TP53-wildtype"), c("TP53-mutant", "Normal")
 
 pdf("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/HLA-Tumor-samples.pdf", height = 20, width = 15)
 HLA.A <- ggplot(HLA_geneexp.t, aes(x=Group, y=HLA.A , fill=Group)) + geom_boxplot() + scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9")) +
-                        geom_jitter(shape=16, position=position_jitter(0.2)) +  theme(legend.position = "none") +
-                        stat_compare_means( paired = FALSE,comparisons = my_comparisons) +
-                        stat_compare_means(method = "anova", label.y = 16) + 
-                        ylab("HLA.A RPKM")
+  geom_jitter(shape=16, position=position_jitter(0.2)) +  theme(legend.position = "none") +
+  stat_compare_means( paired = FALSE,comparisons = my_comparisons) +
+  stat_compare_means(method = "anova", label.y = 16) + 
+  ylab("HLA.A RPKM")
 HLA.B <- ggplot(HLA_geneexp.t, aes(x=Group, y=HLA.B, fill=Group)) + geom_boxplot()  + scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9")) +
-                        geom_jitter(shape=16, position=position_jitter(0.2)) +  theme(legend.position = "none") +
-                        stat_compare_means( paired = FALSE,comparisons = my_comparisons) +
-                        stat_compare_means(method = "anova", label.y = 12.5) + 
-                        ylab("HLA.B RPKM")
-                       
+  geom_jitter(shape=16, position=position_jitter(0.2)) +  theme(legend.position = "none") +
+  stat_compare_means( paired = FALSE,comparisons = my_comparisons) +
+  stat_compare_means(method = "anova", label.y = 12.5) + 
+  ylab("HLA.B RPKM")
+
 HLA.C <- ggplot(HLA_geneexp.t, aes(x=Group, y=HLA.C , fill=Group)) + geom_boxplot()  + scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9")) +
-                        geom_jitter(shape=16, position=position_jitter(0.2)) +  theme(legend.position = "none") +
-                        stat_compare_means( paired = FALSE,comparisons = my_comparisons) +
-                        stat_compare_means(method = "anova", label.y = 12.5) + 
-                        ylab("HLA.C RPKM")
+  geom_jitter(shape=16, position=position_jitter(0.2)) +  theme(legend.position = "none") +
+  stat_compare_means( paired = FALSE,comparisons = my_comparisons) +
+  stat_compare_means(method = "anova", label.y = 12.5) + 
+  ylab("HLA.C RPKM")
 grid.arrange(HLA.A,HLA.B,HLA.C,nrow = 3)
 dev.off()
 
@@ -2257,15 +2259,15 @@ correlationPlots <- function(varName="", constName="", df=NA, customColorDF=NA, 
 
 ## Read the final expression file
 erv.data.max.cytolytic <- read.csv("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/ERV_final_files/data.geneNames.merged.max.cytolytic.v2.log2.txt",
-                                     sep="\t", header = T)
+                                   sep="\t", header = T)
 # erv.data.max.cytolytic.complete <- erv.data.max.cytolytic[complete.cases(erv.data.max.cytolytic),] %>% data.frame()
 erv.data.max.cytolytic <- tibble::column_to_rownames(erv.data.max.cytolytic, var = "GeneID")
 
 ## Add additional annotations (sample Id alias) ####
 AliasNames_df                 <- dplyr::left_join( data.frame("Sample.Data.ID"=colnames(erv.data.max.cytolytic)), 
-                                          rnaseqProject$validMetaDataDF[,c("Sample.Biowulf.ID.GeneExp",
-                                          "Sample.ID.Alias", "Sample.Data.ID", "DIAGNOSIS.Alias" ,"Color",
-                                          rnaseqProject$factorName)] )
+                                                   rnaseqProject$validMetaDataDF[,c("Sample.Biowulf.ID.GeneExp",
+                                                                                    "Sample.ID.Alias", "Sample.Data.ID", "DIAGNOSIS.Alias" ,"Color",
+                                                                                    rnaseqProject$factorName)] )
 ## Remove Normal samples
 Tumor_samples_annot <- AliasNames_df %>% dplyr::filter(!grepl('Teratoma',DIAGNOSIS.Substatus.Tumor.Normal.Tissue))
 Tumor_samples_annot <- Tumor_samples_annot[complete.cases(Tumor_samples_annot),]
@@ -2275,7 +2277,7 @@ erv.data.max.cytolytic.Tumor <- erv.data.max.cytolytic %>% dplyr::select(one_of(
 erv.data.max.cytolytic.Tumor.corr <- rcorr(t(erv.data.max.cytolytic.Tumor), type = "spearman");
 erv.data.max.cytolytic.Tumor.corr.cytolytic <- flattenCorrMatrix(erv.data.max.cytolytic.Tumor.corr$r, erv.data.max.cytolytic.Tumor.corr$P) %>% filter(grepl('CytolyticScore', column))
 write.table(erv.data.max.cytolytic.Tumor.corr.cytolytic, 
-             "T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/erv.data.max.cytolytic.Tumor.all.corr.txt", quote = FALSE, sep="\t")
+            "T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/erv.data.max.cytolytic.Tumor.all.corr.txt", quote = FALSE, sep="\t")
 
 Tumor_samples_annot$DIAGNOSIS.Substatus.Tumor.Normal.Tissue <- gsub('NS.*','NS',Tumor_samples_annot$DIAGNOSIS.Substatus.Tumor.Normal.Tissue)
 ## Perform rcorr for each tumor groups 
@@ -2305,7 +2307,7 @@ dataDF %<>% dplyr::filter(!grepl("NS",Diagnosis))
 
 ## Plot all of them
 plotLists <- lapply(sig.Ervs.valid, correlationPlots, constName="CytolyticScore", xlab="CTL Score", df=dataDF, 
-                          customColorDF=customColorDF)
+                    customColorDF=customColorDF)
 ERVCytolyticScorePlots <- lapply(plotLists, function(l) l[[1]] )
 ggsave("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/Figures/erv.correlation_plots.pdf", marrangeGrob(ERVCytolyticScorePlots, ncol=1, nrow=1),
        width = 15, height = 10)
@@ -2343,7 +2345,7 @@ plotViolins <- function(x, df = NA, group = NA , ylab = NA, xlab = NA, title=NA,
   } else {
     fill = fill
   }
-
+  
   p <- ggplot(df, aes_string(x = group, y = genemarker, fill= group)) + 
     #geom_boxplot(aes_string(fill = group)) +
     geom_violin(aes_string(fill = group)) +
@@ -2366,7 +2368,7 @@ plotViolins <- function(x, df = NA, group = NA , ylab = NA, xlab = NA, title=NA,
 
 ## Read nanostring dataset
 nanostringData <- read.csv("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/NanoString/ROI_Map_ClinicalInfo_with Zscored ImmuneMarker_shortlist_send_For Sivasish.txt",
-                            sep="\t", header = TRUE)
+                           sep="\t", header = TRUE)
 ## Factor variables to use as Groups/categories
 nanostringData$Risk <- as.factor(nanostringData$Risk)
 nanostringData$NMYC <- as.factor(nanostringData$NMYC)
@@ -2374,7 +2376,7 @@ nanostringData$NMYC <- as.factor(nanostringData$NMYC)
 ## Get the average of duplicate samples
 genemarkers <- colnames(nanostringData)[-c(1:8)]
 nanostringData.group <- nanostringData %>% group_by(Samples..TMA.14.001.) %>% 
-                        summarize_at(vars(one_of(genemarkers)), mean)
+  summarize_at(vars(one_of(genemarkers)), mean)
 nanostringData.group.final <- dplyr::left_join(nanostringData[,c("Samples..TMA.14.001.", "NMYC", "Risk", "Post.Treatment")], nanostringData.group, 
                                                by="Samples..TMA.14.001.")
 
@@ -2404,20 +2406,20 @@ plot <- plotViolins(x = "Score", df = nanostringData.group.tidy.immune, group = 
 
 ### Box plot
 plot <- ggplot(nanostringData.group.tidy.immune, aes_string(x="GeneMarker", y = "Score")) + 
-            geom_boxplot(aes_string(fill = "NMYC"),
-                         position = position_dodge(0.9)) +
-          scale_fill_manual(values = c("#C7C2B8", "#E69F00")) +
-          theme(axis.title=element_text(face="bold",size="17"), 
-                text = element_text(size=10, face="bold"),
-                axis.text.x = element_text(angle = 90, hjust = 0.5, size =8, face = "bold"),
-                plot.title = element_text(hjust=0.5),
-                legend.text= element_text(face="bold",size="12"),
-                strip.text.x=element_text(size=10,face="bold", angle=90),
-                legend.position="none") +
-          stat_compare_means(method = "t.test", paired = FALSE, comparisons = list(c("0","1"))) +
-          ggtitle("Nanostring immunemarker")
+  geom_boxplot(aes_string(fill = "NMYC"),
+               position = position_dodge(0.9)) +
+  scale_fill_manual(values = c("#C7C2B8", "#E69F00")) +
+  theme(axis.title=element_text(face="bold",size="17"), 
+        text = element_text(size=10, face="bold"),
+        axis.text.x = element_text(angle = 90, hjust = 0.5, size =8, face = "bold"),
+        plot.title = element_text(hjust=0.5),
+        legend.text= element_text(face="bold",size="12"),
+        strip.text.x=element_text(size=10,face="bold", angle=90),
+        legend.position="none") +
+  stat_compare_means(method = "t.test", paired = FALSE, comparisons = list(c("0","1"))) +
+  ggtitle("Nanostring immunemarker")
 ggsave(paste0("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/Figures/Nanostring.NMYC.singlePlot",".pdf"), plot,
-                 width = 45, height = 10)
+       width = 45, height = 10)
 
 
 
