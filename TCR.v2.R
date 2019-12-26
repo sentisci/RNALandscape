@@ -706,37 +706,40 @@ warenetalNormals  <- attr(v.table,"intersections")[["Warreb et al (healthy)"]]; 
 TumorPrivateFinal <- data.frame("AA"=as.character(countObj.Annot.gb.Cancer$cdr3aa), 
                                 "length"=sapply(as.character(countObj.Annot.gb.Cancer$cdr3aa),nchar))
 colnames(TumorPrivateFinal) <- c("AA","Len")
-TumorPrivateFinal_15 <- TumorPrivateFinal %>% filter(Len == 15)
+TumorPrivateFinal_15 <- TumorPrivateFinal %>% filter(Len == 14)
 TumorPrivatePlot <- ggseqlogo(as.character(TumorPrivateFinal_15$AA), seq_type='aa',  method = "bits")
+
+TCGAPrivateFinal <- data.frame("AA"=as.character(TCGATumor.CDR3Beta.Complete), 
+                                "length"=sapply(as.character(TCGATumor.CDR3Beta.Complete),nchar))
+colnames(TCGAPrivateFinal) <- c("AA","Len")
+TCGAPrivateFinal_15 <- TCGAPrivateFinal %>% filter(Len == 14)
+TCGAPrivatePlot <- ggseqlogo(as.character(TCGAPrivateFinal_15$AA), seq_type='aa',  method = "bits")
 
 warenetalNormalsFinal <- data.frame("AA"=warenetal.CDR3Beta.Complete, "length"=sapply(warenetal.CDR3Beta.Complete,nchar))
 colnames(warenetalNormalsFinal) <- c("AA","Len")
-warenetalNormalsFinal <- warenetalNormalsFinal %>% filter(Len == 15)
+warenetalNormalsFinal <- warenetalNormalsFinal %>% filter(Len == 14)
 warenetalNormalsPlot <- ggseqlogo(as.character(warenetalNormalsFinal$AA), seq_type='aa',  method = "bits")
 
 vdjetalNormalsFinal <- data.frame("AA"=vdjdb.CDR3Beta, 
                                   "length"=sapply(vdjdb.CDR3Beta,nchar))
 colnames(vdjetalNormalsFinal) <- c("AA","Len")
-vdjetalNormalsFinal <- vdjetalNormalsFinal %>% filter(Len == 15)
+vdjetalNormalsFinal <- vdjetalNormalsFinal %>% filter(Len == 14)
 vdjetalNormalsPlot <- ggseqlogo(as.character(vdjetalNormalsFinal$AA), seq_type='aa',  method = "bits")
 
 
 InHouseNormalsFinal <- data.frame("AA"=inHouseNormal.Complete, "length"=sapply(inHouseNormal.Complete,nchar))
 colnames(InHouseNormalsFinal) <- c("AA","Len")
-InHouseNormalsFinal <- InHouseNormalsFinal %>% filter(Len == 15)
+InHouseNormalsFinal <- InHouseNormalsFinal %>% filter(Len == 14)
 InHouseNormalsPlot <- ggseqlogo(as.character(InHouseNormalsFinal$AA), seq_type='aa',  method = "bits")
 
 CDR3_length <- ggplot(data=TumorPrivateFinal, aes(Len)) + 
   geom_histogram(breaks=seq(7, 25, by=1),binwidth = 5, col="red", 
                  fill="lightblue") + scale_x_continuous(name = "Length of CDR3\n alpha chain", breaks = seq(7, 25, 1)) + scale_y_continuous(name = "Frequency") + theme_bw()+ ggtitle("CDR3 length distribution\n in study cohort")
 
-pdf("ven.probability.bits.pdf", height = 20, width = 10)
-ggarrange(plotlist = list(TumorPrivatePlot, InHouseNormalsPlot, 
-                          vdjetalNormalsPlot, warenetalNormalsPlot,
-                          CDR3_length),
+pdf("ven.probability.bits.v7.pdf", height = 20, width = 10)
+ggarrange(plotlist = list(CDR3_length, TumorPrivatePlot, TCGAPrivatePlot, InHouseNormalsPlot, warenetalNormalsPlot),
                               common.legend=TRUE, nrow =5,
-                      labels = c("Study cohort", "Study Normal",
-                                 "VDJ.DB", "Waren et al"))
+                      labels = c("", "Study cohort", "TCGA Tumors", "Study Normal", "Blood derived TCR"))
 dev.off()
 
 ############################# GLIPH analysis ###################################################
