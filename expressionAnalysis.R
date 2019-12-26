@@ -1,10 +1,3 @@
-
-
-From: Sindiri, Sivasish (NIH/NCI) [C] <sivasish.sindiri@nih.gov> 
-  Sent: Friday, December 20, 2019 8:58 AM
-To: Sindiri, Sivasish (NIH/NCI) [C] <sivasish.sindiri@nih.gov>
-  Subject: analysis
-
 rm(list=ls())
 
 ## Source all classes and packages ####
@@ -42,7 +35,7 @@ rnaseqProject <- ProjectSetUp$new(
   factorName              = "DIAGNOSIS.Substatus.Tumor.Normal.Tissue",
   #factorName              = "DIAGNOSIS.Substatus.Tumor.Tissue",
   metadataFileRefCol      = "Sample.Biowulf.ID.GeneExp",
-  metaDataFileName        = "MetadataMapper.v4.txt",
+  metaDataFileName        = "MetadataMapper.v4.new.txt",
   outputdirRDSDir         = "GeneRDSOutput",
   outputdirTXTDir         = "GeneTXTOutput",
   gseaDir                 = "GSEA",
@@ -57,7 +50,7 @@ rnaseqProject <- ProjectSetUp$new(
   #Keep only PolyA
   # factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"), "Normal.ribozero"=list("LibraryPrep" = "Ribozero"))
   ## Remove Celllines
-  factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"))
+  #factorsToExclude        = list("CellLine"=list("LIBRARY_TYPE"="CellLine"))
   # factorsToExclude          = list('None'=list("LIBRARY_TYPE"=""))
 )
 
@@ -112,25 +105,33 @@ mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Gene
 
 ### Read DataSets ####
 ## Tumor Normal and no cell line
-mergeObjectsNoDup_data <- readRDS("../RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.RDS")
+# mergeObjectsNoDup_data <- readRDS("../RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.RDS")
 ## Tumor Normal and Cellline
-## mergeObjectsNoDup_data <- readRDS("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.Celline.RDS")
+mergeObjectsNoDup_data <- readRDS("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.Celline.RDS")
 
 ### Filter specific Histology samples ####
-to_filter_by_histology = FALSE
-if(to_filter_by_histology){
+to_filter_by_histology = TRUE
+if(to_filter_by_histology==TRUE){
   # "NB.MYCN.A", "NB.MYCN.NA","NB.Unknown"
-  design <- dplyr::filter(rnaseqProject$metaDataDF,DIAGNOSIS.Substatus.Tumor.Normal.Tissue %in% c("NB.MYCN.A", "NB.MYCN.NA","NB.Unknown"))
-  mergeObjectsNoDup <- mergeObjectsNoDup_data %>% dplyr::select(one_of(as.character(design[,rnaseqProject$metadataFileRefCol]))); dim(mergeObjectsNoDup)
+  #design <- dplyr::filter(rnaseqProject$metaDataDF,DIAGNOSIS.Substatus.Tumor.Normal.Tissue %in% c("NB.MYCN.A", "NB.MYCN.NA","NB.Unknown"))
+  design <- dplyr::filter(rnaseqProject$metaDataDF,DIAGNOSIS.Substatus.Tumor.Normal.Tissue %in% c("OS"))
 } else {
   design <- rnaseqProject$metaDataDF
-  design %<>% arrange(DIAGNOSIS.Substatus.Tumor.Normal.Tissue, desc(LIBRARY_TYPE))
-  mergeObjectsNoDup <- mergeObjectsNoDup_data; dim(mergeObjectsNoDup)
 }
-## Rearrange the design
-design %<>% arrange(desc(LIBRARY_TYPE),Target.Status.Life,desc(Target.Status.Risk),desc(DIAGNOSIS.Alias.substatus.T))
-design %<>% dplyr::mutate(!!rnaseqProject$metadataFileRefCol := factor(design[,rnaseqProject$metadataFileRefCol], 
-                                                                       levels = design[,rnaseqProject$metadataFileRefCol], ordered = TRUE))
+
+# ## Rearrange the design matrix and data matrix
+design$LIBRARY_TYPE <- factor(design$LIBRARY_TYPE, levels =c("Tumor", "CellLine", "Normal"), ordered = TRUE)
+design$Target.Status.Life <- factor(design$Target.Status.Life, levels = c("Alive", "Dead", ""), ordered = TRUE)
+design$Target.Status.Risk <- factor(design$Target.Status.Risk, levels = c("Low.Risk", "Intermediate.Risk", "High.Risk"), ordered = TRUE)
+design %<>% arrange( LIBRARY_TYPE, DIAGNOSIS.Substatus.Tumor.Normal.Tissue,Target.Status.Life,Target.Status.Risk )
+print("design")
+print(dim(design))
+mergeObjectsNoDup <- mergeObjectsNoDup_data %>% dplyr::select(one_of(as.character(design[,rnaseqProject$metadataFileRefCol]))); 
+print("data dim")
+print(dim(mergeObjectsNoDup))
+
+## Check if designmatrix and count matrix have same order of columns
+View(data.frame(count_names=colnames(mergeObjectsNoDup), design_names=design[,rnaseqProject$metadataFileRefCol]))
 
 ## Evaluate presence of duplicate features (genes) and consolidate them ####
 setDT(mergeObjectsNoDup, keep.rownames = TRUE)
@@ -184,22 +185,29 @@ expressionTMM.RPKM.zscore[is.na(expressionTMM.RPKM.zscore)] <- 0
 ## Arrange data by histology and Library type
 expressionTMM.RPKM.arr <- expressionTMM.RPKM %>% dplyr::select(one_of("Chr","Start","End","Strand","GeneID","GeneName","Length",
                                                                       as.character(gsub("-",".",designMatrix[,rnaseqProject$metadataFileRefCol]))))
+
 ## Add additional annotations (sample Id alias) ####
 AliasNames_df                 <- dplyr::left_join( data.frame("Sample.Biowulf.ID.GeneExp"=colnames(expressionTMM.RPKM.arr)), 
                                                    designMatrix[,c(rnaseqProject$metadataFileRefCol,rnaseqProject$factorName,"Sample.ID.Alias", 
                                                                    "Sample.Data.ID", "DIAGNOSIS.Alias","Annotation_Target_khanlab")] )
-AliasColnames                 <- c(as.character(AliasNames_df[c(1:7),1]), as.character(AliasNames_df[-c(1:7),6])); AliasColnames
+AliasColnames                 <- c(as.character(AliasNames_df[c(1:7),1]), as.character(AliasNames_df[-c(1:7),6])); 
+
+## Check if designmatrix and count matrix have same order of columns
+View(data.frame(count_names=colnames(expressionTMM.RPKM.arr)[-c(1:7)], 
+                design_names=designMatrix[,rnaseqProject$metadataFileRefCol],
+                AliasColnames = as.character(AliasNames_df[-c(1:7),6])))
 
 ## Perform Sanity Check for the above operations #####
 stopifnot( length(colnames(expressionTMM.RPKM.arr)) == length(AliasColnames) )
 colnames(expressionTMM.RPKM.arr)  <- AliasColnames
 
 ### Save expression (TMM-RPKM/whatwever asked for in the above step) to a file ####
-write.table(expressionTMM.RPKM.arr, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
-                                          paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.NB.log2",rnaseqProject$date,".txt"),sep="/"),
+#rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
+write.table(expressionTMM.RPKM.arr, paste("C:/Users/sindiris/R Scribble/",
+                                          paste0("RPKM_Data_Filt_Consolidated.GeneNames.OS.log2",rnaseqProject$date,".txt"),sep="/"),
             sep="\t", row.names = FALSE, quote = FALSE)
-saveRDS(expressionTMM.RPKM, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
-                                  paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.NB.log2",rnaseqProject$date,".rds"),sep="/"))
+# saveRDS(expressionTMM.RPKM.arr, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
+#                                   paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2",rnaseqProject$date,".rds"),sep="/"))
 
 ## Arrange data by histology and Library type (Zscore)
 expressionTMM.RPKM.arr.zscore <- expressionTMM.RPKM.zscore  %>% dplyr::select(one_of("Chr","Start","End","Strand","GeneID","GeneName","Length",
@@ -211,17 +219,23 @@ AliasNames_df                 <- dplyr::left_join( data.frame("Sample.Biowulf.ID
                                                                    "Sample.Data.ID", "DIAGNOSIS.Alias","Annotation_Target_khanlab")] )
 AliasColnames                 <- c(as.character(AliasNames_df[c(1:7),1]), as.character(AliasNames_df[-c(1:7),6])); AliasColnames
 
+## Check if designmatrix and count matrix have same order of columns
+View(data.frame(count_names=colnames(expressionTMM.RPKM.arr.zscore)[-c(1:7)], 
+                design_names=designMatrix[,rnaseqProject$metadataFileRefCol],
+                AliasColnames = as.character(AliasNames_df[-c(1:7),6])))
 
 ## Perform Sanity Check for the above operations #####
 stopifnot( length(colnames(expressionTMM.RPKM.arr.zscore)) == length(AliasColnames) )
 colnames(expressionTMM.RPKM.arr.zscore)  <- AliasColnames
 
 ### Save expression (TMM-RPKM/whatwever asked for in the above step) to a file ####
-write.table(expressionTMM.RPKM.arr.zscore, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
-                                                 paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.NB.log2.zscore",rnaseqProject$date,".txt"),sep="/"),
+#rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
+write.table(expressionTMM.RPKM.arr.zscore, paste("C:/Users/sindiris/R Scribble/",
+                                                 paste0("RPKM_Data_Filt_Consolidated.GeneNames.OS.log2.zscore",rnaseqProject$date,".txt"),sep="/"),
             sep="\t", row.names = FALSE, quote = FALSE)
-saveRDS(expressionTMM.RPKM.arr.zscore, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
-                                             paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.NB.zscore",rnaseqProject$date,".rds"),sep="/"))
+# saveRDS(expressionTMM.RPKM.arr.zscore, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
+#                                              paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.zscore",rnaseqProject$date,".rds"),sep="/"))
+
 
 ### Performing ssGSEA output analysis. ( Plotting the scores across histology ) ##########
 
