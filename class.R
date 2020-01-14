@@ -405,7 +405,7 @@ CoreUtilities <- R6Class(
     },
     ## convert FPKM to TPM
     fpkmToTpm = function(fpkm){
-      exp(log(fpkm) - log(sum(fpkm)) + log(1e6))
+      exp( (log(fpkm) - log(sum(fpkm))) + log(1e6))
     },
     ## subsetMetaData
     subsetMetaData = function(colnamesDF=NA){

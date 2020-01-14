@@ -35,7 +35,7 @@ rnaseqProject <- ProjectSetUp$new(
   factorName              = "DIAGNOSIS.Substatus.Tumor.Normal.Tissue",
   #factorName              = "DIAGNOSIS.Substatus.Tumor.Tissue",
   metadataFileRefCol      = "Sample.Biowulf.ID.GeneExp",
-  metaDataFileName        = "MetadataMapper.v4.new.txt",
+  metaDataFileName        = "MetadataMapper.v4.txt",
   outputdirRDSDir         = "GeneRDSOutput",
   outputdirTXTDir         = "GeneTXTOutput",
   gseaDir                 = "GSEA",
@@ -89,15 +89,15 @@ treemap(dtf=data.frame(StatsFinal), index=c("DIAGNOSIS.Alias", "DIAGNOSIS.Alias.
 
 ## Generate expression matrix ####
 rm(mergeObjectsNoDup)
-mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Genes.v1",
-                                                   fileFormat        = "txt",
-                                                   colNameSelect     = "expected_count",
-                                                   isRowNames        = TRUE,
-                                                   rowNamesColInFile = 1,
-                                                   fileSuffix        = ".genes.results",
-                                                   primaryID         = "gene_id",
-                                                   metadata          = rnaseqProject$metaDataDF,
-                                                   metadataFileRefCol=rnaseqProject$metadataFileRefCol )
+# mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Genes.v1",
+#                                                    fileFormat        = "txt",
+#                                                    colNameSelect     = "TPM",
+#                                                    isRowNames        = TRUE,
+#                                                    rowNamesColInFile = 1,
+#                                                    fileSuffix        = ".genes.results",
+#                                                    primaryID         = "gene_id",
+#                                                    metadata          = rnaseqProject$metaDataDF,
+#                                                    metadataFileRefCol=rnaseqProject$metadataFileRefCol )
 
 # saveRDS(mergeObjectsNoDup, "T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.RDS")
 # saveRDS(mergeObjectsNoDup, "T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.Cellline.RDS")
@@ -110,7 +110,7 @@ mergeObjectsNoDup <- corUtilsFuncs$getMergedMatrix(dir               = "TPM_Gene
 mergeObjectsNoDup_data <- readRDS("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/GeneRDSOutput/RawCount/All.samples.Tumor.Normal.Celline.RDS")
 
 ### Filter specific Histology samples ####
-to_filter_by_histology = TRUE
+to_filter_by_histology = FALSE
 if(to_filter_by_histology==TRUE){
   # "NB.MYCN.A", "NB.MYCN.NA","NB.Unknown"
   #design <- dplyr::filter(rnaseqProject$metaDataDF,DIAGNOSIS.Substatus.Tumor.Normal.Tissue %in% c("NB.MYCN.A", "NB.MYCN.NA","NB.Unknown"))
@@ -151,6 +151,13 @@ mergeObjectsConso     <- mergeObjectsConso[,-c("GeneName")]         %>%
 ## matching above data frame with the annotationDF
 rnaseqProject$annotationDF <- rnaseqProject$annotationDF %>% dplyr::filter(GeneID %in% rownames(mergeObjectsConso)); dim(rnaseqProject$annotationDF)
 
+# ## If TPM values needed then annotate the file and save file here
+# mergeObjectsConsoTPM <- mergeObjectsConso %>% data.frame() %>%  tibble::rownames_to_column(var = "GeneID")
+# mergeObjectsConsoTPM.Annot <- dplyr::left_join(rnaseqProject$annotationDF, mergeObjectsConsoTPM, by="GeneID")
+# write.table(mergeObjectsConsoTPM.Annot, paste("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/",
+#                                           paste0("mergeObjectsConsoTPM.Annot.TPM.annot",rnaseqProject$date,".txt"),sep="/"),
+#             sep="\t", row.names = FALSE, quote = FALSE)
+
 ## Subset metaDataDF by the number of samples in the folder ####
 colnamesDF           <- data.frame( "Sample.Biowulf.ID.GeneExp"= colnames(mergeObjectsConso))
 corUtilsFuncs$subsetMetaData(colnamesDF=colnamesDF)
@@ -175,7 +182,7 @@ expressionObj        <- GeneExpNormalization$new(
 #expressionTMM.NormDF         = expressionObj$edgeRMethod("NormFactorDF")
 
 ### RPKM
-expressionTMM.RPKM            = expressionObj$edgeRMethod("TMM-RPKM", logtransform = TRUE, zscore = FALSE)
+expressionTMM.RPKM            = expressionObj$edgeRMethod("TMM-RPKM", logtransform = FALSE, zscore = FALSE)
 designMatrix                  <- corUtilsFuncs$validfMatrix(df = design)
 ### Zscore ###
 expressionTMM.RPKM.zscore <- expressionObj$edgeRMethod("TMM-RPKM", logtransform = TRUE, zscore = TRUE)
@@ -189,13 +196,14 @@ expressionTMM.RPKM.arr <- expressionTMM.RPKM %>% dplyr::select(one_of("Chr","Sta
 ## Add additional annotations (sample Id alias) ####
 AliasNames_df                 <- dplyr::left_join( data.frame("Sample.Biowulf.ID.GeneExp"=colnames(expressionTMM.RPKM.arr)), 
                                                    designMatrix[,c(rnaseqProject$metadataFileRefCol,rnaseqProject$factorName,"Sample.ID.Alias", 
-                                                                   "Sample.Data.ID", "DIAGNOSIS.Alias","Annotation_Target_khanlab")] )
-AliasColnames                 <- c(as.character(AliasNames_df[c(1:7),1]), as.character(AliasNames_df[-c(1:7),6])); 
+                                                                   "Sample.Data.ID", "DIAGNOSIS.Alias","Annotation_Target_Khanlab_jun", 
+                                                                   "SampleID..In.Paper")] )
+AliasColnames                 <- c(as.character(AliasNames_df[c(1:7),1]), as.character(AliasNames_df[-c(1:7),7])); 
 
 ## Check if designmatrix and count matrix have same order of columns
 View(data.frame(count_names=colnames(expressionTMM.RPKM.arr)[-c(1:7)], 
                 design_names=designMatrix[,rnaseqProject$metadataFileRefCol],
-                AliasColnames = as.character(AliasNames_df[-c(1:7),6])))
+                AliasColnames = as.character(AliasNames_df[-c(1:7),7])))
 
 ## Perform Sanity Check for the above operations #####
 stopifnot( length(colnames(expressionTMM.RPKM.arr)) == length(AliasColnames) )
@@ -204,7 +212,7 @@ colnames(expressionTMM.RPKM.arr)  <- AliasColnames
 ### Save expression (TMM-RPKM/whatwever asked for in the above step) to a file ####
 #rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
 write.table(expressionTMM.RPKM.arr, paste("C:/Users/sindiris/R Scribble/",
-                                          paste0("RPKM_Data_Filt_Consolidated.GeneNames.OS.log2",rnaseqProject$date,".txt"),sep="/"),
+                                          paste0("RPKM_Data_Filt_Consolidated.GeneNames.log2",rnaseqProject$date,".txt"),sep="/"),
             sep="\t", row.names = FALSE, quote = FALSE)
 # saveRDS(expressionTMM.RPKM.arr, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
 #                                   paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2",rnaseqProject$date,".rds"),sep="/"))
@@ -216,7 +224,7 @@ expressionTMM.RPKM.arr.zscore <- expressionTMM.RPKM.zscore  %>% dplyr::select(on
 ## Add additional annotations (sample Id alias) ####
 AliasNames_df                 <- dplyr::left_join( data.frame("Sample.Biowulf.ID.GeneExp"=colnames(expressionTMM.RPKM.arr.zscore)), 
                                                    designMatrix[,c(rnaseqProject$metadataFileRefCol,rnaseqProject$factorName,"Sample.ID.Alias", 
-                                                                   "Sample.Data.ID", "DIAGNOSIS.Alias","Annotation_Target_khanlab")] )
+                                                                   "Sample.Data.ID", "DIAGNOSIS.Alias","Annotation_Target_Khanlab_jun")] )
 AliasColnames                 <- c(as.character(AliasNames_df[c(1:7),1]), as.character(AliasNames_df[-c(1:7),6])); AliasColnames
 
 ## Check if designmatrix and count matrix have same order of columns
@@ -231,7 +239,7 @@ colnames(expressionTMM.RPKM.arr.zscore)  <- AliasColnames
 ### Save expression (TMM-RPKM/whatwever asked for in the above step) to a file ####
 #rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirTXTDir,"RPKM",
 write.table(expressionTMM.RPKM.arr.zscore, paste("C:/Users/sindiris/R Scribble/",
-                                                 paste0("RPKM_Data_Filt_Consolidated.GeneNames.OS.log2.zscore",rnaseqProject$date,".txt"),sep="/"),
+                                                 paste0("RPKM_Data_Filt_Consolidated.GeneNames.log2.ClinicalStatus.OS.zscore",rnaseqProject$date,".txt"),sep="/"),
             sep="\t", row.names = FALSE, quote = FALSE)
 # saveRDS(expressionTMM.RPKM.arr.zscore, paste(rnaseqProject$workDir,rnaseqProject$projectName,rnaseqProject$outputdirRDSDir,"RPKM",
 #                                              paste0("RPKM_Data_Filt_Consolidated.GeneNames.all.log2.zscore",rnaseqProject$date,".rds"),sep="/"))
@@ -2063,14 +2071,18 @@ dev.off()
 ### Violin plot for HLA-A,HLA-B,HLA-C ####################################################
 
 #RPKM.Data.Exhaustion   <- expressionTMM.RPKM %>% dplyr::filter(GeneName %in% c("HLA-A", "HLA-B", "HLA-C")) %>% dplyr::arrange(GeneName)
-RPKM.Data.Exhaustion   <- expressionTMM.RPKM %>% dplyr::filter(GeneName %in% c("ECEL1", "IGF2BP1",
+# RPKM.Data.Exhaustion   <- expressionTMM.RPKM %>% dplyr::filter(GeneName %in% c("ECEL1", "IGF2BP1",
+#                                                                                "FOXM1", "SOX11",
+#                                                                                "PRAME", "PBK")) %>% dplyr::arrange(GeneName)
+
+## Using TPM values
+RPKM.Data.Exhaustion   <- mergeObjectsConsoTPM.Annot %>% dplyr::filter(GeneName %in% c("ECEL1", "IGF2BP1",
                                                                                "FOXM1", "SOX11",
                                                                                "PRAME", "PBK")) %>% dplyr::arrange(GeneName)
 Exhaustion.Transpose           <- as.data.frame(t(RPKM.Data.Exhaustion[,-c(1:7)]))
 colnames(Exhaustion.Transpose) <- RPKM.Data.Exhaustion$GeneName
-Exhaustion.Transpose            <- Exhaustion.Transpose
 Exhaustion.Transpose <- Exhaustion.Transpose %>% tibble::rownames_to_column(var="Sample.Biowulf.ID.GeneExp")
-Exhaustion.Transpose.diag <- dplyr::full_join(Exhaustion.Transpose, rnaseqProject$metaDataDF[,c("Sample.Biowulf.ID.GeneExp", 
+Exhaustion.Transpose.diag <- dplyr::full_join(Exhaustion.Transpose, rnaseqProject$validMetaDataDF[,c("Sample.Biowulf.ID.GeneExp", 
                                                                                                 "Violin.normal",
                                                                                                 "Color.Jun",
                                                                                                 "LIBRARY_TYPE")], 
@@ -2091,7 +2103,8 @@ finalExhaustionMatrix.normal <-  reshape2::melt(Normal.Exhaustion.Transpose[,-1]
 
 ## Ordering Tidified data frames
 # For Tumor ordering
-finalExhaustionMatrix.tidy.tumor <- finalExhaustionMatrix.tumor %>% dplyr::group_by(Diagnosis, variable) %>% 
+finalExhaustionMatrix.tumor.order <- finalExhaustionMatrix.tumor %>% filter(grepl('Tumor', LIBRARY_TYPE))
+finalExhaustionMatrix.tidy.tumor.order <- finalExhaustionMatrix.tumor.order %>% dplyr::group_by(Diagnosis, variable) %>% 
   dplyr::mutate(Med=median(value)) %>% arrange(Diagnosis, variable, value) %>% 
   arrange(desc(Med)) %>% 
   ungroup() %>% 
@@ -2102,7 +2115,7 @@ finalExhaustionMatrix.tidy.tumor <- finalExhaustionMatrix.tumor %>% dplyr::group
 
 # For Normal ordering
 normalS_order = c("NS.brain", "NS.heart", "NS.lung", "NS.liver", "NS.kidney", "NS.testis", "NS.ovary", "NS.other")
-normal_levels = unlist(lapply(levels(finalExhaustionMatrix.tidy.normal$variable), function(x) { paste(normalS_order,x,sep="." )} ) )
+normal_levels = unlist(lapply(levels(finalExhaustionMatrix.normal$variable), function(x) { paste(normalS_order,x,sep="." )} ) )
 finalExhaustionMatrix.tidy.normal <- finalExhaustionMatrix.normal %>% dplyr::group_by(Diagnosis, variable) %>% 
   dplyr::mutate(Med=median(value)) %>% arrange(Diagnosis, variable) %>%
   #arrange(desc(Med)) %>% 
@@ -2112,14 +2125,14 @@ finalExhaustionMatrix.tidy.normal <- finalExhaustionMatrix.normal %>% dplyr::gro
   arrange(Diagnosis.Marker)
 
 ## Merge both dataframes 
-finalExhaustionMatrix.tidy <- rbind(finalExhaustionMatrix.tidy.tumor, finalExhaustionMatrix.tidy.normal)
+finalExhaustionMatrix.tidy <- rbind(finalExhaustionMatrix.tidy.tumor.order, finalExhaustionMatrix.tidy.normal)
 
 
 ## Construct Color vector
 #customColorsVector <- setNames(unique(as.character(finalExhaustionMatrix$Color.Jun)), unique(as.character(finalExhaustionMatrix$Diagnosis)))
 # Tumor
-customColorsVector.tumor <- setNames(unique(as.character(finalExhaustionMatrix.tidy.tumor$Color.Jun)), 
-                                     unique(as.character(finalExhaustionMatrix.tidy.tumor$Diagnosis)))
+customColorsVector.tumor <- setNames(unique(as.character(finalExhaustionMatrix.tidy.tumor.order$Color.Jun)), 
+                                     unique(as.character(finalExhaustionMatrix.tidy.tumor.order$Diagnosis)))
 # Normal
 customColorsVector.normal <- setNames(rep("lightgrey", 8), 
                                       unique(as.character(finalExhaustionMatrix.tidy.normal$Diagnosis)))
@@ -2136,7 +2149,7 @@ customColorsVector.dummy <- setNames(rep("white", length(unname(customColorsVect
 # test.dot.DF2$value <- c(4,4,4,4,6,4,4,4,4,4,6,4)
 
 ## Plot the violin/Box plots
-pdf("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/Figures/sixGenes.Variable.RPKM.v23.violin.pdf",height=25,width=20)
+pdf("T:/Sivasish_Sindiri/R Scribble/RNASeq.RSEM/Figures/sixGenes.Variable.TPM.v1.Normal.violin.pdf",height=25,width=20)
 ggplot(finalExhaustionMatrix.tidy, aes(x=Diagnosis.Marker, y=value , fill=Diagnosis)) + 
   ##ggplot(data, aes(x=Group, y=log2(ENSG00000182752))) + 
   geom_violin(scale = "width",trim = FALSE, draw_quantiles = c(0.5)) + 

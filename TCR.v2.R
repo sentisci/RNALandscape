@@ -87,6 +87,15 @@ immunoseqv2 <- function(x) {
   
 }
 
+extractEntropyResults_ShenLabPaper <- function(x,value){
+  print(x)
+  exomeData <- read.csv( paste(folderName, x, sep=""), sep="\t", header = TRUE )
+  print(dim(exomeData))
+  if(nrow(exomeData) == 0){
+    exomeData <- emptyDFEntropyResults
+  }
+  return(exomeData[value,])
+}
 
 ############################################ Section 1 Read data  #################################################################
 ### Placeholder DF ####
@@ -134,9 +143,9 @@ readCountsSum.df <- readCountsSum %>% tibble::rownames_to_column(var="Sample.Bio
 # fileList <- list.files("./CloneFilesNitin/")
 # AllClonesEntropyData             <- sapply(fileList, makeEntropyInput, inputDir="./CloneFilesNitin/", outputDir="./CloneFilesEntropyNitin/" )
 
-fileList <- list.files("./CloneFiles.v2/")
+# fileList <- list.files("./CloneFiles.v2/")
 cloneType = "TRB"
-AllClonesEntropyData             <- sapply(fileList, makeEntropyInput,  cloneType=cloneType, inputDir="./CloneFiles.v2/", 
+AllClonesEntropyData             <- sapply(fileList, makeEntropyInput,  cloneType=cloneType, inputDir="./CloneFiles.v2/",
                                            outputDir=paste0("./CloneFilesEntropy.", cloneType, ".v2/") )
 
 ### write the inputs for ImmunoseqV2 entropy data 
@@ -169,18 +178,11 @@ ImmunoseqV2EntropyData             <- sapply(fileList, immunoseqv2 )
 # write.table(AllEntropyData, "AllEntropyData_H_CL_JS.Nitin.ImmunoseqV4.txt", sep = "\t", quote = FALSE, row.names = FALSE)
 
 ### List files and read data into a single data matrix for Entropy results
-folderName = "./finalResults_H_VL_JS_landscape.TRB.v3/"
-fileList <- list.files(folderName)
-AllEntropyData             <- rbindlist( lapply(fileList, function(x){
-  print(x)
-  exomeData <- read.csv( paste(folderName, x, sep=""), sep="\t", header = TRUE )
-  print(dim(exomeData))
-  if(nrow(exomeData) == 0){
-    exomeData <- emptyDFEntropyResults
-  }
-  return(exomeData[1,])
-}) )
-#write.table(AllEntropyData, "AllEntropyData_H_CL_JS.landscape.TRB.v3.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+# folderName = "./finalResults_H_VL_JS_landscape.TRB.v3/"
+folderName = "./finalResults_H_CL_JS_Nitin_primary_relapse/"
+fileList <- list.files(folderName); fileList
+AllEntropyData             <- rbindlist( lapply(fileList, extractEntropyResults_ShenLabPaper, 4) )
+write.table(AllEntropyData, "AllEntropyData_H_CL_JS.Jensen_Shannon_divergence.Nitin_primary_relapse.txt", sep = "\t", quote = FALSE, row.names = FALSE)
 
 AllEntropyData$FileName <- gsub(".Entropy.tx","",AllEntropyData$FileName)
 AllEntropyData %<>% dplyr::rename(Sample.Data.ID=FileName)
@@ -247,8 +249,6 @@ dim(countObj)
 dim(countObj.Annot)
 dim(countObj.Annot.NoCL)
 dim(countObj.Annot.complete)
-
-
 
 ######## Make Step Plots to show expansion ####
 countObj.Annot.NoCL.totalReads <- countObj.Annot.NoCL.totalReads %>% dplyr::select(Sample.Biowulf.ID.GeneExp, 
